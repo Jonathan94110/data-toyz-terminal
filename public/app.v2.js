@@ -117,7 +117,7 @@ class TerminalApp {
                                 <input type="email" id="resEmail" required autocomplete="email">
                             </div>
                             <div class="input-group">
-                                <label for="resPassword">Create a New Password</label>
+                                <label for="resPassword">Re-enter password</label>
                                 <input type="password" id="resPassword" placeholder="Type your new password..." required>
                             </div>
                             <button type="submit" class="btn" style="background:#eab308; color:#000;">Save New Password & Login</button>
