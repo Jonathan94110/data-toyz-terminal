@@ -22,7 +22,15 @@ class TerminalApp {
 
     constructor() {
         this.appEl = document.getElementById('app');
-        this.user = JSON.parse(localStorage.getItem('terminal_user')) || null;
+
+        try {
+            const stored = localStorage.getItem('terminal_user');
+            this.user = stored && stored !== 'undefined' ? JSON.parse(stored) : null;
+        } catch (e) {
+            console.error("Corrupted identity storage purged.", e);
+            localStorage.removeItem('terminal_user');
+            this.user = null;
+        }
 
         // Ensure submissions exist in localstorage
         if (!localStorage.getItem('submissions')) {
