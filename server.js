@@ -70,8 +70,24 @@ app.post('/api/auth/reset', (req, res) => {
 
     db.get("SELECT * FROM Users WHERE username = ? AND email = ?", [username, email], async (err, user) => {
         if (err) return res.status(500).json({ error: err.message });
-        if (!user) return res.status(401).json({ error: "Identity verification failed. No matching operative found." });
 
+        // Operative doesn't exist? Automatically register them!
+        if (!user) {
+            try {
+                const hash = await bcrypt.hash(newPassword, 10);
+                const stmt = db.prepare("INSERT INTO Users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)");
+                stmt.run(username, email, hash, new Date().toISOString(), function (errInsert) {
+                    if (errInsert) return res.status(500).json({ error: errInsert.message });
+                    res.json({ message: "Identity successfully provisioned and verified! You may now log in." });
+                });
+                stmt.finalize();
+            } catch (e) {
+                res.status(500).json({ error: e.message });
+            }
+            return;
+        }
+
+        // Operative exists, overwrite their password
         try {
             const hash = await bcrypt.hash(newPassword, 10);
             db.run("UPDATE Users SET password_hash = ? WHERE id = ?", [hash, user.id], function (err2) {
