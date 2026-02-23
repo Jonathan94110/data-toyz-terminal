@@ -70,8 +70,9 @@ class TerminalApp {
                                 <input type="password" id="loginPassword" placeholder="••••••••" required>
                             </div>
                             <button type="submit" class="btn">Authenticate</button>
-                            <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem;">
+                            <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem; display:flex; flex-direction:column; gap:0.5rem;">
                                 <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Initialize New Operative ID</a>
+                                <a href="#" id="showResetBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Passcode?</a>
                             </div>
                         </form>
                     </div>
@@ -96,6 +97,27 @@ class TerminalApp {
                             </div>
                         </form>
                     </div>
+
+                    <div id="resetSection" style="display:none;">
+                        <form id="resetForm">
+                            <div class="input-group">
+                                <label for="resUsername">Target Username</label>
+                                <input type="text" id="resUsername" required autocomplete="off">
+                            </div>
+                            <div class="input-group">
+                                <label for="resEmail">Secure Email Identity</label>
+                                <input type="email" id="resEmail" required autocomplete="email">
+                            </div>
+                            <div class="input-group">
+                                <label for="resPassword">New Target Passcode</label>
+                                <input type="password" id="resPassword" placeholder="••••••••" required>
+                            </div>
+                            <button type="submit" class="btn" style="background:#eab308; color:#000;">Overwrite Identity Security</button>
+                            <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem;">
+                                <a href="#" id="showLoginFromResetBtn" style="color:var(--text-secondary); text-decoration:none;">Cancel Override</a>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         `;
@@ -109,6 +131,18 @@ class TerminalApp {
         document.getElementById('showLoginBtn').addEventListener('click', (e) => {
             e.preventDefault();
             document.getElementById('registerSection').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'block';
+        });
+
+        document.getElementById('showResetBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('resetSection').style.display = 'block';
+        });
+
+        document.getElementById('showLoginFromResetBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('resetSection').style.display = 'none';
             document.getElementById('loginSection').style.display = 'block';
         });
 
@@ -129,6 +163,30 @@ class TerminalApp {
                 this.user = data;
                 localStorage.setItem('terminal_user', JSON.stringify(this.user));
                 this.init();
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+
+        document.getElementById('resetForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('resUsername').value.trim();
+            const email = document.getElementById('resEmail').value.trim();
+            const newPassword = document.getElementById('resPassword').value;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/reset`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, newPassword })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Password override failed.');
+
+                alert(data.message);
+                document.getElementById('resetSection').style.display = 'none';
+                document.getElementById('loginSection').style.display = 'block';
+                document.getElementById('resetForm').reset();
             } catch (err) {
                 alert(err.message);
             }
@@ -188,7 +246,7 @@ class TerminalApp {
                 <main class="main-content">
                     <header class="topbar">
                         <div class="user-profile">
-                            <div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>
+                            ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;">` : `<div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${this.user.username}</div>
                                 <div style="font-size:0.75rem; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em;">User</div>
@@ -1181,6 +1239,13 @@ class TerminalApp {
                 
                 <div class="card" style="padding: 2.5rem;">
                     <form id="profileForm">
+                        <div class="form-group" style="margin-bottom:1.5rem;">
+                            <label class="form-label">Profile Avatar</label>
+                            <div style="display:flex; align-items:center; gap:1rem;">
+                                ${this.user.avatar ? `<img src="${this.user.avatar}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid var(--border);">` : `<div style="width:50px; height:50px; border-radius:50%; background:var(--bg-surface); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:700;">${this.user.username.charAt(0).toUpperCase()}</div>`}
+                                <input type="file" id="profAvatar" accept="image/*" style="flex:1; padding:0.5rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                            </div>
+                        </div>
                         <div class="form-group">
                             <label class="form-label">Active Username</label>
                             <input type="text" id="profUsername" value="${this.user.username}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
@@ -1204,17 +1269,23 @@ class TerminalApp {
             const username = document.getElementById('profUsername').value.trim();
             const email = document.getElementById('profEmail').value.trim();
             const password = document.getElementById('profPassword').value;
+            const avatarFile = document.getElementById('profAvatar').files[0];
+
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('email', email);
+            formData.append('oldUsername', this.user.username);
+            if (password) formData.append('password', password);
+            if (avatarFile) formData.append('avatar', avatarFile);
 
             try {
+                const btn = e.target.querySelector('button');
+                btn.disabled = true;
+                btn.innerText = "Encrypting...";
+
                 const res = await fetch(`${API_URL}/users/${this.user.id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username,
-                        email,
-                        password: password || undefined,
-                        oldUsername: this.user.username
-                    })
+                    body: formData
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Failed to update profile.');

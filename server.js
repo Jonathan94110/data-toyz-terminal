@@ -59,12 +59,33 @@ app.post('/api/auth/login', (req, res) => {
         const match = await bcrypt.compare(password, user.password_hash);
         if (!match) return res.status(401).json({ error: "Invalid Operative ID or Passcode." });
 
-        res.json({ id: user.id, username: user.username, email: user.email, role: 'analyst' });
+        res.json({ id: user.id, username: user.username, email: user.email, avatar: user.avatar, role: 'analyst' });
+    });
+});
+
+// Reset Operative Passcode (2FA Verification)
+app.post('/api/auth/reset', (req, res) => {
+    const { username, email, newPassword } = req.body;
+    if (!username || !email || !newPassword) return res.status(400).json({ error: "Missing required identity fields." });
+
+    db.get("SELECT * FROM Users WHERE username = ? AND email = ?", [username, email], async (err, user) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!user) return res.status(401).json({ error: "Identity verification failed. No matching operative found." });
+
+        try {
+            const hash = await bcrypt.hash(newPassword, 10);
+            db.run("UPDATE Users SET password_hash = ? WHERE id = ?", [hash, user.id], function (err2) {
+                if (err2) return res.status(500).json({ error: err2.message });
+                res.json({ message: "Passcode successfully overwritten. You may now log in." });
+            });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
     });
 });
 
 // Update operative profile credentials
-app.put('/api/users/:id', async (req, res) => {
+app.put('/api/users/:id', upload.single('avatar'), async (req, res) => {
     const { username, email, password, oldUsername } = req.body;
     let updateQuery = "UPDATE Users SET username = ?, email = ? ";
     let params = [username, email];
@@ -75,6 +96,10 @@ app.put('/api/users/:id', async (req, res) => {
             updateQuery += ", password_hash = ? ";
             params.push(hash);
         }
+        if (req.file) {
+            updateQuery += ", avatar = ? ";
+            params.push('/uploads/' + req.file.filename);
+        }
         updateQuery += "WHERE id = ?";
         params.push(req.params.id);
 
@@ -82,13 +107,17 @@ app.put('/api/users/:id', async (req, res) => {
             db.run(updateQuery, params, function (err) {
                 if (err) return res.status(500).json({ error: err.message });
 
-                // Cascade username changes to the submissions table so logs are not orphaned
+                // Cascade username changes
                 if (oldUsername && oldUsername !== username) {
                     db.run("UPDATE Submissions SET author = ? WHERE author = ?", [username, oldUsername], (err2) => {
                         if (err2) console.error("Cascade failed", err2);
                     });
                 }
-                res.json({ id: req.params.id, username, email, role: 'analyst', message: "Profile successfully encrypted and updated." });
+
+                db.get("SELECT id, username, email, avatar FROM Users WHERE id = ?", [req.params.id], (err3, updatedUser) => {
+                    if (err3) return res.status(500).json({ error: err3.message });
+                    res.json({ ...updatedUser, role: 'analyst', message: "Profile successfully encrypted and updated." });
+                });
             });
         });
     } catch (e) {
