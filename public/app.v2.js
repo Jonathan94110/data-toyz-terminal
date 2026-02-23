@@ -60,7 +60,7 @@ class TerminalApp {
 
     renderLogin() {
         this.appEl.innerHTML = `
-            <div class="auth-container">
+            <div class="auth-container animate-mount">
                 <div class="auth-panel">
                     <div class="brand-header">
                         <h1 class="glow-text">Data Toyz</h1>
@@ -226,7 +226,7 @@ class TerminalApp {
 
     renderApp() {
         this.appEl.innerHTML = `
-            <div class="app-layout">
+            <div class="app-layout animate-mount">
                 <aside class="sidebar">
                     <div class="sidebar-brand" style="cursor:pointer;" onclick="app.currentView='feed'; app.renderApp();">
                         <h2 class="glow-text">DATA TOYZ</h2>
@@ -344,9 +344,9 @@ class TerminalApp {
         `;
 
         if (posts.length === 0) {
-            feedHtml += `<div style="text-align:center; color:var(--text-muted); padding:2rem;">No broadcasts detected on the secure network.</div>`;
+            feedHtml += `<div style="text-align:center; color:var(--text-muted); padding:2rem;" class="animate-mount">No broadcasts detected on the secure network.</div>`;
         } else {
-            posts.forEach(p => {
+            posts.forEach((p, index) => {
                 const isFire = p.sentiment === 'fire';
                 const badgeColor = isFire ? '#ef4444' : '#3b82f6';
                 const badgeGlow = isFire ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)';
@@ -415,7 +415,7 @@ class TerminalApp {
                 `;
 
                 feedHtml += `
-                    <div class="card" style="margin-bottom:1.5rem; padding:1.5rem; border-left: 4px solid ${badgeColor};">
+                    <div class="card feed-item animate-stagger" style="margin-bottom:1.5rem; padding:1.5rem; border-left: 4px solid ${badgeColor}; animation-delay: ${index * 0.08}s;">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
                             <div>
                                 <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};">${p.author}</div>
@@ -520,7 +520,7 @@ class TerminalApp {
     // ... search logic remains essentially same ...
     renderSearch(container) {
         container.innerHTML = `
-            <div class="search-container">
+            <div class="search-container animate-mount">
                 <div style="margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
                     <div>
                         <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">Acquire Target</h2>
@@ -559,8 +559,8 @@ class TerminalApp {
                 f.line.toLowerCase().includes(query)
             );
 
-            const resultsHTML = results.map(f => `
-                <div class="card target-card" onclick="app.selectTarget(${f.id})">
+            const resultsHTML = results.map((f, index) => `
+                <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s;" onclick="app.selectTarget(${f.id})">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 0.5rem;">
                         <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${f.brand} • ${f.line}</div>
                         <span class="tier-badge ${f.classTie.toLowerCase()}">${f.classTie}</span>
@@ -585,7 +585,7 @@ class TerminalApp {
 
     renderAddTarget(container) {
         container.innerHTML = `
-            <div style="max-width: 600px; margin: 0 auto; padding-bottom: 3rem;">
+            <div style="max-width: 600px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
                 <div style="display:flex; align-items:center; gap:1rem; margin-bottom: 2rem;">
                     <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();">&larr; Back to Search</button>
                     <div>
@@ -727,7 +727,7 @@ class TerminalApp {
         }
 
         container.innerHTML = `
-            <div style="max-width: 900px; margin: 0 auto; padding-bottom: 3rem;">
+            <div style="max-width: 900px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
                 <div style="display:flex; align-items:center; gap:1rem; margin-bottom: 2rem;">
                     <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();">&larr; Back to Search</button>
                     <div>
