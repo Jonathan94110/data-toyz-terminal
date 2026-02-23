@@ -4,11 +4,25 @@ const API_URL = 'http://localhost:3000/api';
 let MOCK_FIGURES = [];
 
 class TerminalApp {
+    get currentView() {
+        return sessionStorage.getItem('terminalView') || 'feed';
+    }
+    set currentView(val) {
+        sessionStorage.setItem('terminalView', val);
+    }
+
+    get currentTarget() {
+        const t = sessionStorage.getItem('terminalTarget');
+        return t ? JSON.parse(t) : null;
+    }
+    set currentTarget(val) {
+        if (val) sessionStorage.setItem('terminalTarget', JSON.stringify(val));
+        else sessionStorage.removeItem('terminalTarget');
+    }
+
     constructor() {
         this.appEl = document.getElementById('app');
         this.user = JSON.parse(localStorage.getItem('terminal_user')) || null;
-        this.currentView = 'feed'; // feed, search, submission, dashboard
-        this.currentTarget = null;
 
         // Ensure submissions exist in localstorage
         if (!localStorage.getItem('submissions')) {
@@ -148,7 +162,7 @@ class TerminalApp {
         this.appEl.innerHTML = `
             <div class="app-layout">
                 <aside class="sidebar">
-                    <div class="sidebar-brand">
+                    <div class="sidebar-brand" style="cursor:pointer;" onclick="app.currentView='feed'; app.renderApp();">
                         <h2 class="glow-text">DATA TOYZ</h2>
                         <small style="color:var(--text-muted); font-family:var(--font-body); letter-spacing:0.1em; text-transform:uppercase; font-size:0.75rem;">Terminal</small>
                     </div>
@@ -1228,6 +1242,8 @@ class TerminalApp {
     logout() {
         this.user = null;
         localStorage.removeItem('terminal_user');
+        sessionStorage.removeItem('terminalView');
+        sessionStorage.removeItem('terminalTarget');
         this.renderLogin();
     }
 }
