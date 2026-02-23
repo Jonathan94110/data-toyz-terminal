@@ -330,6 +330,10 @@ app.delete('/api/submissions/:id', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-    console.log(`Data Toyz Terminal Server active on port ${PORT}`);
-});
+// Start the server (Local Dev) or export for Vercel (Serverless)
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Data Toyz Terminal Server active on port ${PORT}`);
+    });
+}
+module.exports = app;

@@ -28,8 +28,12 @@ function initDB() {
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            avatar TEXT
         )`);
+
+        // Migration Failsafe
+        db.run(`ALTER TABLE Users ADD COLUMN avatar TEXT`, (err) => { /* ignore if already exists */ });
 
         // Create Posts Table (Comms Feed)
         db.run(`CREATE TABLE IF NOT EXISTS Posts (
