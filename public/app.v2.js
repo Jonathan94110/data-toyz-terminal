@@ -254,7 +254,7 @@ class TerminalApp {
                 <main class="main-content">
                     <header class="topbar">
                         <div class="user-profile">
-                            ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;">` : `<div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>`}
+                            ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${this.user.username.charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${this.user.username}</div>
                                 <div style="font-size:0.75rem; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em;">User</div>
@@ -1250,7 +1250,7 @@ class TerminalApp {
                         <div class="form-group" style="margin-bottom:1.5rem;">
                             <label class="form-label">Profile Avatar</label>
                             <div style="display:flex; align-items:center; gap:1rem;">
-                                ${this.user.avatar ? `<img src="${this.user.avatar}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid var(--border);">` : `<div style="width:50px; height:50px; border-radius:50%; background:var(--bg-surface); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:700;">${this.user.username.charAt(0).toUpperCase()}</div>`}
+                                ${this.user.avatar ? `<img src="${this.user.avatar}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid var(--border);" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:50px; height:50px; border-radius:50%; background:var(--bg-surface); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:700;\\'>${this.user.username.charAt(0).toUpperCase()}</div>';">` : `<div style="width:50px; height:50px; border-radius:50%; background:var(--bg-surface); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:700;">${this.user.username.charAt(0).toUpperCase()}</div>`}
                                 <input type="file" id="profAvatar" accept="image/*" style="flex:1; padding:0.5rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                             </div>
                         </div>
