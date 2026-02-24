@@ -4,10 +4,7 @@ const path = require('path');
 const multer = require('multer');
 const db = require('./db.js');
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, path.join(__dirname, 'public/uploads')),
-    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 const app = express();
@@ -114,7 +111,8 @@ app.put('/api/users/:id', upload.single('avatar'), async (req, res) => {
         }
         if (req.file) {
             updateQuery += ", avatar = ? ";
-            params.push('/uploads/' + req.file.filename);
+            const base64Image = 'data:' + req.file.mimetype + ';base64,' + req.file.buffer.toString('base64');
+            params.push(base64Image);
         }
         updateQuery += "WHERE id = ?";
         params.push(req.params.id);
@@ -222,7 +220,7 @@ app.post('/api/posts', upload.single('image'), (req, res) => {
     let imagePath = null;
 
     if (req.file) {
-        imagePath = '/uploads/' + req.file.filename;
+        imagePath = 'data:' + req.file.mimetype + ';base64,' + req.file.buffer.toString('base64');
     }
 
     if (!author || !content || !sentiment) {
@@ -303,7 +301,7 @@ app.post('/api/submissions', upload.single('image'), (req, res) => {
     }
 
     if (req.file) {
-        submissionData.imagePath = '/uploads/' + req.file.filename;
+        submissionData.imagePath = 'data:' + req.file.mimetype + ';base64,' + req.file.buffer.toString('base64');
     }
 
     const stmt = db.prepare(`INSERT INTO Submissions 
