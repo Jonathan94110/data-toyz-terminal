@@ -421,8 +421,8 @@ class TerminalApp {
                                 ${badgeIcon} ${p.sentiment}
                             </div>
                         </div>
-                        <p style="font-size:1rem; line-height:1.6; color:var(--text-primary); margin-bottom:${p.imagePath ? '1rem' : '0'}; white-space:pre-wrap;">${p.content}</p>
-                        ${p.imagePath ? `<img src="${p.imagePath}" style="max-width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); max-height:400px; object-fit:contain; background:var(--bg-surface); display:block;">` : ''}
+                        <p style="font-size:1rem; line-height:1.6; color:var(--text-primary); margin-bottom:${p.imagepath ? '1rem' : '0'}; white-space:pre-wrap;">${p.content}</p>
+                        ${p.imagepath ? `<img src="${p.imagepath}" style="max-width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); max-height:400px; object-fit:contain; background:var(--bg-surface); display:block;">` : ''}
                         ${reactionsHtml}
                         ${commentsHtml}
                         ${replyFormHtml}
