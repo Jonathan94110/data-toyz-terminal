@@ -109,10 +109,10 @@ async function initDB() {
             for (let f of figures) {
                 await pool.query(insertQuery, [f.id, f.name, f.brand, f.classTie, f.line]);
             }
-
-            // Sync the auto-increment sequence past our manually-inserted IDs
-            await pool.query("SELECT setval(pg_get_serial_sequence('figures', 'id'), (SELECT MAX(id) FROM Figures))");
         }
+
+        // Always sync the auto-increment sequence to prevent duplicate key errors
+        await pool.query("SELECT setval(pg_get_serial_sequence('figures', 'id'), (SELECT COALESCE(MAX(id), 1) FROM Figures))");
     } catch (err) {
         console.error('Failed to initialize postgres database tables:', err);
     }
