@@ -32,10 +32,6 @@ class TerminalApp {
             this.user = null;
         }
 
-        // Ensure submissions exist in localstorage
-        if (!localStorage.getItem('submissions')) {
-            localStorage.setItem('submissions', JSON.stringify([]));
-        }
 
         this.init();
     }

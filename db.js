@@ -39,11 +39,13 @@ async function initDB() {
             avatar TEXT
         )`);
 
-        // Migration Failsafe
-        try {
+        // Migration Failsafe: only add avatar column if it doesn't exist
+        const colCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'avatar'
+        `);
+        if (colCheck.rows.length === 0) {
             await pool.query(`ALTER TABLE Users ADD COLUMN avatar TEXT`);
-        } catch (e) {
-            // ignore if column already exists
         }
 
         // Create Posts Table (Comms Feed)
@@ -94,7 +96,7 @@ async function initDB() {
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {
             console.log("Seeding Mock Figures...");
-            const insertQuery = "INSERT INTO Figures (id, name, brand, classTie, line) VALUES ($1, $2, $3, $4, $5)";
+            const insertQuery = "INSERT INTO Figures (id, name, brand, classTie, line) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING";
             const figures = [
                 { id: 1, name: "FT-55 Recorder", brand: "Fans Toys", classTie: "Masterpiece", line: "3rd Party" },
                 { id: 2, name: "Optimus Prime (Missing Link)", brand: "Takara Tomy", classTie: "Deluxe", line: "Missing Link" },
@@ -107,6 +109,9 @@ async function initDB() {
             for (let f of figures) {
                 await pool.query(insertQuery, [f.id, f.name, f.brand, f.classTie, f.line]);
             }
+
+            // Sync the auto-increment sequence past our manually-inserted IDs
+            await pool.query("SELECT setval(pg_get_serial_sequence('figures', 'id'), (SELECT MAX(id) FROM Figures))");
         }
     } catch (err) {
         console.error('Failed to initialize postgres database tables:', err);

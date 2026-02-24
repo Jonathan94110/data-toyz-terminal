@@ -136,8 +136,8 @@ app.get('/api/posts', async (req, res) => {
         const reactions = reactionsRes.rows;
 
         posts.forEach(p => {
-            p.comments = comments.filter(c => c.postid === p.id || c.postId === p.id);
-            p.reactions = reactions.filter(r => r.postid === p.id || r.postId === p.id);
+            p.comments = comments.filter(c => c.postid === p.id);
+            p.reactions = reactions.filter(r => r.postid === p.id);
         });
 
         res.json(posts);
@@ -245,7 +245,7 @@ app.get('/api/submissions/target/:targetId', async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM Submissions WHERE targetId = $1", [req.params.targetId]);
         result.rows.forEach(r => {
-            try { r.data = JSON.parse(r.jsondata || r.jsonData); } catch (e) { r.data = {}; }
+            try { r.data = JSON.parse(r.jsondata); } catch (e) { r.data = {}; }
         });
         res.json(result.rows);
     } catch (err) {
@@ -258,7 +258,7 @@ app.get('/api/submissions/user/:username', async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM Submissions WHERE author = $1 ORDER BY id DESC", [req.params.username]);
         result.rows.forEach(r => {
-            try { r.data = JSON.parse(r.jsondata || r.jsonData); } catch (e) { r.data = {}; }
+            try { r.data = JSON.parse(r.jsondata); } catch (e) { r.data = {}; }
         });
         res.json(result.rows);
     } catch (err) {
