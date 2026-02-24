@@ -685,6 +685,7 @@ class TerminalApp {
         let isGuestimate = true;
         let yesVotes = 0;
         let noVotes = 0;
+        let totalTradeRating = 0;
 
         if (figureSubs.length > 0) {
             isGuestimate = false;
@@ -695,6 +696,7 @@ class TerminalApp {
                 totalApprl += parseFloat(s.approvalScore);
                 if (s.data && s.data.recommendation === 'yes') yesVotes++;
                 if (s.data && s.data.recommendation === 'no') noVotes++;
+                if (s.data && s.data.tradeRating) totalTradeRating += parseFloat(s.data.tradeRating);
             });
             mtsAvg = (totalMTS / figureSubs.length).toFixed(1);
             approvalAvg = (totalApprl / figureSubs.length).toFixed(1);
@@ -715,11 +717,24 @@ class TerminalApp {
             overallAvg = `${baseTVI}.0 <span style="font-size:1rem; font-weight:400; color:var(--text-secondary);">(Guestimate)</span>`;
         }
 
-        // Build confidence stars
-        let starsHtml = '';
+        // Build data reliability stars (auto-calculated)
+        let reliabilityHtml = '';
         for (let i = 0; i < 5; i++) {
-            const color = i < confidenceStars ? "var(--accent)" : "var(--border-light)";
-            starsHtml += `<span style="color: ${color}; font-size: 1.5rem;">★</span>`;
+            const color = i < confidenceStars ? "var(--text-secondary)" : "var(--border-light)";
+            reliabilityHtml += `<span style="color: ${color}; font-size: 1rem;">★</span>`;
+        }
+
+        // Build community trade rating stars (user-voted average)
+        const avgTradeRating = figureSubs.length > 0 ? (totalTradeRating / figureSubs.length) : 0;
+        let tradeStarsHtml = '';
+        for (let i = 1; i <= 5; i++) {
+            if (i <= Math.floor(avgTradeRating)) {
+                tradeStarsHtml += `<span style="color: #fbbf24; font-size: 2rem;">★</span>`;
+            } else if (i - avgTradeRating < 1 && i > Math.floor(avgTradeRating)) {
+                tradeStarsHtml += `<span style="color: #fbbf24; font-size: 2rem; opacity: 0.5;">★</span>`;
+            } else {
+                tradeStarsHtml += `<span style="color: var(--border-light); font-size: 2rem;">★</span>`;
+            }
         }
 
         container.innerHTML = `
@@ -744,11 +759,17 @@ class TerminalApp {
                         <div class="stat-label">Overall Target Grade (0-100)</div>
                     </div>
                     <div class="stat-box" style="display:flex; flex-direction:column; justify-content:center;">
-                        <div style="margin-bottom: 0.5rem; line-height: 1;">${starsHtml}</div>
-                        <div class="stat-label">Consensus Confidence (${figureSubs.length} samples)</div>
+                        ${!isGuestimate && avgTradeRating > 0 ? `
+                            <div style="margin-bottom: 0.5rem; line-height: 1;">${tradeStarsHtml}</div>
+                            <div class="stat-label" style="margin-bottom:0.25rem;">Community Trade Rating: <span style="color:#fbbf24; font-weight:800;">${avgTradeRating.toFixed(1)} / 5</span></div>
+                        ` : `
+                            <div style="margin-bottom: 0.5rem; line-height: 1; color: var(--border-light); font-size: 2rem;">★★★★★</div>
+                            <div class="stat-label">Community Trade Rating: <span style="color:var(--text-muted);">No Votes Yet</span></div>
+                        `}
+                        <div style="margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">${reliabilityHtml} Data Reliability (${figureSubs.length} sample${figureSubs.length !== 1 ? 's' : ''})</div>
                         ${!isGuestimate ? `
                             <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
-                                <div style="font-size: 1.5rem; font-weight: 800; color: ${yesVotes >= noVotes ? 'var(--success)' : 'var(--danger)'};">
+                                <div style="font-size: 1.5rem; font-weight: 800; color: ${yesVotes >= noVotes ? 'var(--success)' : 'var(--danger)'};"> 
                                     RECOMMENDATION: ${yesVotes >= noVotes ? 'YES' : 'NO'}
                                 </div>
                                 <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">
@@ -1039,6 +1060,23 @@ class TerminalApp {
                             </label>
                         </div>
                     </div>
+
+                    <!-- SECTION 7: TRADE VALUE STAR RATING -->
+                    <div class="card form-section">
+                        <div class="section-header">
+                            <h3>7. Trade Value Rating</h3>
+                            <p>How would you rate this figure's overall trade value? (1-5 Stars)</p>
+                        </div>
+                        <input type="hidden" id="tradeRating" name="tradeRating" value="0">
+                        <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1rem;">
+                            ${[1, 2, 3, 4, 5].map(n => `
+                                <button type="button" class="starBtn" data-val="${n}" style="background:none; border:none; cursor:pointer; font-size:2.5rem; color:var(--border-light); transition:all 0.2s; padding:0.25rem;" onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform='scale(1)'">
+                                    ★
+                                </button>
+                            `).join('')}
+                        </div>
+                        <div id="tradeRatingLabel" style="text-align:center; margin-top:0.75rem; font-size:0.95rem; color:var(--text-muted); font-style:italic;">Select a rating</div>
+                    </div>
                     
                     <button type="submit" class="btn" style="width:100%; padding:1.25rem; font-size:1.2rem; margin-top:1rem;">Commit Intelligence Report</button>
                 </form>
@@ -1048,7 +1086,26 @@ class TerminalApp {
         // Handle Form Submission
         document.getElementById('submissionForm').addEventListener('submit', (e) => {
             e.preventDefault();
+            const rating = parseInt(document.getElementById('tradeRating').value);
+            if (!rating || rating < 1) {
+                alert('Please select a Trade Value Rating (1-5 Stars) before submitting.');
+                return;
+            }
             this.submitIntel(e.target);
+        });
+
+        // Star Rating Handlers
+        const starLabels = ['', '★ Poor — Not worth trading for', '★★ Below Average — Limited appeal', '★★★ Fair — Decent trade value', '★★★★ Great — High demand piece', '★★★★★ Elite — Grail-tier trade asset'];
+        document.querySelectorAll('.starBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const val = parseInt(btn.dataset.val);
+                document.getElementById('tradeRating').value = val;
+                document.getElementById('tradeRatingLabel').innerText = starLabels[val];
+                document.getElementById('tradeRatingLabel').style.color = '#fbbf24';
+                document.querySelectorAll('.starBtn').forEach(b => {
+                    b.style.color = parseInt(b.dataset.val) <= val ? '#fbbf24' : 'var(--border-light)';
+                });
+            });
         });
     }
 
