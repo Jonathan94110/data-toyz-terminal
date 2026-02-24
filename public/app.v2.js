@@ -517,7 +517,7 @@ class TerminalApp {
         });
     }
 
-    // ... search logic remains essentially same ...
+
     renderSearch(container) {
         container.innerHTML = `
             <div class="search-container animate-mount">
@@ -1100,7 +1100,7 @@ class TerminalApp {
         }
     }
 
-    // ... dashboard log ...
+
     async renderDashboard(container) {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Decrypting intelligence log from secure database...</div>`;
 
