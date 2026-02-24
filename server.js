@@ -19,6 +19,23 @@ const bcrypt = require('bcrypt');
 // Serve static frontend files from 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Postgres lowercases all column names. This remaps them back to camelCase for the frontend.
+const COL_MAP = {
+    classtie: 'classTie', imagepath: 'imagePath', postid: 'postId',
+    targetid: 'targetId', targetname: 'targetName', targettier: 'targetTier',
+    mtstotal: 'mtsTotal', approvalscore: 'approvalScore', jsondata: 'jsonData',
+    password_hash: 'password_hash', created_at: 'created_at'
+};
+function normalizeRow(row) {
+    if (!row) return row;
+    const out = {};
+    for (const key of Object.keys(row)) {
+        out[COL_MAP[key] || key] = row[key];
+    }
+    return out;
+}
+function normalizeRows(rows) { return rows.map(normalizeRow); }
+
 // --- AUTHENTICATION API --- //
 
 // Register a new operative
@@ -131,13 +148,13 @@ app.get('/api/posts', async (req, res) => {
         const commentsRes = await db.query("SELECT * FROM Comments ORDER BY id ASC");
         const reactionsRes = await db.query("SELECT * FROM Reactions");
 
-        const posts = postsRes.rows;
-        const comments = commentsRes.rows;
-        const reactions = reactionsRes.rows;
+        const posts = normalizeRows(postsRes.rows);
+        const comments = normalizeRows(commentsRes.rows);
+        const reactions = normalizeRows(reactionsRes.rows);
 
         posts.forEach(p => {
-            p.comments = comments.filter(c => c.postid === p.id);
-            p.reactions = reactions.filter(r => r.postid === p.id);
+            p.comments = comments.filter(c => c.postId === p.id);
+            p.reactions = reactions.filter(r => r.postId === p.id);
         });
 
         res.json(posts);
@@ -218,7 +235,7 @@ app.post('/api/posts', upload.single('image'), async (req, res) => {
 app.get('/api/figures', async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM Figures");
-        res.json(result.rows);
+        res.json(normalizeRows(result.rows));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -244,10 +261,11 @@ app.post('/api/figures', async (req, res) => {
 app.get('/api/submissions/target/:targetId', async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM Submissions WHERE targetId = $1", [req.params.targetId]);
-        result.rows.forEach(r => {
-            try { r.data = JSON.parse(r.jsondata); } catch (e) { r.data = {}; }
+        const rows = normalizeRows(result.rows);
+        rows.forEach(r => {
+            try { r.data = JSON.parse(r.jsonData); } catch (e) { r.data = {}; }
         });
-        res.json(result.rows);
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -257,10 +275,11 @@ app.get('/api/submissions/target/:targetId', async (req, res) => {
 app.get('/api/submissions/user/:username', async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM Submissions WHERE author = $1 ORDER BY id DESC", [req.params.username]);
-        result.rows.forEach(r => {
-            try { r.data = JSON.parse(r.jsondata); } catch (e) { r.data = {}; }
+        const rows = normalizeRows(result.rows);
+        rows.forEach(r => {
+            try { r.data = JSON.parse(r.jsonData); } catch (e) { r.data = {}; }
         });
-        res.json(result.rows);
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
