@@ -59,6 +59,7 @@ class TerminalApp {
             <div class="auth-container animate-mount">
                 <div class="auth-panel">
                     <div class="brand-header">
+                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 1rem; filter: drop-shadow(0 0 20px rgba(255, 42, 95, 0.4));">
                         <h1 class="glow-text">Data Toyz</h1>
                         <p>Trade Value & Risk Terminal</p>
                     </div>
@@ -224,8 +225,9 @@ class TerminalApp {
         this.appEl.innerHTML = `
             <div class="app-layout animate-mount">
                 <aside class="sidebar">
-                    <div class="sidebar-brand" style="cursor:pointer;" onclick="app.currentView='feed'; app.renderApp();">
-                        <h2 class="glow-text">DATA TOYZ</h2>
+                    <div class="sidebar-brand" style="cursor:pointer; display: flex; flex-direction: column; align-items: center; text-align: center;" onclick="app.currentView='feed'; app.renderApp();">
+                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 80px; width: auto; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));">
+                        <h2 class="glow-text" style="font-size: 1.5rem; margin-bottom: 0;">DATA TOYZ</h2>
                         <small style="color:var(--text-muted); font-family:var(--font-body); letter-spacing:0.1em; text-transform:uppercase; font-size:0.75rem;">Terminal</small>
                     </div>
                     <nav class="sidebar-nav">
