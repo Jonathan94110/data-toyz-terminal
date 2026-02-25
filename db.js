@@ -66,6 +66,16 @@ async function initDB() {
             await pool.query(`ALTER TABLE Users ADD COLUMN suspended BOOLEAN DEFAULT false`);
         }
 
+        // Migration: add reset token columns for password reset
+        const resetTokenCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'reset_token'
+        `);
+        if (resetTokenCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Users ADD COLUMN reset_token TEXT`);
+            await pool.query(`ALTER TABLE Users ADD COLUMN reset_token_expires TEXT`);
+        }
+
         // Ensure Prime Dynamixx is admin
         await pool.query(`UPDATE Users SET role = 'admin' WHERE username = 'Prime Dynamixx'`);
 
@@ -111,6 +121,36 @@ async function initDB() {
             jsonData TEXT NOT NULL,
             date TEXT NOT NULL,
             FOREIGN KEY(targetId) REFERENCES Figures(id)
+        )`);
+
+        // Create Notifications Table
+        await pool.query(`CREATE TABLE IF NOT EXISTS Notifications (
+            id SERIAL PRIMARY KEY,
+            recipient TEXT NOT NULL,
+            type TEXT NOT NULL,
+            message TEXT NOT NULL,
+            link_type TEXT,
+            link_id INTEGER,
+            sender TEXT,
+            read BOOLEAN DEFAULT false,
+            created_at TEXT NOT NULL
+        )`);
+
+        // Create Notification Preferences Table
+        await pool.query(`CREATE TABLE IF NOT EXISTS NotificationPrefs (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL UNIQUE,
+            comment_inapp BOOLEAN DEFAULT true,
+            comment_email BOOLEAN DEFAULT false,
+            reaction_inapp BOOLEAN DEFAULT true,
+            reaction_email BOOLEAN DEFAULT false,
+            co_reviewer_inapp BOOLEAN DEFAULT true,
+            co_reviewer_email BOOLEAN DEFAULT false,
+            new_figure_inapp BOOLEAN DEFAULT true,
+            new_figure_email BOOLEAN DEFAULT false,
+            hq_updates_inapp BOOLEAN DEFAULT true,
+            hq_updates_email BOOLEAN DEFAULT false,
+            FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE
         )`);
 
         // Seed Figures if empty
