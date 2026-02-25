@@ -249,6 +249,12 @@ app.post('/api/figures', async (req, res) => {
     }
 
     try {
+        // Check for duplicate (case-insensitive)
+        const existing = await db.query("SELECT id, name FROM Figures WHERE LOWER(name) = LOWER($1)", [name]);
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ error: `"${existing.rows[0].name}" already exists in the catalog. Search for it and submit your intel there!` });
+        }
+
         const result = await db.query("INSERT INTO Figures (name, brand, classTie, line) VALUES ($1, $2, $3, $4) RETURNING id",
             [name, brand, classTie, line]);
         res.status(201).json({ id: result.rows[0].id, message: "Target added successfully." });
