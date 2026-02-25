@@ -515,6 +515,8 @@ class TerminalApp {
 
 
     renderSearch(container) {
+        const uniqueBrands = [...new Set(MOCK_FIGURES.map(f => f.brand))].sort();
+
         container.innerHTML = `
             <div class="search-container animate-mount">
                 <div style="margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
@@ -526,39 +528,41 @@ class TerminalApp {
                 </div>
                 
                 <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="Search by name, brand, or line (e.g. FT-55, Optimus)...">
+                    <input type="text" id="searchInput" placeholder="Search by name, brand, or line (e.g. FT-55, Optimus, XTB)...">
                     <button class="btn" style="width: auto; padding: 0 2rem;" id="searchBtn">SEARCH</button>
                 </div>
                 
-                <div class="search-filters" style="margin-bottom:1.5rem; display:flex; flex-wrap:wrap; gap:0.75rem;">
-                    <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; align-self:center;">Brands:</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='Hasbro'; document.getElementById('searchBtn').click();">Hasbro</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='Takara'; document.getElementById('searchBtn').click();">Takara</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='Fans Toys'; document.getElementById('searchBtn').click();">Fans Toys</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='X-Transbots'; document.getElementById('searchBtn').click();">XTB</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='DX9'; document.getElementById('searchBtn').click();">DX9</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='Magic Square'; document.getElementById('searchBtn').click();">Magic Square</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='Zeta Toys'; document.getElementById('searchBtn').click();">Zeta Toys</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='Studio Cell'; document.getElementById('searchBtn').click();">Studio Cell</span>
-                    <span class="badge" onclick="document.getElementById('searchInput').value='Mastermind Creations'; document.getElementById('searchBtn').click();">MMC</span>
+                <div class="search-filters" style="margin-bottom:1.5rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                    <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Brands:</span>
+                    <span class="badge brandFilter" data-brand="" style="border-color:var(--accent); color:var(--accent); font-weight:700; cursor:pointer;">ALL</span>
+                    ${uniqueBrands.map(b => `<span class="badge brandFilter" data-brand="${b}" style="cursor:pointer;">${b}</span>`).join('')}
                 </div>
                 
                 <div id="searchResults" class="grid-2"></div>
             </div>
         `;
 
+        const brandAliases = {
+            'xtb': 'x-transbots', 'mmc': 'mastermind creations', 'dx9': 'dx9',
+            'ft': 'fans toys', 'ms': 'magic square', 'zt': 'zeta toys',
+            'sc': 'studio cell', 'tt': 'takara tomy'
+        };
+
         const doSearch = () => {
-            const query = document.getElementById('searchInput').value.toLowerCase();
+            let query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const expanded = brandAliases[query];
+
             const results = MOCK_FIGURES.filter(f =>
                 f.name.toLowerCase().includes(query) ||
                 f.brand.toLowerCase().includes(query) ||
-                f.line.toLowerCase().includes(query)
+                f.line.toLowerCase().includes(query) ||
+                (expanded && f.brand.toLowerCase().includes(expanded))
             );
 
             const resultsHTML = results.map((f, index) => `
                 <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s;" onclick="app.selectTarget(${f.id})">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 0.5rem;">
-                        <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${f.brand} • ${f.line}</div>
+                        <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${f.brand} &bull; ${f.line}</div>
                         <span class="tier-badge ${f.classTie.toLowerCase()}">${f.classTie}</span>
                     </div>
                     <h3 style="margin-bottom: 1.5rem; font-size: 1.25rem;">${f.name}</h3>
@@ -576,12 +580,29 @@ class TerminalApp {
             if (e.key === 'Enter') doSearch();
         });
 
+        document.querySelectorAll('.brandFilter').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.brandFilter').forEach(t => {
+                    t.style.borderColor = 'var(--border)';
+                    t.style.color = 'var(--text-secondary)';
+                    t.style.fontWeight = '400';
+                });
+                tab.style.borderColor = 'var(--accent)';
+                tab.style.color = 'var(--accent)';
+                tab.style.fontWeight = '700';
+                document.getElementById('searchInput').value = tab.dataset.brand;
+                doSearch();
+            });
+        });
+
         setTimeout(doSearch, 50);
     }
 
+
+
     renderAddTarget(container) {
         container.innerHTML = `
-            <div style="max-width: 600px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
+    < div style = "max-width: 600px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount" >
                 <div style="display:flex; align-items:center; gap:1rem; margin-bottom: 2rem;">
                     <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();">&larr; Back to Search</button>
                     <div>
@@ -631,8 +652,8 @@ class TerminalApp {
                         <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem;">Register Target</button>
                     </form>
                 </div>
-            </div>
-        `;
+            </div >
+    `;
 
         document.getElementById('addTargetForm').addEventListener('submit', (e) => {
             e.preventDefault();
