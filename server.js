@@ -234,7 +234,7 @@ app.post('/api/posts', upload.single('image'), async (req, res) => {
 // 1. Get all figures
 app.get('/api/figures', async (req, res) => {
     try {
-        const result = await db.query("SELECT * FROM Figures");
+        const result = await db.query("SELECT * FROM Figures ORDER BY name ASC");
         res.json(normalizeRows(result.rows));
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -376,7 +376,7 @@ app.get('/api/stats/indexes', async (req, res) => {
             FROM Figures f
             LEFT JOIN Submissions s ON f.id = s.targetId
             GROUP BY f.brand, f.line
-            ORDER BY avgGrade DESC NULLS LAST
+            ORDER BY f.brand ASC, f.line ASC
         `);
 
         const indexes = result.rows.map(r => ({
