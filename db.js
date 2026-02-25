@@ -136,6 +136,23 @@ async function initDB() {
             created_at TEXT NOT NULL
         )`);
 
+        // Create Notification Preferences Table
+        await pool.query(`CREATE TABLE IF NOT EXISTS NotificationPrefs (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL UNIQUE,
+            comment_inapp BOOLEAN DEFAULT true,
+            comment_email BOOLEAN DEFAULT false,
+            reaction_inapp BOOLEAN DEFAULT true,
+            reaction_email BOOLEAN DEFAULT false,
+            co_reviewer_inapp BOOLEAN DEFAULT true,
+            co_reviewer_email BOOLEAN DEFAULT false,
+            new_figure_inapp BOOLEAN DEFAULT true,
+            new_figure_email BOOLEAN DEFAULT false,
+            hq_updates_inapp BOOLEAN DEFAULT true,
+            hq_updates_email BOOLEAN DEFAULT false,
+            FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE
+        )`);
+
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {

@@ -72,14 +72,69 @@ function normalizeRow(row) {
 function normalizeRows(rows) { return rows.map(normalizeRow); }
 
 // --- NOTIFICATION HELPER --- //
+async function getNotificationPrefs(userId) {
+    try {
+        const result = await db.query("SELECT * FROM NotificationPrefs WHERE user_id = $1", [userId]);
+        if (result.rows[0]) return result.rows[0];
+        // Create defaults if none exist
+        await db.query("INSERT INTO NotificationPrefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING", [userId]);
+        const fresh = await db.query("SELECT * FROM NotificationPrefs WHERE user_id = $1", [userId]);
+        return fresh.rows[0];
+    } catch (e) {
+        return null; // Fall back to sending everything
+    }
+}
+
+function buildNotificationEmail(recipientName, message, type) {
+    const icons = { comment: '\uD83D\uDCAC', reaction: '\u2764\uFE0F', co_reviewer: '\uD83D\uDCCB', new_figure: '\uD83C\uDFAF', hq_updates: '\uD83D\uDCE1' };
+    const icon = icons[type] || '\uD83D\uDD14';
+    return `
+        <div style="font-family: monospace; background: #0f1729; color: #e2e8f0; padding: 2rem; border-radius: 8px;">
+            <h2 style="color: #f97316;">DATA TOYZ TERMINAL</h2>
+            <p>Agent <strong>${recipientName}</strong>,</p>
+            <p style="font-size: 1.1rem;">${icon} ${message}</p>
+            <a href="${APP_URL}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f97316, #ec4899); color: white; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 1rem 0;">OPEN TERMINAL</a>
+            <p style="color: #94a3b8; font-size: 0.85rem;">You can manage your notification preferences in Profile Settings.</p>
+        </div>
+    `;
+}
+
 async function createNotification(recipient, type, message, linkType, linkId, sender) {
     if (recipient === sender) return;
     try {
-        await db.query(
-            `INSERT INTO Notifications (recipient, type, message, link_type, link_id, sender, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [recipient, type, message, linkType, linkId, sender, new Date().toISOString()]
-        );
+        // Look up recipient's user id and email for preference check
+        const userResult = await db.query("SELECT id, email FROM Users WHERE username = $1", [recipient]);
+        if (!userResult.rows[0]) return;
+
+        const recipientUser = userResult.rows[0];
+        const prefs = await getNotificationPrefs(recipientUser.id);
+        const inappKey = `${type}_inapp`;
+        const emailKey = `${type}_email`;
+
+        // Check in-app preference (default true if pref not found)
+        const sendInapp = !prefs || prefs[inappKey] !== false;
+        const sendEmail = prefs && prefs[emailKey] === true;
+
+        if (sendInapp) {
+            await db.query(
+                `INSERT INTO Notifications (recipient, type, message, link_type, link_id, sender, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [recipient, type, message, linkType, linkId, sender, new Date().toISOString()]
+            );
+        }
+
+        if (sendEmail && resend && recipientUser.email) {
+            try {
+                await resend.emails.send({
+                    from: 'Data Toyz Terminal <onboarding@resend.dev>',
+                    to: [recipientUser.email],
+                    subject: `Notification — Data Toyz Terminal`,
+                    html: buildNotificationEmail(recipient, message, type)
+                });
+            } catch (emailErr) {
+                console.error("Failed to send notification email:", emailErr.message);
+            }
+        }
     } catch (e) {
         console.error("Failed to create notification:", e);
     }
@@ -408,6 +463,15 @@ app.post('/api/figures', requireAuth, async (req, res) => {
 
         const result = await db.query("INSERT INTO Figures (name, brand, classTie, line) VALUES ($1, $2, $3, $4) RETURNING id",
             [name, brand, classTie, line]);
+
+        // Notify all users who opted in for new figure notifications
+        try {
+            const allUsers = await db.query("SELECT u.username FROM Users u JOIN NotificationPrefs np ON u.id = np.user_id WHERE (np.new_figure_inapp = true OR np.new_figure_email = true) AND u.username != $1", [req.user.username]);
+            for (const row of allUsers.rows) {
+                await createNotification(row.username, 'new_figure', `${req.user.username} added "${name}" to the catalog`, 'figure', result.rows[0].id, req.user.username);
+            }
+        } catch (notifErr) { console.error("New figure notification error:", notifErr); }
+
         res.status(201).json({ id: result.rows[0].id, message: "Target added successfully." });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -707,6 +771,53 @@ app.get('/api/users/:username/profile', async (req, res) => {
 });
 
 // --- NOTIFICATIONS API --- //
+
+// Preferences must be defined before :username routes to avoid routing conflicts
+app.get('/api/notifications/preferences', requireAuth, async (req, res) => {
+    try {
+        const prefs = await getNotificationPrefs(req.user.id);
+        if (!prefs) return res.status(500).json({ error: 'Failed to load preferences.' });
+        res.json(prefs);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/notifications/preferences', requireAuth, async (req, res) => {
+    const fields = [
+        'comment_inapp', 'comment_email',
+        'reaction_inapp', 'reaction_email',
+        'co_reviewer_inapp', 'co_reviewer_email',
+        'new_figure_inapp', 'new_figure_email',
+        'hq_updates_inapp', 'hq_updates_email'
+    ];
+
+    try {
+        await db.query("INSERT INTO NotificationPrefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING", [req.user.id]);
+
+        const setClauses = [];
+        const params = [];
+        let paramIdx = 1;
+
+        for (const field of fields) {
+            if (req.body[field] !== undefined) {
+                setClauses.push(`${field} = $${paramIdx}`);
+                params.push(req.body[field] === true || req.body[field] === 'true');
+                paramIdx++;
+            }
+        }
+
+        if (setClauses.length === 0) return res.status(400).json({ error: 'No preferences to update.' });
+
+        params.push(req.user.id);
+        await db.query(`UPDATE NotificationPrefs SET ${setClauses.join(', ')} WHERE user_id = $${paramIdx}`, params);
+
+        const updated = await db.query("SELECT * FROM NotificationPrefs WHERE user_id = $1", [req.user.id]);
+        res.json(updated.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 app.get('/api/notifications/:username', requireAuth, async (req, res) => {
     if (req.params.username !== req.user.username) return res.status(403).json({ error: 'Access denied.' });
