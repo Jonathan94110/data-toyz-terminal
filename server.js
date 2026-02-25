@@ -469,6 +469,40 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
     }
 });
 
+// 9.1 Admin: Create User
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
+    const { username, email, password, role } = req.body;
+    if (!username || !email || !password) return res.status(400).json({ error: "Missing required fields." });
+
+    try {
+        const hash = await bcrypt.hash(password, 10);
+        const q = "INSERT INTO Users (username, email, password_hash, created_at, role) VALUES ($1, $2, $3, $4, $5) RETURNING id";
+        await db.query(q, [username, email, hash, new Date().toISOString(), role || 'analyst']);
+        res.status(201).json({ message: "User account created successfully." });
+    } catch (e) {
+        if (e.message && e.message.includes("unique constraint")) {
+            if (e.message.includes("username")) return res.status(409).json({ error: "Username already active." });
+            if (e.message.includes("email")) return res.status(409).json({ error: "Email already active." });
+        }
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 9.2 Admin: Toggle User Role
+app.put('/api/admin/users/:id/role', requireAdmin, async (req, res) => {
+    try {
+        const user = await db.query("SELECT username, role FROM Users WHERE id = $1", [req.params.id]);
+        if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
+        if (user.rows[0].username === 'Prime Dynamixx') return res.status(403).json({ error: "Cannot modify the primary admin's role." });
+
+        const newRole = user.rows[0].role === 'admin' ? 'analyst' : 'admin';
+        await db.query("UPDATE Users SET role = $1 WHERE id = $2", [newRole, req.params.id]);
+        res.json({ message: `User role changed to ${newRole.toUpperCase()}.`, role: newRole });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 10. Admin: Suspend/unsuspend user
 app.put('/api/admin/users/:id/suspend', requireAdmin, async (req, res) => {
     try {

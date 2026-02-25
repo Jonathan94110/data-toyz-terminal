@@ -1584,7 +1584,10 @@ class TerminalApp {
                 </div>
 
                 <!-- USER MANAGEMENT -->
-                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">👥 User Management (${users.length})</h3>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">👥 User Management (${users.length})</h3>
+                    <button id="addAdminUserBtn" style="background:none; border:1px solid #fbbf24; color:#fbbf24; cursor:pointer; padding:0.4rem 0.8rem; border-radius:4px; font-size:0.8rem; font-weight:700;">+ ADD USER</button>
+                </div>
                 <div class="card" style="padding:0; overflow:hidden;">
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
                         <thead>
@@ -1612,8 +1615,9 @@ class TerminalApp {
                                         <td style="padding:0.6rem 1rem;"><span style="color:${isSuspended ? 'var(--danger)' : 'var(--success)'}; font-size:0.8rem; font-weight:600;">${isSuspended ? '⛔ SUSPENDED' : '✅ ACTIVE'}</span></td>
                                         <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${joined}</td>
                                         <td style="padding:0.6rem 1rem; text-align:right; white-space:nowrap;">
-                                            ${!isAdmin ? `
-                                                <button class="suspendBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid ${isSuspended ? 'var(--success)' : '#fbbf24'}; color:${isSuspended ? 'var(--success)' : '#fbbf24'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isSuspended ? '✅ Reinstate' : '⚠️ Suspend'}</button>
+                                            ${u.username !== 'Prime Dynamixx' ? `
+                                                <button class="roleBtn" data-id="${u.id}" data-role="${u.role}" style="background:none; border:1px solid ${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isAdmin ? 'Demote' : 'Promote'}</button>
+                                                <button class="suspendBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid ${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isSuspended ? '✅ Reinstate' : '⚠️ Suspend'}</button>
                                                 <button class="delUserBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
                                             ` : '<span style="font-size:0.8rem; color:var(--text-muted);">Protected</span>'}
                                         </td>
@@ -1628,6 +1632,35 @@ class TerminalApp {
 
         // Wire up admin action handlers
         const adminHeaders = { 'x-admin-user': this.user.username, 'Content-Type': 'application/json' };
+
+        // Add User
+        document.getElementById('addAdminUserBtn').addEventListener('click', async () => {
+            const username = prompt("Enter new username:");
+            if (!username) return;
+            const password = prompt("Enter new passcode:");
+            if (!password) return;
+            // Fake email generation for manual admin adds
+            const email = username.toLowerCase().replace(/[^a-z0-9]/g, '') + '@datatoyz.net';
+            const role = confirm("Should this user be an Admin? (OK for Admin, Cancel for Analyst)") ? 'admin' : 'analyst';
+
+            const res = await fetch(`${API_URL}/admin/users`, {
+                method: 'POST', headers: adminHeaders,
+                body: JSON.stringify({ username, email, password, role })
+            });
+            if (res.ok) { this.renderAdmin(container); }
+            else { const err = await res.json(); alert(err.error); }
+        });
+
+        // Toggle User Role
+        document.querySelectorAll('.roleBtn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const isPromoting = btn.dataset.role !== 'admin';
+                if (!confirm(`Are you sure you want to ${isPromoting ? 'PROMOTE' : 'DEMOTE'} this user?`)) return;
+                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}/role`, { method: 'PUT', headers: adminHeaders });
+                if (res.ok) { this.renderAdmin(container); }
+                else { const err = await res.json(); alert(err.error); }
+            });
+        });
 
         // Delete figure
         document.querySelectorAll('.delFigBtn').forEach(btn => {
