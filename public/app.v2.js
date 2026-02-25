@@ -23,26 +23,67 @@ class TerminalApp {
     constructor() {
         this.appEl = document.getElementById('app');
 
-        try {
-            const stored = localStorage.getItem('terminal_user');
-            this.user = stored && stored !== 'undefined' ? JSON.parse(stored) : null;
-        } catch (e) {
-            console.error("Corrupted identity storage purged.", e);
-            localStorage.removeItem('terminal_user');
-            this.user = null;
-        }
+        // Theme init
+        const savedTheme = localStorage.getItem('terminal_theme') || 'dark';
+        document.body.setAttribute('data-theme', savedTheme);
 
+        this.token = localStorage.getItem('terminal_token') || null;
+        this.user = null;
+
+        // Clean up old storage format
+        localStorage.removeItem('terminal_user');
 
         this.init();
     }
 
     async init() {
-        if (!this.user) {
+        // Check for password reset token in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const resetToken = urlParams.get('reset');
+        if (resetToken) {
+            this.renderResetPassword(resetToken);
+            return;
+        }
+
+        if (!this.token) {
             this.renderLogin();
-        } else {
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/auth/me`, {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            if (!res.ok) throw new Error('Session expired');
+            this.user = await res.json();
             await this.loadFigures();
             this.renderApp();
+        } catch (e) {
+            this.token = null;
+            this.user = null;
+            localStorage.removeItem('terminal_token');
+            this.renderLogin();
         }
+    }
+
+    // Authenticated fetch helper
+    async authFetch(url, options = {}) {
+        if (!options.headers) options.headers = {};
+        if (this.token && !(options.body instanceof FormData)) {
+            if (!options.headers['Content-Type']) options.headers['Content-Type'] = 'application/json';
+        }
+        if (this.token) {
+            options.headers['Authorization'] = `Bearer ${this.token}`;
+        }
+        const res = await fetch(url, options);
+        if (res.status === 401) {
+            this.token = null;
+            this.user = null;
+            localStorage.removeItem('terminal_token');
+            this.renderLogin();
+            throw new Error('Session expired. Please log in again.');
+        }
+        return res;
     }
 
     async loadFigures() {
@@ -54,15 +95,63 @@ class TerminalApp {
         }
     }
 
+    renderResetPassword(resetToken) {
+        this.appEl.innerHTML = `
+            <div class="auth-container animate-mount">
+                <div class="auth-panel">
+                    <div class="brand-header">
+                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 1rem; filter: drop-shadow(0 0 20px rgba(255, 42, 95, 0.4));">
+                        <h1 class="glow-text">Data Toyz</h1>
+                        <p>Reset Your Passcode</p>
+                    </div>
+                    <form id="resetPasswordForm">
+                        <div class="input-group">
+                            <label for="newPassword">New Passcode</label>
+                            <input type="password" id="newPassword" placeholder="Enter new passcode (min 6 chars)..." required minlength="6">
+                        </div>
+                        <div class="input-group">
+                            <label for="confirmPassword">Confirm Passcode</label>
+                            <input type="password" id="confirmPassword" placeholder="Confirm new passcode..." required minlength="6">
+                        </div>
+                        <button type="submit" class="btn">Reset Passcode</button>
+                    </form>
+                    <div id="resetMessage" style="margin-top:1rem; text-align:center;"></div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            if (newPassword !== confirmPassword) { alert('Passcodes do not match.'); return; }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: resetToken, newPassword })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                document.getElementById('resetMessage').innerHTML = `<p style="color:var(--success);">${data.message}</p><a href="/" style="color:var(--accent);">Return to Login</a>`;
+                document.getElementById('resetPasswordForm').style.display = 'none';
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+    }
+
     renderLogin() {
         this.appEl.innerHTML = `
             <div class="auth-container animate-mount">
                 <div class="auth-panel">
                     <div class="brand-header">
+                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 1rem; filter: drop-shadow(0 0 20px rgba(255, 42, 95, 0.4));">
                         <h1 class="glow-text">Data Toyz</h1>
                         <p>Trade Value & Risk Terminal</p>
                     </div>
-                    
+
                     <div id="loginSection">
                         <form id="loginForm">
                             <div class="input-group">
@@ -76,7 +165,7 @@ class TerminalApp {
                             <button type="submit" class="btn">Authenticate</button>
                             <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem; display:flex; flex-direction:column; gap:0.5rem;">
                                 <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Initialize New Operative ID</a>
-                                <a href="#" id="showResetBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Passcode?</a>
+                                <a href="#" id="showForgotBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Passcode?</a>
                             </div>
                         </form>
                     </div>
@@ -102,23 +191,17 @@ class TerminalApp {
                         </form>
                     </div>
 
-                    <div id="resetSection" style="display:none;">
-                        <form id="resetForm">
+                    <div id="forgotSection" style="display:none;">
+                        <form id="forgotForm">
+                            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">Enter your registered email. If an account exists, we'll send a reset link.</p>
                             <div class="input-group">
-                                <label for="resUsername">My Username</label>
-                                <input type="text" id="resUsername" required autocomplete="off">
+                                <label for="forgotEmail">Registered Email</label>
+                                <input type="email" id="forgotEmail" required autocomplete="email">
                             </div>
-                            <div class="input-group">
-                                <label for="resEmail">My Registered Email Address</label>
-                                <input type="email" id="resEmail" required autocomplete="email">
-                            </div>
-                            <div class="input-group">
-                                <label for="resPassword">Re-enter password</label>
-                                <input type="password" id="resPassword" placeholder="Type your new password..." required>
-                            </div>
-                            <button type="submit" class="btn" style="background:#eab308; color:#000;">Save New Password & Login</button>
+                            <button type="submit" class="btn" style="background:#eab308; color:#000;">Send Reset Link</button>
+                            <div id="forgotMessage" style="margin-top:1rem; text-align:center;"></div>
                             <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem;">
-                                <a href="#" id="showLoginFromResetBtn" style="color:var(--text-secondary); text-decoration:none;">Cancel Override</a>
+                                <a href="#" id="showLoginFromForgotBtn" style="color:var(--text-secondary); text-decoration:none;">Return to Authentication</a>
                             </div>
                         </form>
                     </div>
@@ -138,15 +221,15 @@ class TerminalApp {
             document.getElementById('loginSection').style.display = 'block';
         });
 
-        document.getElementById('showResetBtn').addEventListener('click', (e) => {
+        document.getElementById('showForgotBtn').addEventListener('click', (e) => {
             e.preventDefault();
             document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('resetSection').style.display = 'block';
+            document.getElementById('forgotSection').style.display = 'block';
         });
 
-        document.getElementById('showLoginFromResetBtn').addEventListener('click', (e) => {
+        document.getElementById('showLoginFromForgotBtn').addEventListener('click', (e) => {
             e.preventDefault();
-            document.getElementById('resetSection').style.display = 'none';
+            document.getElementById('forgotSection').style.display = 'none';
             document.getElementById('loginSection').style.display = 'block';
         });
 
@@ -164,33 +247,29 @@ class TerminalApp {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Authentication Failed');
 
+                this.token = data.token;
                 this.user = data;
-                localStorage.setItem('terminal_user', JSON.stringify(this.user));
-                this.init();
+                localStorage.setItem('terminal_token', data.token);
+                await this.loadFigures();
+                this.renderApp();
             } catch (err) {
                 alert(err.message);
             }
         });
 
-        document.getElementById('resetForm').addEventListener('submit', async (e) => {
+        document.getElementById('forgotForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('resUsername').value.trim();
-            const email = document.getElementById('resEmail').value.trim();
-            const newPassword = document.getElementById('resPassword').value;
+            const email = document.getElementById('forgotEmail').value.trim();
 
             try {
-                const res = await fetch(`${API_URL}/auth/reset`, {
+                const res = await fetch(`${API_URL}/auth/forgot-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, newPassword })
+                    body: JSON.stringify({ email })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Password override failed.');
-
-                alert(data.message);
-                document.getElementById('resetSection').style.display = 'none';
-                document.getElementById('loginSection').style.display = 'block';
-                document.getElementById('resetForm').reset();
+                document.getElementById('forgotMessage').innerHTML = `<p style="color:var(--success); font-size:0.85rem;">✓ ${data.message}</p>`;
+                document.getElementById('forgotForm').querySelector('button').disabled = true;
             } catch (err) {
                 alert(err.message);
             }
@@ -211,9 +290,11 @@ class TerminalApp {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Registration Failed');
 
+                this.token = data.token;
                 this.user = data;
-                localStorage.setItem('terminal_user', JSON.stringify(this.user));
-                this.init();
+                localStorage.setItem('terminal_token', data.token);
+                await this.loadFigures();
+                this.renderApp();
             } catch (err) {
                 alert(err.message);
             }
@@ -224,13 +305,16 @@ class TerminalApp {
         this.appEl.innerHTML = `
             <div class="app-layout animate-mount">
                 <aside class="sidebar">
-                    <div class="sidebar-brand" style="cursor:pointer;" onclick="app.currentView='feed'; app.renderApp();">
-                        <h2 class="glow-text">DATA TOYZ</h2>
-                        <small style="color:var(--text-muted); font-family:var(--font-body); letter-spacing:0.1em; text-transform:uppercase; font-size:0.75rem;">Terminal</small>
+                    <div class="sidebar-brand" style="cursor:pointer; display: flex; flex-direction: column; align-items: center; text-align: center;" onclick="app.currentView='feed'; app.renderApp();">
+                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));">
+
                     </div>
                     <nav class="sidebar-nav">
                         <div class="nav-item ${this.currentView === 'feed' ? 'active' : ''}" data-view="feed">
                             Comms Feed
+                        </div>
+                        <div class="nav-item ${this.currentView === 'market_pulse' ? 'active' : ''}" data-view="market_pulse">
+                            Market Pulse
                         </div>
                         <div class="nav-item ${this.currentView === 'search' ? 'active' : ''}" data-view="search">
                             Target Search
@@ -244,17 +328,28 @@ class TerminalApp {
                         <div class="nav-item ${this.currentView === 'profile' ? 'active' : ''}" data-view="profile">
                             Profile Settings
                         </div>
+                        <div class="nav-item ${this.currentView === 'docs' ? 'active' : ''}" data-view="docs">
+                            Documentation
+                        </div>
                         ${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? `
                         <div class="nav-item ${this.currentView === 'admin' ? 'active' : ''}" data-view="admin" style="margin-top:1rem; border-top:1px solid var(--border-light); padding-top:1rem;">
                             ⚙️ Admin Panel
                         </div>
                         ` : ''}
+                        <div id="themeToggle" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
+                            ${document.body.getAttribute('data-theme') === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+                        </div>
                     </nav>
                 </aside>
                 
                 <main class="main-content">
                     <header class="topbar">
                         <div class="user-profile">
+                            <div id="notifBell" style="position:relative; cursor:pointer; margin-right:1rem; padding:0.5rem;">
+                                <span style="font-size:1.3rem;">🔔</span>
+                                <span id="notifBadge" style="display:none; position:absolute; top:0; right:0; background:var(--danger); color:#fff; font-size:0.6rem; font-weight:800; padding:1px 5px; border-radius:10px; min-width:16px; text-align:center;"></span>
+                                <div id="notifDropdown" class="notif-dropdown" style="display:none;"></div>
+                            </div>
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${this.user.username.charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${this.user.username}</div>
@@ -269,7 +364,7 @@ class TerminalApp {
             </div>
         `;
 
-        document.querySelectorAll('.nav-item').forEach(item => {
+        document.querySelectorAll('.nav-item[data-view]').forEach(item => {
             item.addEventListener('click', (e) => {
                 this.currentView = e.currentTarget.dataset.view;
                 this.renderApp();
@@ -277,12 +372,43 @@ class TerminalApp {
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const current = document.body.getAttribute('data-theme') || 'dark';
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-theme', next);
+            localStorage.setItem('terminal_theme', next);
+            this.renderApp();
+        });
+
+        // Notification bell
+        const bell = document.getElementById('notifBell');
+        const dropdown = document.getElementById('notifDropdown');
+        bell.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (dropdown.style.display === 'none') {
+                this.loadNotifications();
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        });
+        document.addEventListener('click', () => { dropdown.style.display = 'none'; }, { once: true });
+
+        // Poll notifications
+        if (this._notifInterval) clearInterval(this._notifInterval);
+        this._notifInterval = setInterval(() => this.updateNotifBadge(), 30000);
+        this.updateNotifBadge();
+
         this.renderCurrentView();
     }
 
     renderCurrentView() {
         const contentArea = document.getElementById('mainContent');
         if (this.currentView === 'feed') this.renderFeed(contentArea);
+        else if (this.currentView === 'market_pulse') this.renderMarketPulse(contentArea);
         else if (this.currentView === 'search') this.renderSearch(contentArea);
         else if (this.currentView === 'dashboard') this.renderDashboard(contentArea);
         else if (this.currentView === 'leaderboards') this.renderLeaderboards(contentArea);
@@ -290,6 +416,8 @@ class TerminalApp {
         else if (this.currentView === 'submission') this.renderSubmission(contentArea);
         else if (this.currentView === 'add_target') this.renderAddTarget(contentArea);
         else if (this.currentView === 'profile') this.renderProfile(contentArea);
+        else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
+        else if (this.currentView === 'docs') this.renderDocs(contentArea);
         else if (this.currentView === 'admin' && (this.user.role === 'admin' || this.user.username === 'Prime Dynamixx')) this.renderAdmin(contentArea);
     }
 
@@ -363,7 +491,7 @@ class TerminalApp {
                         commentsHtml += `
                             <div style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
                                 <div style="display:flex; justify-content:space-between; margin-bottom: 0.25rem;">
-                                    <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};">${c.author}</span>
+                                    <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${c.author.replace(/'/g, "\\'")}')">${c.author}</span>
                                     <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
                                 </div>
                                 <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${c.content}</div>
@@ -420,7 +548,7 @@ class TerminalApp {
                     <div class="card feed-item animate-stagger" style="margin-bottom:1.5rem; padding:1.5rem; border-left: 4px solid ${badgeColor}; animation-delay: ${index * 0.08}s;">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
                             <div>
-                                <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};">${p.author}</div>
+                                <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${p.author.replace(/'/g, "\\'")}')">${p.author}</div>
                                 <div style="font-size:0.75rem; color:var(--text-secondary);">${dateStr}</div>
                             </div>
                             <div style="background:${badgeGlow}; color:${badgeColor}; border:1px solid ${badgeColor}; padding:0.25rem 0.75rem; border-radius:1rem; font-weight:800; font-size:0.85rem; box-shadow: 0 0 10px ${badgeGlow}; text-transform:uppercase;">
@@ -450,7 +578,6 @@ class TerminalApp {
             const imageFile = document.getElementById('postImage').files[0];
 
             const formData = new FormData();
-            formData.append('author', this.user.username);
             formData.append('content', content);
             formData.append('sentiment', sentiment);
             if (imageFile) formData.append('image', imageFile);
@@ -460,7 +587,7 @@ class TerminalApp {
                 btn.disabled = true;
                 btn.innerText = "Transmitting...";
 
-                const res = await fetch(`${API_URL}/posts`, { method: 'POST', body: formData });
+                const res = await this.authFetch(`${API_URL}/posts`, { method: 'POST', body: formData });
                 if (!res.ok) throw new Error("Broadcast failed.");
                 this.renderFeed(container);
             } catch (err) {
@@ -482,10 +609,9 @@ class TerminalApp {
                     btn.disabled = true;
                     btn.innerText = "...";
 
-                    const res = await fetch(`${API_URL}/posts/${postId}/comments`, {
+                    const res = await this.authFetch(`${API_URL}/posts/${postId}/comments`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ author: this.user.username, content })
+                        body: JSON.stringify({ content })
                     });
                     if (!res.ok) throw new Error("Reply failed.");
                     this.renderFeed(container); // refresh feed completely
@@ -504,10 +630,9 @@ class TerminalApp {
                 const emoji = btn.dataset.emoji;
                 try {
                     btn.style.opacity = '0.5';
-                    const res = await fetch(`${API_URL}/posts/${postId}/react`, {
+                    const res = await this.authFetch(`${API_URL}/posts/${postId}/react`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ author: this.user.username, emoji })
+                        body: JSON.stringify({ emoji })
                     });
                     if (!res.ok) throw new Error("Reaction failed.");
                     this.renderFeed(container); // Refresh to grab updated arrays
@@ -520,8 +645,18 @@ class TerminalApp {
     }
 
 
-    renderSearch(container) {
-        const uniqueBrands = [...new Set(MOCK_FIGURES.map(f => f.brand))].sort();
+    async renderSearch(container) {
+        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading target database...</div>`;
+
+        // Fetch ranked figures with submission counts + grades
+        let rankedFigures = MOCK_FIGURES;
+        try {
+            const res = await fetch(`${API_URL}/figures/ranked`);
+            if (res.ok) rankedFigures = await res.json();
+        } catch (e) { /* fallback to MOCK_FIGURES */ }
+
+        let currentSort = sessionStorage.getItem('searchSort') || 'name';
+        const uniqueBrands = [...new Set(rankedFigures.map(f => f.brand))].sort();
 
         container.innerHTML = `
             <div class="search-container animate-mount">
@@ -532,18 +667,25 @@ class TerminalApp {
                     </div>
                     <button class="btn" style="padding: 0.75rem 1.5rem;" onclick="app.currentView='add_target'; app.renderApp();">+ Add New Target</button>
                 </div>
-                
+
                 <div class="search-bar">
                     <input type="text" id="searchInput" placeholder="Search by name, brand, or line (e.g. FT-55, Optimus, XTB)...">
                     <button class="btn" style="width: auto; padding: 0 2rem;" id="searchBtn">SEARCH</button>
                 </div>
-                
-                <div class="search-filters" style="margin-bottom:1.5rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+
+                <div class="search-filters" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
                     <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Brands:</span>
                     <span class="badge brandFilter" data-brand="" style="border-color:var(--accent); color:var(--accent); font-weight:700; cursor:pointer;">ALL</span>
                     ${uniqueBrands.map(b => `<span class="badge brandFilter" data-brand="${b}" style="cursor:pointer;">${b}</span>`).join('')}
                 </div>
-                
+
+                <div style="margin-bottom:1.5rem; display:flex; gap:0.5rem; align-items:center;">
+                    <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Sort:</span>
+                    <span class="badge sortBtn ${currentSort === 'name' ? 'active' : ''}" data-sort="name" style="${currentSort === 'name' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Name</span>
+                    <span class="badge sortBtn ${currentSort === 'grade' ? 'active' : ''}" data-sort="grade" style="${currentSort === 'grade' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Grade</span>
+                    <span class="badge sortBtn ${currentSort === 'submissions' ? 'active' : ''}" data-sort="submissions" style="${currentSort === 'submissions' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Most Reviewed</span>
+                </div>
+
                 <div id="searchResults" class="grid-2"></div>
             </div>
         `;
@@ -558,12 +700,21 @@ class TerminalApp {
             let query = document.getElementById('searchInput').value.toLowerCase().trim();
             const expanded = brandAliases[query];
 
-            const results = MOCK_FIGURES.filter(f =>
+            let results = rankedFigures.filter(f =>
                 f.name.toLowerCase().includes(query) ||
                 f.brand.toLowerCase().includes(query) ||
                 f.line.toLowerCase().includes(query) ||
                 (expanded && f.brand.toLowerCase().includes(expanded))
             );
+
+            // Apply sort
+            if (currentSort === 'grade') {
+                results.sort((a, b) => (parseFloat(b.avgGrade) || 0) - (parseFloat(a.avgGrade) || 0));
+            } else if (currentSort === 'submissions') {
+                results.sort((a, b) => (b.submissions || 0) - (a.submissions || 0));
+            } else {
+                results.sort((a, b) => a.name.localeCompare(b.name));
+            }
 
             const resultsHTML = results.map((f, index) => `
                 <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s;" onclick="app.selectTarget(${f.id})">
@@ -571,8 +722,12 @@ class TerminalApp {
                         <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${f.brand} &bull; ${f.line}</div>
                         <span class="tier-badge ${f.classTie.toLowerCase()}">${f.classTie}</span>
                     </div>
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.25rem;">${f.name}</h3>
-                    <div style="display:flex; justify-content:flex-end; align-items:center; border-top:1px solid var(--border-light); padding-top:1rem;">
+                    <h3 style="margin-bottom: 1rem; font-size: 1.25rem;">${f.name}</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-light); padding-top:1rem;">
+                        <div style="display:flex; gap:1rem; font-size:0.85rem; color:var(--text-muted);">
+                            ${f.submissions > 0 ? `<span>${f.submissions} report${f.submissions !== 1 ? 's' : ''}</span>` : '<span>No reports</span>'}
+                            ${f.avgGrade ? `<span style="color:var(--accent); font-weight:700;">${f.avgGrade}</span>` : ''}
+                        </div>
                         <span style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em;">Assess Target &rarr;</span>
                     </div>
                 </div>
@@ -597,6 +752,22 @@ class TerminalApp {
                 tab.style.color = 'var(--accent)';
                 tab.style.fontWeight = '700';
                 document.getElementById('searchInput').value = tab.dataset.brand;
+                doSearch();
+            });
+        });
+
+        document.querySelectorAll('.sortBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.sortBtn').forEach(b => {
+                    b.style.borderColor = 'var(--border)';
+                    b.style.color = 'var(--text-secondary)';
+                    b.style.fontWeight = '400';
+                });
+                btn.style.borderColor = 'var(--accent)';
+                btn.style.color = 'var(--accent)';
+                btn.style.fontWeight = '700';
+                currentSort = btn.dataset.sort;
+                sessionStorage.setItem('searchSort', currentSort);
                 doSearch();
             });
         });
@@ -672,9 +843,8 @@ class TerminalApp {
         const data = Object.fromEntries(formData.entries());
 
         try {
-            const req = await fetch(`${API_URL}/figures`, {
+            const req = await this.authFetch(`${API_URL}/figures`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             if (req.ok) {
@@ -781,11 +951,22 @@ class TerminalApp {
 
         container.innerHTML = `
             <div style="max-width: 900px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
-                <div style="display:flex; align-items:center; gap:1rem; margin-bottom: 2rem;">
-                    <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();">&larr; Back to Search</button>
-                    <div>
-                        <h2 style="margin:0; font-size:2rem;">Market Pulse Analysis</h2>
-                        <div style="color:var(--text-secondary); font-size:0.95rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">Target: ${this.currentTarget.brand} ${this.currentTarget.name}</div>
+                <div style="margin-bottom: 2rem;">
+                    <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();" style="margin-bottom:1.5rem;">&larr; Back to Search</button>
+                    <div class="card" style="display:flex; align-items:center; gap:1.5rem;">
+                        <div style="flex:1;">
+                            <h2 style="margin:0 0 0.5rem; font-size:1.75rem;">${this.currentTarget.name}</h2>
+                            <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                                <span style="color:var(--text-secondary); font-size:0.9rem; font-weight:600;">${this.currentTarget.brand}</span>
+                                <span style="color:var(--text-muted);">&bull;</span>
+                                <span style="color:var(--text-muted); font-size:0.85rem;">${this.currentTarget.line || ''}</span>
+                                <span class="tier-badge ${(this.currentTarget.classTie || '').toLowerCase()}">${this.currentTarget.classTie}</span>
+                            </div>
+                        </div>
+                        <div style="text-align:center; padding-left:1.5rem; border-left:1px solid var(--border-light);">
+                            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">Reports</div>
+                            <div style="font-size:1.5rem; font-weight:900; color:var(--accent);">${figureSubs.length}</div>
+                        </div>
                     </div>
                 </div>
 
@@ -828,11 +1009,33 @@ class TerminalApp {
                     <div style="height: 250px; width: 100%;">
                         <canvas id="projectionsChart"></canvas>
                     </div>
-                    <div id="imageGallery" style="margin-top:2rem; display:flex; justify-content:center; flex-wrap:wrap; gap:1rem; padding-bottom:1rem;"></div>
+                    <h3 style="margin-top:2rem; font-family:var(--font-heading); font-size:1rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">📸 Field Evidence Gallery</h3>
+                    <div id="imageGallery" style="margin-top:0.75rem; display:flex; justify-content:center; flex-wrap:wrap; gap:1.5rem; padding-bottom:1rem;"></div>
                 </div>
                 ` : ''}
 
-                <div style="text-align: center; border-top: 1px solid var(--border-light); padding-top: 3rem;">
+                ${figureSubs.length > 0 ? `
+                <div style="margin-top:2.5rem; padding-top:2rem; border-top:1px solid var(--border-light);">
+                    <h3 style="margin-bottom:1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">📋 Recent Intel Reports</h3>
+                    <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                        ${figureSubs.slice(0, 10).map(s => {
+                            const grade = ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1);
+                            const date = new Date(s.date).toLocaleDateString();
+                            return `
+                                <div class="card" style="padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
+                                    <div style="display:flex; align-items:center; gap:1rem;">
+                                        <span class="user-link" onclick="app.viewUserProfile('${s.author.replace(/'/g, "\\'")}')" style="font-weight:700;">${s.author}</span>
+                                        <span style="color:var(--text-muted); font-size:0.8rem;">${date}</span>
+                                    </div>
+                                    <div style="font-weight:800; font-size:1.1rem; color:${parseFloat(grade) >= 70 ? 'var(--success)' : parseFloat(grade) >= 50 ? '#fbbf24' : 'var(--danger)'};">${grade}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                <div style="text-align: center; border-top: 1px solid var(--border-light); padding-top: 3rem; margin-top:2rem;">
                     <h3 style="margin-bottom: 1rem;">Contribute Intelligence</h3>
                     <p style="color:var(--text-secondary); margin-bottom: 2rem;">Help stabilize the market pulse by adding your in-hand assessment.</p>
                     <button class="btn" style="max-width: 300px;" onclick="app.currentView='submission'; app.renderApp();">Execute Trade Scan</button>
@@ -988,7 +1191,14 @@ class TerminalApp {
                 let galleryHtml = '';
                 sortedSubs.forEach(s => {
                     if (s.data && s.data.imagePath) {
-                        galleryHtml += `<img src="${s.data.imagePath}" style="width:auto; height:180px; object-fit:contain; background:var(--bg-panel); border-radius:8px; border:1px solid var(--border); box-shadow: 0 4px 6px var(--accent-glow);" title="${s.author}'s Evidence">`;
+                        const grade = s.mtsTotal ? ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1) : '—';
+                        galleryHtml += `
+                            <div style="display:flex; flex-direction:column; align-items:center; gap:0.4rem;">
+                                <img src="${s.data.imagePath}" style="width:auto; height:200px; object-fit:contain; background:var(--bg-panel); border-radius:8px; border:1px solid var(--border); box-shadow: 0 4px 6px var(--accent-glow); cursor:pointer;" title="${s.author}'s Evidence" onclick="this.style.maxHeight = this.style.maxHeight === 'none' ? '200px' : 'none'; this.style.height = this.style.height === 'auto' ? '200px' : 'auto';">
+                                <span style="font-size:0.75rem; color:var(--text-muted);">
+                                    by <span class="user-link" onclick="app.viewUserProfile('${s.author}')">${s.author}</span> · Grade: <span style="color:var(--accent); font-weight:600;">${grade}</span>
+                                </span>
+                            </div>`;
                     }
                 });
                 if (galleryHtml) {
@@ -1252,7 +1462,6 @@ class TerminalApp {
         formPayload.append('targetName', this.currentTarget.name);
         formPayload.append('targetTier', this.currentTarget.classTie);
         formPayload.append('date', new Date().toISOString());
-        formPayload.append('author', this.user.username);
         formPayload.append('mtsTotal', mtsTotal.toString());
         formPayload.append('approvalScore', approvalScore.toString());
 
@@ -1265,7 +1474,7 @@ class TerminalApp {
         }
 
         try {
-            const req = await fetch(`${API_URL}/submissions`, {
+            const req = await this.authFetch(`${API_URL}/submissions`, {
                 method: 'POST',
                 body: formPayload
             });
@@ -1395,7 +1604,7 @@ class TerminalApp {
                 return `
                     <tr>
                         <td style="text-align: center; vertical-align: middle;">${rankBadge}</td>
-                        <td style="font-weight: 800; font-size: 1.1rem; color: ${this.user.username === authorName ? 'var(--accent)' : 'var(--text-primary)'};">${authorName} ${this.user.username === authorName ? '<span style="font-weight:400; font-size:0.75rem; color:var(--text-muted);">(You)</span>' : ''}</td>
+                        <td style="font-weight: 800; font-size: 1.1rem; color: ${this.user.username === authorName ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="app.viewUserProfile('${authorName.replace(/'/g, "\\'")}')">${authorName} ${this.user.username === authorName ? '<span style="font-weight:400; font-size:0.75rem; color:var(--text-muted);">(You)</span>' : ''}</td>
                         <td><span style="font-weight: 800;">${count}</span> <span style="font-size: 0.8rem; color: var(--text-secondary);">logs</span></td>
                         <td><span class="badge" style="background:transparent; border-color:${titleColor}; color:${titleColor};">${title}</span></td>
                     </tr>
@@ -1423,8 +1632,9 @@ class TerminalApp {
                     <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Operative Settings</h2>
                     <p style="color:var(--text-secondary); font-size:1.1rem;">Manage your active identity credentials.</p>
                 </div>
-                
-                <div class="card" style="padding: 2.5rem;">
+
+                <div class="card" style="padding: 2.5rem; margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--text-secondary); margin-bottom:1.5rem;">🪪 Identity Credentials</h3>
                     <form id="profileForm">
                         <div class="form-group" style="margin-bottom:1.5rem;">
                             <label class="form-label">Profile Avatar</label>
@@ -1437,32 +1647,125 @@ class TerminalApp {
                             <label class="form-label">Active Username</label>
                             <input type="text" id="profUsername" value="${this.user.username}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="margin-bottom: 2rem;">
                             <label class="form-label">Secure Email Address</label>
                             <input type="email" id="profEmail" value="${this.user.email || ''}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 2rem;">
-                            <label class="form-label">New Passcode (Leave blank to keep current)</label>
-                            <input type="password" id="profPassword" placeholder="••••••••" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
                         <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem;">Encrypt & Update Profile</button>
                     </form>
                 </div>
+
+                <div class="card" style="padding: 2.5rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--text-secondary); margin-bottom:1.5rem;">🔐 Change Passcode</h3>
+                    <form id="changePasswordForm">
+                        <div class="form-group">
+                            <label class="form-label">Current Passcode</label>
+                            <input type="password" id="cpOldPassword" required placeholder="Enter current passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">New Passcode</label>
+                            <input type="password" id="cpNewPassword" required placeholder="Enter new passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 2rem;">
+                            <label class="form-label">Confirm New Passcode</label>
+                            <input type="password" id="cpConfirmPassword" required placeholder="Confirm new passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                        </div>
+                        <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary);">Update Passcode</button>
+                    </form>
+                </div>
+
+                <div class="card" style="padding: 2.5rem; margin-top:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--text-secondary); margin-bottom:0.5rem;">Notification Settings</h3>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:2rem;">Control which notifications you receive and how they're delivered.</p>
+                    <div id="notifPrefsLoading" style="text-align:center; color:var(--text-muted); padding:1rem;">Loading preferences...</div>
+                    <div id="notifPrefsGrid" style="display:none;">
+                        <!-- Column Headers -->
+                        <div style="display:flex; justify-content:flex-end; gap:0; margin-bottom:0.75rem; padding-right:0.25rem;">
+                            <span style="width:64px; text-align:center; font-size:0.8rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Email</span>
+                            <span style="width:64px; text-align:center; font-size:0.8rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">In-App</span>
+                        </div>
+
+                        <!-- Row: Reply to broadcast -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm); margin-bottom:0.5rem;">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when someone replies to my broadcast</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="comment_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="comment_inapp">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Row: Reaction to post -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm); margin-bottom:0.5rem;">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when someone reacts to my post</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="reaction_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="reaction_inapp">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Row: Co-reviewer -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm); margin-bottom:0.5rem;">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when another analyst reviews the same figure</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="co_reviewer_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="co_reviewer_inapp">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Row: New figure -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm); margin-bottom:0.5rem;">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when a new figure is added to the catalog</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="new_figure_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="new_figure_inapp">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Row: HQ Updates -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me of important updates from Data Toyz HQ</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="hq_updates_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="hq_updates_inapp">
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="notifPrefsSaved" style="display:none; text-align:center; color:var(--success); font-size:0.85rem; margin-top:0.75rem;">Preferences saved.</div>
+                </div>
             </div>
         `;
 
+        // Profile update handler
         document.getElementById('profileForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('profUsername').value.trim();
             const email = document.getElementById('profEmail').value.trim();
-            const password = document.getElementById('profPassword').value;
             const avatarFile = document.getElementById('profAvatar').files[0];
 
             const formData = new FormData();
             formData.append('username', username);
             formData.append('email', email);
             formData.append('oldUsername', this.user.username);
-            if (password) formData.append('password', password);
             if (avatarFile) formData.append('avatar', avatarFile);
 
             try {
@@ -1470,7 +1773,7 @@ class TerminalApp {
                 btn.disabled = true;
                 btn.innerText = "Encrypting...";
 
-                const res = await fetch(`${API_URL}/users/${this.user.id}`, {
+                const res = await this.authFetch(`${API_URL}/users/${this.user.id}`, {
                     method: 'PUT',
                     body: formData
                 });
@@ -1478,26 +1781,471 @@ class TerminalApp {
                 if (!res.ok) throw new Error(data.error || 'Failed to update profile.');
 
                 alert(data.message);
-                this.user = data;
-                localStorage.setItem('terminal_user', JSON.stringify(this.user));
+                if (data.token) {
+                    this.token = data.token;
+                    localStorage.setItem('terminal_token', data.token);
+                }
+                this.user = { id: data.id, username: data.username, email: data.email, avatar: data.avatar, role: data.role };
                 this.init(); // Refresh navbar
             } catch (err) {
                 alert(err.message);
             }
         });
+
+        // Change passcode handler
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const oldPassword = document.getElementById('cpOldPassword').value;
+            const newPassword = document.getElementById('cpNewPassword').value;
+            const confirmPassword = document.getElementById('cpConfirmPassword').value;
+
+            if (newPassword !== confirmPassword) { alert('New passcodes do not match.'); return; }
+            if (newPassword.length < 4) { alert('New passcode must be at least 4 characters.'); return; }
+
+            try {
+                const btn = e.target.querySelector('button');
+                btn.disabled = true;
+                btn.innerText = "Updating...";
+
+                const res = await this.authFetch(`${API_URL}/auth/change-password`, {
+                    method: 'POST',
+                    body: JSON.stringify({ oldPassword, newPassword })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to change passcode.');
+
+                alert(data.message || 'Passcode updated successfully.');
+                document.getElementById('cpOldPassword').value = '';
+                document.getElementById('cpNewPassword').value = '';
+                document.getElementById('cpConfirmPassword').value = '';
+                btn.disabled = false;
+                btn.innerText = "Update Passcode";
+            } catch (err) {
+                alert(err.message);
+                const btn = e.target.querySelector('button');
+                btn.disabled = false;
+                btn.innerText = "Update Passcode";
+            }
+        });
+
+        // Load notification preferences
+        this.loadNotifPrefs();
+    }
+
+    async loadNotifPrefs() {
+        try {
+            const res = await this.authFetch(`${API_URL}/notifications/preferences`);
+            const prefs = await res.json();
+            if (!res.ok) throw new Error(prefs.error);
+
+            const grid = document.getElementById('notifPrefsGrid');
+            const loading = document.getElementById('notifPrefsLoading');
+            if (!grid || !loading) return;
+
+            loading.style.display = 'none';
+            grid.style.display = 'block';
+
+            document.querySelectorAll('.notifPref').forEach(cb => {
+                const key = cb.dataset.key;
+                cb.checked = prefs[key] === true;
+                cb.addEventListener('change', () => this.saveNotifPref(key, cb.checked));
+            });
+        } catch (e) {
+            const loading = document.getElementById('notifPrefsLoading');
+            if (loading) loading.textContent = 'Failed to load preferences.';
+        }
+    }
+
+    async saveNotifPref(key, value) {
+        try {
+            await this.authFetch(`${API_URL}/notifications/preferences`, {
+                method: 'PUT',
+                body: JSON.stringify({ [key]: value })
+            });
+            const saved = document.getElementById('notifPrefsSaved');
+            if (saved) {
+                saved.style.display = 'block';
+                setTimeout(() => { saved.style.display = 'none'; }, 2000);
+            }
+        } catch (e) {
+            console.error('Failed to save preference:', e);
+        }
+    }
+
+    // --- DOCUMENTATION PAGE --- //
+    renderDocs(container) {
+        const sections = [
+            { id: 'overview', title: 'Platform Overview' },
+            { id: 'navigation', title: 'Navigation Guide' },
+            { id: 'comms-feed', title: 'Comms Feed' },
+            { id: 'target-search', title: 'Target Search & Catalog' },
+            { id: 'trade-scan', title: 'Trade Scan (Submissions)' },
+            { id: 'grading', title: 'Grading System' },
+            { id: 'market-pulse', title: 'Market Pulse Dashboard' },
+            { id: 'intel-history', title: 'My Intel History' },
+            { id: 'leaderboards', title: 'Global Leaderboard & Ranks' },
+            { id: 'profile', title: 'Profile Settings' },
+            { id: 'notifications', title: 'Notifications' },
+            { id: 'admin', title: 'Admin Panel' },
+            { id: 'security', title: 'Security & Authentication' },
+            { id: 'glossary', title: 'Glossary' }
+        ];
+
+        container.innerHTML = `
+            <div style="max-width:860px; margin:0 auto; padding-bottom:4rem;">
+                <div style="margin-bottom:2.5rem; text-align:center;">
+                    <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Terminal Documentation</h2>
+                    <p style="color:var(--text-secondary); font-size:1.1rem;">Comprehensive field manual for all Data Toyz Terminal operations.</p>
+                </div>
+
+                <!-- TABLE OF CONTENTS -->
+                <div class="card" style="margin-bottom:2.5rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">Table of Contents</h3>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem 2rem;">
+                        ${sections.map((s, i) => `
+                            <a href="#doc-${s.id}" onclick="event.preventDefault(); document.getElementById('doc-${s.id}').scrollIntoView({behavior:'smooth'});" style="color:var(--accent); text-decoration:none; font-size:0.95rem; padding:0.3rem 0; display:block;">
+                                <span style="color:var(--text-muted); margin-right:0.5rem;">${(i + 1).toString().padStart(2, '0')}.</span> ${s.title}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- 01. PLATFORM OVERVIEW -->
+                <div id="doc-overview" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">01. Platform Overview</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        <strong>Data Toyz Terminal</strong> is a community-driven intelligence platform for Transformers action figure collectors. The platform uses a spy/intelligence agency theme where collectors are <strong>operatives</strong>, figures are <strong>targets</strong>, and reviews are <strong>intel reports</strong>.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The core mission: evaluate, rate, and track the collectible market for Transformers figures across all brands and product lines. Operatives submit detailed intelligence reports grading each figure on market sentiment and physical quality, building a comprehensive database of community-driven reviews.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8;">
+                        <strong>Supported Brands:</strong> Hasbro, Takara Tomy, Fans Toys, X-Transbots, and other 3rd party manufacturers.<br>
+                        <strong>Product Lines:</strong> Legacy Evolution, Studio Series, Missing Link, Masterpiece, 3rd Party, and more.<br>
+                        <strong>Class Tiers:</strong> Deluxe, Voyager, Leader, Commander, Masterpiece.
+                    </p>
+                </div>
+
+                <!-- 02. NAVIGATION GUIDE -->
+                <div id="doc-navigation" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">02. Navigation Guide</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">The left sidebar contains all primary navigation tabs:</p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Tab</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Comms Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Social timeline for posting updates, comments, and reactions</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Dashboard with market statistics, brand indexes, and top-rated figures</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target Search</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">My Intel History</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">View all your past intel report submissions</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Global Leaderboard</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Top operatives ranked by number of submissions</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Profile Settings</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Update your username, email, avatar, and passcode</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Documentation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">This page &mdash; full platform reference</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Admin Panel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Admin-only: manage users, figures, and view analytics</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The theme toggle at the bottom switches between Dark Mode and Light Mode. Your current view is preserved across page reloads.</p>
+                </div>
+
+                <!-- 03. COMMS FEED -->
+                <div id="doc-comms-feed" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">03. Comms Feed</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Comms Feed is the social hub of the terminal. Operatives can broadcast messages to the entire community, attach images, and engage with each other.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Features:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Post Broadcasts</strong> &mdash; Share text updates with optional image attachments</li>
+                        <li><strong>Sentiment Tags</strong> &mdash; Each post is tagged with a sentiment: Bullish (positive), Bearish (negative), or Neutral</li>
+                        <li><strong>Comments</strong> &mdash; Reply to any broadcast to start a discussion thread</li>
+                        <li><strong>Emoji Reactions</strong> &mdash; React to posts with a single emoji toggle per post (one reaction per user per post)</li>
+                        <li><strong>User Profiles</strong> &mdash; Click any username to view their operative dossier</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
+                </div>
+
+                <!-- 04. TARGET SEARCH -->
+                <div id="doc-target-search" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. Target Search & Catalog</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Target Search page is the central figure catalog. Every Transformers figure in the database is listed here with real-time search and filtering.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>How it works:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Search</strong> &mdash; Type to instantly filter by figure name, brand, class tier, or product line</li>
+                        <li><strong>Class Tier Badges</strong> &mdash; Color-coded badges show the figure's class (Deluxe, Voyager, Leader, Commander, Masterpiece)</li>
+                        <li><strong>Select a Target</strong> &mdash; Click any figure to view its full intel page with all submissions, charts, and gallery</li>
+                        <li><strong>Add New Target</strong> &mdash; Any authenticated operative can add a new figure to the catalog</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8;">
+                        <strong>Figure Data:</strong> Each target has a name, brand (Hasbro, Takara Tomy, etc.), class tier, and product line. Figures can also display a ranked list sorted by average community grade.
+                    </p>
+                </div>
+
+                <!-- 05. TRADE SCAN -->
+                <div id="doc-trade-scan" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Trade Scan (Submissions)</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Trade Scan is the core evaluation form. When you select a figure from Target Search, you can "Execute Trade Scan" to submit a detailed intel report grading the figure across multiple dimensions.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>The 7-Section Evaluation Form:</strong></p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">#</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Section</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">What You Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">1</td><td style="padding:0.6rem 1rem; font-weight:600;">Data Toyz Trading Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">5 market sentiment metrics (Community, Buzz, Liquidity, Risk, Appeal) &mdash; each rated 1-10</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">2</td><td style="padding:0.6rem 1rem; font-weight:600;">4-Axis Forecasting</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Predict 6-month market direction: Bullish, Bearish, Neutral, or Volatile</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">3</td><td style="padding:0.6rem 1rem; font-weight:600;">Physical Quality Scales</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">9 physical attributes (Build, Paint, Articulation, Accuracy, Presence, Value, Packaging, Transformation Frustration & Satisfaction) &mdash; each rated 1-10</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">4</td><td style="padding:0.6rem 1rem; font-weight:600;">Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Upload a photo of the figure as field evidence (appears in the gallery)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">5</td><td style="padding:0.6rem 1rem; font-weight:600;">Aftermarket Valuation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Enter the current market price for the figure</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">6</td><td style="padding:0.6rem 1rem; font-weight:600;">Community Recommendation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Yes or No &mdash; do you recommend acquiring this target?</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; color:var(--text-muted);">7</td><td style="padding:0.6rem 1rem; font-weight:600;">Trade Value Star Rating</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Overall 1-5 star rating for the figure</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Each submission is permanently recorded and visible to the entire community. You can retract your own submissions from My Intel History.</p>
+                </div>
+
+                <!-- 06. GRADING SYSTEM -->
+                <div id="doc-grading" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Grading System</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Every intel report generates three scores that combine into an Overall Grade:
+                    </p>
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
+                        <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
+                            <strong style="color:var(--accent);">MTS Total (Market Trading Score)</strong><br>
+                            Sum of 5 market metrics (Community + Buzz + Liquidity + Risk + Appeal).<br>
+                            Each metric is rated 1&ndash;10, so MTS Total ranges from <strong>5 to 50</strong>.
+                        </p>
+                    </div>
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
+                        <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
+                            <strong style="color:var(--accent);">Approval Score</strong><br>
+                            Calculated from the 9 Physical Quality ratings (each 1&ndash;10, max sum = 90).<br>
+                            Formula: <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(sum of 9 ratings / 90) &times; 100</code><br>
+                            Result is a percentage from <strong>0 to 100</strong>.
+                        </p>
+                    </div>
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
+                        <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
+                            <strong style="color:var(--accent);">Overall Grade</strong><br>
+                            The average of MTS Total and Approval Score.<br>
+                            Formula: <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(MTS Total + Approval Score) / 2</code>
+                        </p>
+                    </div>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Grade Color Scale:</strong></p>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                        <span style="padding:0.4rem 1rem; border-radius:4px; font-weight:700; font-size:0.9rem; color:var(--success); border:1px solid var(--success);">70+ = Strong</span>
+                        <span style="padding:0.4rem 1rem; border-radius:4px; font-weight:700; font-size:0.9rem; color:#fbbf24; border:1px solid #fbbf24;">50&ndash;69 = Moderate</span>
+                        <span style="padding:0.4rem 1rem; border-radius:4px; font-weight:700; font-size:0.9rem; color:var(--danger); border:1px solid var(--danger);">Below 50 = Weak</span>
+                    </div>
+                </div>
+
+                <!-- 07. MARKET PULSE -->
+                <div id="doc-market-pulse" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">07. Market Pulse Dashboard</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Market Pulse is a high-level analytics dashboard showing the state of the collectible market across all tracked figures.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Dashboard Sections:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Overview Stats</strong> &mdash; Total targets, total intel reports, average grade, and active operatives</li>
+                        <li><strong>Top Rated Targets</strong> &mdash; Figures ranked by highest average community grade</li>
+                        <li><strong>Intel Headlines</strong> &mdash; The most recent submissions across all figures</li>
+                        <li><strong>Brand Indexes</strong> &mdash; Performance breakdown by brand and product line (avg grade, submission count)</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8;">
+                        When you click a figure from Target Search, you see a <strong>detailed intel page</strong> with: all submissions listed, a grade trend chart over time, a price trend chart, community recommendation votes, and a <strong>Field Evidence Gallery</strong> of uploaded photos.
+                    </p>
+                </div>
+
+                <!-- 08. MY INTEL HISTORY -->
+                <div id="doc-intel-history" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">08. My Intel History</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        View all intel reports you have submitted. Each entry shows the target name, class tier, date, and your grade. You can click any entry to navigate to that figure's full intel page.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8;">
+                        <strong>Retracting Intel:</strong> You can delete your own submissions from this page. Admins can also retract any submission. Deleted submissions are permanently removed.
+                    </p>
+                </div>
+
+                <!-- 09. LEADERBOARDS -->
+                <div id="doc-leaderboards" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">09. Global Leaderboard & Ranks</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Operatives are ranked by total number of intel submissions. The leaderboard shows the top contributors with clickable profiles.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Operative Title Progression:</strong></p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Submissions</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Title</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem;">0 &ndash; 1</td><td style="padding:0.6rem 1rem; font-weight:600; color:var(--text-muted);">Rookie Analyst</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem;">2 &ndash; 4</td><td style="padding:0.6rem 1rem; font-weight:600; color:var(--accent);">Junior Analyst</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem;">5 &ndash; 9</td><td style="padding:0.6rem 1rem; font-weight:600; color:var(--success);">Field Evaluator</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem;">10 &ndash; 14</td><td style="padding:0.6rem 1rem; font-weight:600; color:var(--text-secondary);">Senior Field Evaluator</td></tr>
+                            <tr><td style="padding:0.6rem 1rem;">15+</td><td style="padding:0.6rem 1rem; font-weight:600; color:#a78bfa;">Prime Intel Officer</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 10. PROFILE SETTINGS -->
+                <div id="doc-profile" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">10. Profile Settings</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Manage your operative identity from the Profile Settings page:
+                    </p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem;">
+                        <li><strong>Avatar</strong> &mdash; Upload a profile image (displayed across the platform)</li>
+                        <li><strong>Username</strong> &mdash; Change your operative codename (updates all past submissions automatically)</li>
+                        <li><strong>Email</strong> &mdash; Update your secure email address (used for password reset and email notifications)</li>
+                        <li><strong>Change Passcode</strong> &mdash; Requires your current passcode for verification, then set a new one</li>
+                        <li><strong>Notification Settings</strong> &mdash; Toggle grid to control which notifications you receive via in-app alerts and email (see section 11)</li>
+                    </ul>
+                </div>
+
+                <!-- 11. NOTIFICATIONS -->
+                <div id="doc-notifications" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">11. Notifications</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The notification bell in the top-right corner alerts you to activity on your content. Click a notification to navigate directly to the relevant post or figure. Use "Mark all read" to clear unread badges. Notifications poll for updates every 30 seconds.
+                    </p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Types:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Reply to my broadcast</strong> &mdash; When someone comments on your Comms Feed post</li>
+                        <li><strong>Reaction to my post</strong> &mdash; When someone reacts with an emoji to your broadcast</li>
+                        <li><strong>Co-reviewer on same figure</strong> &mdash; When another operative submits an intel report on a figure you also reviewed</li>
+                        <li><strong>New figure added to catalog</strong> &mdash; When an admin adds a new figure to the database</li>
+                        <li><strong>Important updates from HQ</strong> &mdash; System-wide announcements from Terminal administrators</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Channels:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Each notification type can be delivered through two independent channels:
+                    </p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>In-App</strong> &mdash; Notifications appear in the bell icon dropdown and are stored in the Terminal database. Enabled by default for all types.</li>
+                        <li><strong>Email</strong> &mdash; A styled intelligence briefing is sent to your registered email address. Disabled by default &mdash; opt in from your profile settings.</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Settings:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Manage your preferences from the <strong>Notification Settings</strong> card on your Profile page. A toggle grid lets you independently enable or disable each notification type for each channel. Changes auto-save immediately &mdash; no submit button required. Default preferences are created automatically the first time you visit the settings.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: If you want to be notified by email when new figures are added to the catalog, toggle the "Email" switch for "New figure added to catalog" on your profile page.</p>
+                </div>
+
+                <!-- 12. ADMIN PANEL -->
+                <div id="doc-admin" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">12. Admin Panel</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Admin Panel is only visible to operatives with the <strong>admin</strong> role. It provides full control over the platform:
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Analytics Dashboard:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Total figures, users, submissions, and posts at a glance</li>
+                        <li>Top contributors ranked by submission count</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Management:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Edit figure details (name, brand, class tier, product line)</li>
+                        <li>Delete figures and all associated intel reports</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>User Management:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem;">
+                        <li>Add new users manually</li>
+                        <li>Promote or demote users (Analyst / Admin)</li>
+                        <li>Suspend or reinstate user accounts</li>
+                        <li>Reset a user's passcode (admin backup)</li>
+                        <li>Delete user accounts permanently</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The primary admin account (Prime Dynamixx) is protected and cannot be demoted, suspended, or deleted.</p>
+                </div>
+
+                <!-- 13. SECURITY -->
+                <div id="doc-security" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. Security & Authentication</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The terminal uses industry-standard security practices to protect all operative accounts:
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Authentication:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>JWT Tokens</strong> &mdash; All authenticated actions use signed JSON Web Tokens (7-day expiry)</li>
+                        <li><strong>Password Hashing</strong> &mdash; Passcodes are hashed with bcrypt before storage (never stored in plain text)</li>
+                        <li><strong>Ownership Verification</strong> &mdash; You can only edit your own profile and retract your own submissions</li>
+                        <li><strong>Server-Side Identity</strong> &mdash; Your username is extracted from your token on the server, not trusted from the browser</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Password Reset:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Email Reset</strong> &mdash; Click "Forgot Passcode?" on the login screen, enter your email, and receive a reset link</li>
+                        <li><strong>Reset Link</strong> &mdash; The link contains a secure token that expires after 1 hour</li>
+                        <li><strong>Change Passcode</strong> &mdash; Logged-in operatives can change their passcode from Profile Settings (requires current passcode)</li>
+                        <li><strong>Admin Backup</strong> &mdash; Admins can reset any user's passcode from the Admin Panel</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Suspended accounts cannot log in or perform any actions. Session tokens are automatically invalidated when an account is suspended.</p>
+                </div>
+
+                <!-- 14. GLOSSARY -->
+                <div id="doc-glossary" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Glossary</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Data Toyz Terminal uses intelligence/spy-themed terminology throughout the platform:
+                    </p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Terminal Term</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Meaning</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Operative</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A registered user / community member</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A Transformers action figure in the catalog</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Intel Report</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A figure review / submission (Trade Scan)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Trade Scan</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The evaluation form for grading a figure</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Comms Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The social timeline / news feed</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Broadcast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A post on the Comms Feed</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The analytics dashboard showing market trends</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">MTS (Market Trading Score)</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The market sentiment portion of a grade (5&ndash;50)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Approval Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The physical quality percentage (0&ndash;100)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Passcode</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Your account password</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Class Tier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Figure size class (Deluxe, Voyager, Leader, Commander, Masterpiece)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Field Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Photos uploaded with intel reports</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Dossier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A user's public profile page</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Clearance Level</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">User role (Analyst or Admin)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        `;
     }
 
     // --- ADMIN PANEL --- //
     async renderAdmin(container) {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Loading Admin Panel...</div>`;
 
-        const headers = { 'x-admin-user': this.user.username };
         let analytics = {}, users = [], figures = [];
 
         try {
             const [aRes, uRes, fRes] = await Promise.all([
-                fetch(`${API_URL}/admin/analytics`, { headers }),
-                fetch(`${API_URL}/admin/users`, { headers }),
+                this.authFetch(`${API_URL}/admin/analytics`),
+                this.authFetch(`${API_URL}/admin/users`),
                 fetch(`${API_URL}/figures`)
             ]);
             if (aRes.ok) analytics = await aRes.json();
@@ -1618,6 +2366,7 @@ class TerminalApp {
                                             ${u.username !== 'Prime Dynamixx' ? `
                                                 <button class="roleBtn" data-id="${u.id}" data-role="${u.role}" style="background:none; border:1px solid ${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isAdmin ? 'Demote' : 'Promote'}</button>
                                                 <button class="suspendBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid ${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isSuspended ? '✅ Reinstate' : '⚠️ Suspend'}</button>
+                                                <button class="resetPwBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid var(--accent); color:var(--accent); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">🔑 Reset PW</button>
                                                 <button class="delUserBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
                                             ` : '<span style="font-size:0.8rem; color:var(--text-muted);">Protected</span>'}
                                         </td>
@@ -1630,8 +2379,7 @@ class TerminalApp {
             </div>
         `;
 
-        // Wire up admin action handlers
-        const adminHeaders = { 'x-admin-user': this.user.username, 'Content-Type': 'application/json' };
+        // Wire up admin action handlers (all use JWT auth via authFetch)
 
         // Add User
         document.getElementById('addAdminUserBtn').addEventListener('click', async () => {
@@ -1639,16 +2387,17 @@ class TerminalApp {
             if (!username) return;
             const password = prompt("Enter new passcode:");
             if (!password) return;
-            // Fake email generation for manual admin adds
             const email = username.toLowerCase().replace(/[^a-z0-9]/g, '') + '@datatoyz.net';
             const role = confirm("Should this user be an Admin? (OK for Admin, Cancel for Analyst)") ? 'admin' : 'analyst';
 
-            const res = await fetch(`${API_URL}/admin/users`, {
-                method: 'POST', headers: adminHeaders,
-                body: JSON.stringify({ username, email, password, role })
-            });
-            if (res.ok) { this.renderAdmin(container); }
-            else { const err = await res.json(); alert(err.error); }
+            try {
+                const res = await this.authFetch(`${API_URL}/admin/users`, {
+                    method: 'POST',
+                    body: JSON.stringify({ username, email, password, role })
+                });
+                if (res.ok) { this.renderAdmin(container); }
+                else { const err = await res.json(); alert(err.error); }
+            } catch (e) { console.error(e); }
         });
 
         // Toggle User Role
@@ -1656,9 +2405,11 @@ class TerminalApp {
             btn.addEventListener('click', async () => {
                 const isPromoting = btn.dataset.role !== 'admin';
                 if (!confirm(`Are you sure you want to ${isPromoting ? 'PROMOTE' : 'DEMOTE'} this user?`)) return;
-                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}/role`, { method: 'PUT', headers: adminHeaders });
-                if (res.ok) { this.renderAdmin(container); }
-                else { const err = await res.json(); alert(err.error); }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/role`, { method: 'PUT' });
+                    if (res.ok) { this.renderAdmin(container); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
             });
         });
 
@@ -1666,20 +2417,22 @@ class TerminalApp {
         document.querySelectorAll('.delFigBtn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 if (!confirm(`Delete "${btn.dataset.name}" and ALL associated intel? This cannot be undone.`)) return;
-                const res = await fetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE', headers: adminHeaders });
-                if (res.ok) {
-                    MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
-                    this.renderAdmin(container);
-                } else {
-                    const err = await res.json();
-                    alert(err.error);
-                }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
+                        this.renderAdmin(container);
+                    } else {
+                        const err = await res.json();
+                        alert(err.error);
+                    }
+                } catch (e) { console.error(e); }
             });
         });
 
         // Edit figure
         document.querySelectorAll('.editFigBtn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const newName = prompt('Figure Name:', btn.dataset.name);
                 if (!newName) return;
                 const newBrand = prompt('Brand:', btn.dataset.brand);
@@ -1689,25 +2442,28 @@ class TerminalApp {
                 const newLine = prompt('Product Line:', btn.dataset.line);
                 if (!newLine) return;
 
-                fetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
-                    method: 'PUT', headers: adminHeaders,
-                    body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine })
-                }).then(res => {
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine })
+                    });
                     if (res.ok) {
                         const fig = MOCK_FIGURES.find(f => f.id == btn.dataset.id);
                         if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; }
                         this.renderAdmin(container);
                     }
-                });
+                } catch (e) { console.error(e); }
             });
         });
 
         // Suspend user
         document.querySelectorAll('.suspendBtn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}/suspend`, { method: 'PUT', headers: adminHeaders });
-                if (res.ok) { this.renderAdmin(container); }
-                else { const err = await res.json(); alert(err.error); }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/suspend`, { method: 'PUT' });
+                    if (res.ok) { this.renderAdmin(container); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
             });
         });
 
@@ -1715,9 +2471,27 @@ class TerminalApp {
         document.querySelectorAll('.delUserBtn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 if (!confirm(`Permanently delete user "${btn.dataset.name}"? This cannot be undone.`)) return;
-                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}`, { method: 'DELETE', headers: adminHeaders });
-                if (res.ok) { this.renderAdmin(container); }
-                else { const err = await res.json(); alert(err.error); }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}`, { method: 'DELETE' });
+                    if (res.ok) { this.renderAdmin(container); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
+            });
+        });
+
+        // Admin Reset Password
+        document.querySelectorAll('.resetPwBtn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const newPw = prompt(`Enter new passcode for "${btn.dataset.name}":`);
+                if (!newPw || newPw.length < 4) { if (newPw !== null) alert('Passcode must be at least 4 characters.'); return; }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/reset-password`, {
+                        method: 'POST',
+                        body: JSON.stringify({ newPassword: newPw })
+                    });
+                    if (res.ok) { alert(`Passcode reset for "${btn.dataset.name}".`); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
             });
         });
     }
@@ -1725,18 +2499,310 @@ class TerminalApp {
     async deleteSubmission(id) {
         if (!confirm("Are you sure you want to retract this intel from the Market Pulse?")) return;
         try {
-            const res = await fetch(`${API_URL}/submissions/${id}`, { method: 'DELETE' });
+            const res = await this.authFetch(`${API_URL}/submissions/${id}`, { method: 'DELETE' });
             if (res.ok) { this.renderApp(); }
         } catch (e) {
             console.error(e);
         }
     }
 
+    // --- MARKET PULSE DASHBOARD --- //
+
+    async renderMarketPulse(container) {
+        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading Market Pulse...</div>`;
+
+        try {
+            const [overviewRes, indexesRes, headlinesRes, topRatedRes] = await Promise.all([
+                fetch(`${API_URL}/stats/overview`),
+                fetch(`${API_URL}/stats/indexes`),
+                fetch(`${API_URL}/stats/headlines`),
+                fetch(`${API_URL}/figures/top-rated`)
+            ]);
+            const overview = await overviewRes.json();
+            const indexes = await indexesRes.json();
+            const headlines = await headlinesRes.json();
+            const topRated = await topRatedRes.json();
+
+            container.innerHTML = `
+                <div style="max-width:1000px; margin:0 auto;">
+                    <h1 style="font-size:2.5rem; font-weight:900; text-transform:uppercase; letter-spacing:-0.02em; margin-bottom:0.5rem;">Market Pulse</h1>
+                    <p style="color:var(--text-secondary); font-size:1.1rem; margin-bottom:2.5rem;">Global intelligence overview and market activity.</p>
+
+                    <!-- Overview Stats -->
+                    <div class="grid-4" style="margin-bottom:2.5rem;">
+                        <div class="stat-box">
+                            <div class="stat-value">${overview.totalIntel}</div>
+                            <div class="stat-label">Intel Reports</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${overview.uniqueAnalysts}</div>
+                            <div class="stat-label">Active Analysts</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${overview.avgGrade}</div>
+                            <div class="stat-label">Avg Grade</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${overview.totalTargets}</div>
+                            <div class="stat-label">Cataloged Targets</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="margin-bottom:2.5rem;">
+                        <!-- Top Rated Figures -->
+                        <div class="card" style="padding:0; overflow:hidden;">
+                            <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0;">🏆 Top Rated Targets</h3>
+                            </div>
+                            <div style="max-height:400px; overflow-y:auto;">
+                                ${topRated.length > 0 ? topRated.map((f, i) => `
+                                    <div class="pulse-headline-item" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${f.id})">
+                                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                                            <span style="color:var(--text-muted); font-weight:700; font-size:0.85rem; width:24px;">#${i + 1}</span>
+                                            <div>
+                                                <div style="font-weight:600; font-size:0.9rem;">${f.name}</div>
+                                                <div style="font-size:0.75rem; color:var(--text-muted);">${f.brand} · ${f.submissions} report${f.submissions !== 1 ? 's' : ''}</div>
+                                            </div>
+                                        </div>
+                                        <div style="font-weight:800; color:var(--accent); font-size:1.1rem;">${f.avgGrade}</div>
+                                    </div>
+                                `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No rated targets yet.</div>'}
+                            </div>
+                        </div>
+
+                        <!-- Intel Headlines -->
+                        <div class="card" style="padding:0; overflow:hidden;">
+                            <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0;">📡 Intel Headlines</h3>
+                            </div>
+                            <div style="max-height:400px; overflow-y:auto;">
+                                ${headlines.length > 0 ? headlines.map(h => `
+                                    <div class="pulse-headline-item">
+                                        <div style="font-size:0.9rem; margin-bottom:0.25rem;">${h.headline}</div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted);">${new Date(h.date).toLocaleDateString()} · ${h.brand}</div>
+                                    </div>
+                                `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No intel yet.</div>'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Brand/Line Indexes -->
+                    <div class="card" style="padding:0; overflow:hidden;">
+                        <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                            <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0;">📊 Brand / Line Performance Index</h3>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Brand</th>
+                                        <th>Line</th>
+                                        <th>Targets</th>
+                                        <th>Reports</th>
+                                        <th>Avg Grade</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${indexes.map(idx => `
+                                        <tr>
+                                            <td style="font-weight:600;">${idx.brand}</td>
+                                            <td style="color:var(--text-secondary);">${idx.line}</td>
+                                            <td>${idx.targets}</td>
+                                            <td>${idx.submissions}</td>
+                                            <td style="font-weight:700; color:${idx.avgGrade ? (parseFloat(idx.avgGrade) >= 70 ? 'var(--success)' : parseFloat(idx.avgGrade) >= 50 ? '#fbbf24' : 'var(--danger)') : 'var(--text-muted)'};">${idx.avgGrade || '—'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load market data.</div>`;
+            console.error(e);
+        }
+    }
+
+    // --- USER PROFILE VIEW --- //
+
+    viewUserProfile(username) {
+        sessionStorage.setItem('profileUser', username);
+        this.currentView = 'user_profile';
+        this.renderApp();
+    }
+
+    async renderUserProfile(container) {
+        const username = sessionStorage.getItem('profileUser');
+        if (!username) { this.currentView = 'feed'; this.renderApp(); return; }
+
+        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading operative dossier...</div>`;
+
+        try {
+            const res = await fetch(`${API_URL}/users/${encodeURIComponent(username)}/profile`);
+            if (!res.ok) throw new Error('Profile not found');
+            const profile = await res.json();
+
+            const titleColors = {
+                'Prime Intel Officer': '#a78bfa',
+                'Senior Field Evaluator': 'var(--text-secondary)',
+                'Field Evaluator': 'var(--success)',
+                'Junior Analyst': 'var(--accent)',
+                'Rookie Analyst': 'var(--text-muted)'
+            };
+
+            container.innerHTML = `
+                <div style="max-width:800px; margin:0 auto;">
+                    <button onclick="history.back(); app.currentView='${this.currentView === 'user_profile' ? 'leaderboards' : 'feed'}'; app.renderApp();" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; margin-bottom:2rem; padding:0;">&larr; Back</button>
+
+                    <div class="card" style="display:flex; align-items:center; gap:2rem; margin-bottom:2rem;">
+                        ${profile.avatar ? `<img src="${profile.avatar}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:80px; height:80px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${profile.username.charAt(0).toUpperCase()}</div>`}
+                        <div style="flex:1;">
+                            <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${profile.username}</h2>
+                            <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                                <span style="color:${titleColors[profile.title] || 'var(--text-muted)'}; font-weight:700; font-size:0.9rem; border:1px solid; padding:0.2rem 0.6rem; border-radius:4px;">${profile.title}</span>
+                                ${profile.role === 'admin' ? '<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">★ ADMIN</span>' : ''}
+                                <span style="color:var(--text-muted); font-size:0.85rem;">Joined ${new Date(profile.joinDate).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:2rem; font-weight:900; background:var(--gradient-primary); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">${profile.submissionCount}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Reports</div>
+                        </div>
+                    </div>
+
+                    ${profile.recentSubmissions.length > 0 ? `
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">Recent Intel Reports</h3>
+                    <div class="card" style="padding:0; overflow:hidden;">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Date</th><th>Target</th><th>Grade</th></tr>
+                            </thead>
+                            <tbody>
+                                ${profile.recentSubmissions.map(s => {
+                                    const grade = ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1);
+                                    return `
+                                    <tr style="cursor:pointer;" onclick="app.selectTarget(${s.targetId})">
+                                        <td style="color:var(--text-muted);">${new Date(s.date).toLocaleDateString()}</td>
+                                        <td>
+                                            <span class="tier-badge ${(s.targetTier || '').toLowerCase()}" style="font-size:0.65rem; margin-right:0.5rem;">${s.targetTier}</span>
+                                            ${s.targetName}
+                                        </td>
+                                        <td style="font-weight:700; color:${parseFloat(grade) >= 70 ? 'var(--success)' : parseFloat(grade) >= 50 ? '#fbbf24' : 'var(--danger)'};">${grade}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : '<p style="color:var(--text-muted); text-align:center; padding:2rem;">No intel reports yet.</p>'}
+                </div>
+            `;
+        } catch (e) {
+            container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load profile.</div>`;
+            console.error(e);
+        }
+    }
+
+    // --- NOTIFICATION METHODS --- //
+
+    async updateNotifBadge() {
+        try {
+            const res = await this.authFetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}/count`);
+            const data = await res.json();
+            const badge = document.getElementById('notifBadge');
+            if (badge) {
+                if (data.unread > 0) {
+                    badge.textContent = data.unread > 99 ? '99+' : data.unread;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async loadNotifications() {
+        const dropdown = document.getElementById('notifDropdown');
+        if (!dropdown) return;
+        dropdown.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Loading...</div>';
+
+        try {
+            const res = await this.authFetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}`);
+            const notifs = await res.json();
+
+            if (notifs.length === 0) {
+                dropdown.innerHTML = '<div style="padding:2rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">No notifications yet.</div>';
+                return;
+            }
+
+            const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋' };
+
+            dropdown.innerHTML = `
+                <div style="padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em;">Notifications</span>
+                    <button id="markAllRead" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.8rem; font-weight:600;">Mark all read</button>
+                </div>
+                ${notifs.slice(0, 20).map(n => {
+                    const timeAgo = this.timeAgo(n.created_at);
+                    return `
+                    <div class="notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}" data-link-type="${n.link_type}" data-link-id="${n.link_id}">
+                        <span class="notif-icon">${icons[n.type] || '🔔'}</span>
+                        <div>
+                            <div class="notif-text">${n.message}</div>
+                            <div class="notif-time">${timeAgo}</div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            `;
+
+            dropdown.querySelectorAll('.notif-item').forEach(item => {
+                item.addEventListener('click', async () => {
+                    const id = item.dataset.notifId;
+                    const linkType = item.dataset.linkType;
+                    const linkId = item.dataset.linkId;
+                    await this.authFetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
+                    if (linkType === 'post') { this.currentView = 'feed'; this.renderApp(); }
+                    else if (linkType === 'figure') { this.selectTarget(parseInt(linkId)); }
+                    dropdown.style.display = 'none';
+                });
+            });
+
+            const markAllBtn = document.getElementById('markAllRead');
+            if (markAllBtn) {
+                markAllBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await this.authFetch(`${API_URL}/notifications/read-all`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ username: this.user.username })
+                    });
+                    this.updateNotifBadge();
+                    dropdown.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
+                });
+            }
+        } catch (e) {
+            dropdown.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--danger); font-size:0.85rem;">Failed to load.</div>';
+        }
+    }
+
+    timeAgo(dateStr) {
+        const now = new Date();
+        const d = new Date(dateStr);
+        const secs = Math.floor((now - d) / 1000);
+        if (secs < 60) return 'just now';
+        if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+        if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+        if (secs < 604800) return `${Math.floor(secs / 86400)}d ago`;
+        return d.toLocaleDateString();
+    }
+
     logout() {
+        this.token = null;
         this.user = null;
+        localStorage.removeItem('terminal_token');
         localStorage.removeItem('terminal_user');
         sessionStorage.removeItem('terminalView');
         sessionStorage.removeItem('terminalTarget');
+        if (this._notifInterval) clearInterval(this._notifInterval);
         this.renderLogin();
     }
 }
