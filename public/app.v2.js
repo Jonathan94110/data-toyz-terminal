@@ -244,7 +244,7 @@ class TerminalApp {
                         <div class="nav-item ${this.currentView === 'profile' ? 'active' : ''}" data-view="profile">
                             Profile Settings
                         </div>
-                        ${this.user.role === 'admin' ? `
+                        ${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? `
                         <div class="nav-item ${this.currentView === 'admin' ? 'active' : ''}" data-view="admin" style="margin-top:1rem; border-top:1px solid var(--border-light); padding-top:1rem;">
                             ⚙️ Admin Panel
                         </div>
@@ -258,7 +258,7 @@ class TerminalApp {
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${this.user.username.charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${this.user.username}</div>
-                                <div style="font-size:0.75rem; color:${this.user.role === 'admin' ? '#fbbf24' : 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${this.user.role === 'admin' ? '★ Admin' : 'Analyst'}</div>
+                                <div style="font-size:0.75rem; color:${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '#fbbf24' : 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '★ Admin' : 'Analyst'}</div>
                             </div>
                             <button id="logoutBtn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; margin-left:1.5rem; font-size:0.85rem; transition:color 0.2s;">[ Exit ]</button>
                         </div>
@@ -290,7 +290,7 @@ class TerminalApp {
         else if (this.currentView === 'submission') this.renderSubmission(contentArea);
         else if (this.currentView === 'add_target') this.renderAddTarget(contentArea);
         else if (this.currentView === 'profile') this.renderProfile(contentArea);
-        else if (this.currentView === 'admin' && this.user.role === 'admin') this.renderAdmin(contentArea);
+        else if (this.currentView === 'admin' && (this.user.role === 'admin' || this.user.username === 'Prime Dynamixx')) this.renderAdmin(contentArea);
     }
 
     async renderFeed(container) {
