@@ -244,6 +244,11 @@ class TerminalApp {
                         <div class="nav-item ${this.currentView === 'profile' ? 'active' : ''}" data-view="profile">
                             Profile Settings
                         </div>
+                        ${this.user.role === 'admin' ? `
+                        <div class="nav-item ${this.currentView === 'admin' ? 'active' : ''}" data-view="admin" style="margin-top:1rem; border-top:1px solid var(--border-light); padding-top:1rem;">
+                            ⚙️ Admin Panel
+                        </div>
+                        ` : ''}
                     </nav>
                 </aside>
                 
@@ -253,7 +258,7 @@ class TerminalApp {
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${this.user.username.charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${this.user.username}</div>
-                                <div style="font-size:0.75rem; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em;">User</div>
+                                <div style="font-size:0.75rem; color:${this.user.role === 'admin' ? '#fbbf24' : 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${this.user.role === 'admin' ? '★ Admin' : 'Analyst'}</div>
                             </div>
                             <button id="logoutBtn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; margin-left:1.5rem; font-size:0.85rem; transition:color 0.2s;">[ Exit ]</button>
                         </div>
@@ -285,6 +290,7 @@ class TerminalApp {
         else if (this.currentView === 'submission') this.renderSubmission(contentArea);
         else if (this.currentView === 'add_target') this.renderAddTarget(contentArea);
         else if (this.currentView === 'profile') this.renderProfile(contentArea);
+        else if (this.currentView === 'admin' && this.user.role === 'admin') this.renderAdmin(contentArea);
     }
 
     async renderFeed(container) {
@@ -1478,6 +1484,208 @@ class TerminalApp {
             } catch (err) {
                 alert(err.message);
             }
+        });
+    }
+
+    // --- ADMIN PANEL --- //
+    async renderAdmin(container) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Loading Admin Panel...</div>`;
+
+        const headers = { 'x-admin-user': this.user.username };
+        let analytics = {}, users = [], figures = [];
+
+        try {
+            const [aRes, uRes, fRes] = await Promise.all([
+                fetch(`${API_URL}/admin/analytics`, { headers }),
+                fetch(`${API_URL}/admin/users`, { headers }),
+                fetch(`${API_URL}/figures`)
+            ]);
+            if (aRes.ok) analytics = await aRes.json();
+            if (uRes.ok) users = await uRes.json();
+            if (fRes.ok) figures = await fRes.json();
+        } catch (e) {
+            container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="max-width: 1100px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
+                <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">⚙️ Admin Panel</h2>
+                <p style="color:var(--text-secondary); font-size:1rem; margin-bottom:2rem;">System management and analytics for <span style="color:#fbbf24; font-weight:700;">★ Admin</span></p>
+
+                <!-- SITE ANALYTICS -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">📊 Site Analytics</h3>
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem; margin-bottom:2rem;">
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:var(--accent);">${analytics.totalUsers || 0}</div>
+                        <div class="stat-label">Registered Users</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:var(--accent);">${analytics.totalFigures || 0}</div>
+                        <div class="stat-label">Cataloged Targets</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:var(--accent);">${analytics.totalSubmissions || 0}</div>
+                        <div class="stat-label">Intel Reports</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:var(--accent);">${analytics.totalPosts || 0}</div>
+                        <div class="stat-label">Comms Posts</div>
+                    </div>
+                </div>
+
+                ${analytics.topAnalysts && analytics.topAnalysts.length > 0 ? `
+                <div class="card" style="padding:1.5rem; margin-bottom:2rem;">
+                    <h4 style="margin-bottom:1rem; color:var(--text-secondary);">🏆 Top Analysts</h4>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                        ${analytics.topAnalysts.map((a, i) => `
+                            <div style="background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius-sm); padding:0.75rem 1.25rem; display:flex; align-items:center; gap:0.75rem;">
+                                <span style="font-size:1.25rem; font-weight:800; color:${i === 0 ? '#fbbf24' : 'var(--text-muted)'};">#${i + 1}</span>
+                                <div>
+                                    <div style="font-weight:600;">${a.author}</div>
+                                    <div style="font-size:0.8rem; color:var(--text-muted);">${a.subs} report${a.subs != 1 ? 's' : ''}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- FIGURE MANAGEMENT -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">🎯 Figure Management (${figures.length})</h3>
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--bg-panel); text-align:left;">
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">ID</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Name</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Brand</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Class</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Line</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${figures.map(f => `
+                                <tr style="border-top:1px solid var(--border-light);" id="figRow-${f.id}">
+                                    <td style="padding:0.6rem 1rem; color:var(--text-muted);">${f.id}</td>
+                                    <td style="padding:0.6rem 1rem; font-weight:600;">${f.name}</td>
+                                    <td style="padding:0.6rem 1rem;">${f.brand}</td>
+                                    <td style="padding:0.6rem 1rem;"><span class="tier-badge ${f.classTie.toLowerCase()}" style="font-size:0.7rem;">${f.classTie}</span></td>
+                                    <td style="padding:0.6rem 1rem; color:var(--text-muted);">${f.line}</td>
+                                    <td style="padding:0.6rem 1rem; text-align:right; white-space:nowrap;">
+                                        <button class="editFigBtn" data-id="${f.id}" data-name="${f.name}" data-brand="${f.brand}" data-class="${f.classTie}" data-line="${f.line}" style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">✏️ Edit</button>
+                                        <button class="delFigBtn" data-id="${f.id}" data-name="${f.name}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- USER MANAGEMENT -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">👥 User Management (${users.length})</h3>
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--bg-panel); text-align:left;">
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">ID</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Username</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Email</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Role</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Status</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Joined</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${users.map(u => {
+            const isAdmin = u.role === 'admin';
+            const isSuspended = u.suspended;
+            const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Unknown';
+            return `
+                                    <tr style="border-top:1px solid var(--border-light); ${isSuspended ? 'opacity:0.5;' : ''}">
+                                        <td style="padding:0.6rem 1rem; color:var(--text-muted);">${u.id}</td>
+                                        <td style="padding:0.6rem 1rem; font-weight:600;">${u.username} ${isAdmin ? '<span style="color:#fbbf24; font-size:0.75rem;">★ ADMIN</span>' : ''}</td>
+                                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${u.email}</td>
+                                        <td style="padding:0.6rem 1rem;"><span style="color:${isAdmin ? '#fbbf24' : 'var(--accent)'}; font-size:0.8rem; font-weight:600; text-transform:uppercase;">${u.role || 'analyst'}</span></td>
+                                        <td style="padding:0.6rem 1rem;"><span style="color:${isSuspended ? 'var(--danger)' : 'var(--success)'}; font-size:0.8rem; font-weight:600;">${isSuspended ? '⛔ SUSPENDED' : '✅ ACTIVE'}</span></td>
+                                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${joined}</td>
+                                        <td style="padding:0.6rem 1rem; text-align:right; white-space:nowrap;">
+                                            ${!isAdmin ? `
+                                                <button class="suspendBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid ${isSuspended ? 'var(--success)' : '#fbbf24'}; color:${isSuspended ? 'var(--success)' : '#fbbf24'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isSuspended ? '✅ Reinstate' : '⚠️ Suspend'}</button>
+                                                <button class="delUserBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
+                                            ` : '<span style="font-size:0.8rem; color:var(--text-muted);">Protected</span>'}
+                                        </td>
+                                    </tr>
+                                `;
+        }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        // Wire up admin action handlers
+        const adminHeaders = { 'x-admin-user': this.user.username, 'Content-Type': 'application/json' };
+
+        // Delete figure
+        document.querySelectorAll('.delFigBtn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm(`Delete "${btn.dataset.name}" and ALL associated intel? This cannot be undone.`)) return;
+                const res = await fetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE', headers: adminHeaders });
+                if (res.ok) {
+                    MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
+                    this.renderAdmin(container);
+                } else {
+                    const err = await res.json();
+                    alert(err.error);
+                }
+            });
+        });
+
+        // Edit figure
+        document.querySelectorAll('.editFigBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const newName = prompt('Figure Name:', btn.dataset.name);
+                if (!newName) return;
+                const newBrand = prompt('Brand:', btn.dataset.brand);
+                if (!newBrand) return;
+                const newClass = prompt('Class Tier:', btn.dataset.class);
+                if (!newClass) return;
+                const newLine = prompt('Product Line:', btn.dataset.line);
+                if (!newLine) return;
+
+                fetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
+                    method: 'PUT', headers: adminHeaders,
+                    body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine })
+                }).then(res => {
+                    if (res.ok) {
+                        const fig = MOCK_FIGURES.find(f => f.id == btn.dataset.id);
+                        if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; }
+                        this.renderAdmin(container);
+                    }
+                });
+            });
+        });
+
+        // Suspend user
+        document.querySelectorAll('.suspendBtn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}/suspend`, { method: 'PUT', headers: adminHeaders });
+                if (res.ok) { this.renderAdmin(container); }
+                else { const err = await res.json(); alert(err.error); }
+            });
+        });
+
+        // Delete user
+        document.querySelectorAll('.delUserBtn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm(`Permanently delete user "${btn.dataset.name}"? This cannot be undone.`)) return;
+                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}`, { method: 'DELETE', headers: adminHeaders });
+                if (res.ok) { this.renderAdmin(container); }
+                else { const err = await res.json(); alert(err.error); }
+            });
         });
     }
 

@@ -72,7 +72,9 @@ app.post('/api/auth/login', async (req, res) => {
         const match = await bcrypt.compare(password, user.password_hash);
         if (!match) return res.status(401).json({ error: "Invalid Operative ID or Passcode." });
 
-        res.json({ id: user.id, username: user.username, email: user.email, avatar: user.avatar, role: 'analyst' });
+        if (user.suspended) return res.status(403).json({ error: "Your account has been suspended. Contact an administrator." });
+
+        res.json({ id: user.id, username: user.username, email: user.email, avatar: user.avatar, role: user.role || 'analyst' });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -435,6 +437,108 @@ app.get('/api/stats/headlines', async (req, res) => {
         });
 
         res.json(headlines);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- ADMIN API --- //
+
+// Admin middleware: verify user is admin
+async function requireAdmin(req, res, next) {
+    const adminUser = req.headers['x-admin-user'];
+    if (!adminUser) return res.status(401).json({ error: "Authentication required." });
+    try {
+        const result = await db.query("SELECT role FROM Users WHERE username = $1", [adminUser]);
+        if (!result.rows[0] || result.rows[0].role !== 'admin') {
+            return res.status(403).json({ error: "Insufficient clearance level." });
+        }
+        next();
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+}
+
+// 9. Admin: Get all users
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+        const result = await db.query("SELECT id, username, email, created_at, avatar, role, suspended FROM Users ORDER BY id ASC");
+        res.json(normalizeRows(result.rows));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 10. Admin: Suspend/unsuspend user
+app.put('/api/admin/users/:id/suspend', requireAdmin, async (req, res) => {
+    try {
+        const user = await db.query("SELECT username, suspended FROM Users WHERE id = $1", [req.params.id]);
+        if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
+        if (user.rows[0].username === 'Prime Dynamixx') return res.status(403).json({ error: "Cannot suspend the primary admin." });
+
+        const newStatus = !user.rows[0].suspended;
+        await db.query("UPDATE Users SET suspended = $1 WHERE id = $2", [newStatus, req.params.id]);
+        res.json({ message: `User ${newStatus ? 'suspended' : 'reinstated'} successfully.`, suspended: newStatus });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 11. Admin: Delete user
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+    try {
+        const user = await db.query("SELECT username FROM Users WHERE id = $1", [req.params.id]);
+        if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
+        if (user.rows[0].username === 'Prime Dynamixx') return res.status(403).json({ error: "Cannot delete the primary admin." });
+
+        await db.query("DELETE FROM Users WHERE id = $1", [req.params.id]);
+        res.json({ message: "User purged from the system." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 12. Admin: Delete figure
+app.delete('/api/admin/figures/:id', requireAdmin, async (req, res) => {
+    try {
+        await db.query("DELETE FROM Submissions WHERE targetId = $1", [req.params.id]);
+        await db.query("DELETE FROM Figures WHERE id = $1", [req.params.id]);
+        res.json({ message: "Target and all associated intel purged." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 13. Admin: Edit figure
+app.put('/api/admin/figures/:id', requireAdmin, async (req, res) => {
+    const { name, brand, classTie, line } = req.body;
+    try {
+        await db.query("UPDATE Figures SET name = $1, brand = $2, classTie = $3, line = $4 WHERE id = $5",
+            [name, brand, classTie, line, req.params.id]);
+        res.json({ message: "Target updated successfully." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 14. Admin: Site analytics
+app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
+    try {
+        const totalUsers = await db.query("SELECT COUNT(*) as count FROM Users");
+        const totalFigures = await db.query("SELECT COUNT(*) as count FROM Figures");
+        const totalSubmissions = await db.query("SELECT COUNT(*) as count FROM Submissions");
+        const totalPosts = await db.query("SELECT COUNT(*) as count FROM Posts");
+        const recentUsers = await db.query("SELECT username, created_at FROM Users ORDER BY id DESC LIMIT 5");
+        const activeAnalysts = await db.query("SELECT author, COUNT(*) as subs FROM Submissions GROUP BY author ORDER BY subs DESC LIMIT 5");
+
+        res.json({
+            totalUsers: parseInt(totalUsers.rows[0].count),
+            totalFigures: parseInt(totalFigures.rows[0].count),
+            totalSubmissions: parseInt(totalSubmissions.rows[0].count),
+            totalPosts: parseInt(totalPosts.rows[0].count),
+            recentUsers: recentUsers.rows,
+            topAnalysts: activeAnalysts.rows
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

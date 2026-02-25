@@ -48,6 +48,27 @@ async function initDB() {
             await pool.query(`ALTER TABLE Users ADD COLUMN avatar TEXT`);
         }
 
+        // Migration: add role column (admin/analyst)
+        const roleCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'role'
+        `);
+        if (roleCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Users ADD COLUMN role TEXT DEFAULT 'analyst'`);
+        }
+
+        // Migration: add suspended column
+        const suspCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'suspended'
+        `);
+        if (suspCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Users ADD COLUMN suspended BOOLEAN DEFAULT false`);
+        }
+
+        // Ensure Prime Dynamixx is admin
+        await pool.query(`UPDATE Users SET role = 'admin' WHERE username = 'Prime Dynamixx'`);
+
         // Create Posts Table (Comms Feed)
         await pool.query(`CREATE TABLE IF NOT EXISTS Posts (
             id SERIAL PRIMARY KEY,
