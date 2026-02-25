@@ -66,6 +66,16 @@ async function initDB() {
             await pool.query(`ALTER TABLE Users ADD COLUMN suspended BOOLEAN DEFAULT false`);
         }
 
+        // Migration: add reset token columns for password reset
+        const resetTokenCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'reset_token'
+        `);
+        if (resetTokenCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Users ADD COLUMN reset_token TEXT`);
+            await pool.query(`ALTER TABLE Users ADD COLUMN reset_token_expires TEXT`);
+        }
+
         // Ensure Prime Dynamixx is admin
         await pool.query(`UPDATE Users SET role = 'admin' WHERE username = 'Prime Dynamixx'`);
 

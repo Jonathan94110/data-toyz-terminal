@@ -27,25 +27,63 @@ class TerminalApp {
         const savedTheme = localStorage.getItem('terminal_theme') || 'dark';
         document.body.setAttribute('data-theme', savedTheme);
 
-        try {
-            const stored = localStorage.getItem('terminal_user');
-            this.user = stored && stored !== 'undefined' ? JSON.parse(stored) : null;
-        } catch (e) {
-            console.error("Corrupted identity storage purged.", e);
-            localStorage.removeItem('terminal_user');
-            this.user = null;
-        }
+        this.token = localStorage.getItem('terminal_token') || null;
+        this.user = null;
+
+        // Clean up old storage format
+        localStorage.removeItem('terminal_user');
 
         this.init();
     }
 
     async init() {
-        if (!this.user) {
+        // Check for password reset token in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const resetToken = urlParams.get('reset');
+        if (resetToken) {
+            this.renderResetPassword(resetToken);
+            return;
+        }
+
+        if (!this.token) {
             this.renderLogin();
-        } else {
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/auth/me`, {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            if (!res.ok) throw new Error('Session expired');
+            this.user = await res.json();
             await this.loadFigures();
             this.renderApp();
+        } catch (e) {
+            this.token = null;
+            this.user = null;
+            localStorage.removeItem('terminal_token');
+            this.renderLogin();
         }
+    }
+
+    // Authenticated fetch helper
+    async authFetch(url, options = {}) {
+        if (!options.headers) options.headers = {};
+        if (this.token && !(options.body instanceof FormData)) {
+            if (!options.headers['Content-Type']) options.headers['Content-Type'] = 'application/json';
+        }
+        if (this.token) {
+            options.headers['Authorization'] = `Bearer ${this.token}`;
+        }
+        const res = await fetch(url, options);
+        if (res.status === 401) {
+            this.token = null;
+            this.user = null;
+            localStorage.removeItem('terminal_token');
+            this.renderLogin();
+            throw new Error('Session expired. Please log in again.');
+        }
+        return res;
     }
 
     async loadFigures() {
@@ -57,6 +95,53 @@ class TerminalApp {
         }
     }
 
+    renderResetPassword(resetToken) {
+        this.appEl.innerHTML = `
+            <div class="auth-container animate-mount">
+                <div class="auth-panel">
+                    <div class="brand-header">
+                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 1rem; filter: drop-shadow(0 0 20px rgba(255, 42, 95, 0.4));">
+                        <h1 class="glow-text">Data Toyz</h1>
+                        <p>Reset Your Passcode</p>
+                    </div>
+                    <form id="resetPasswordForm">
+                        <div class="input-group">
+                            <label for="newPassword">New Passcode</label>
+                            <input type="password" id="newPassword" placeholder="Enter new passcode (min 6 chars)..." required minlength="6">
+                        </div>
+                        <div class="input-group">
+                            <label for="confirmPassword">Confirm Passcode</label>
+                            <input type="password" id="confirmPassword" placeholder="Confirm new passcode..." required minlength="6">
+                        </div>
+                        <button type="submit" class="btn">Reset Passcode</button>
+                    </form>
+                    <div id="resetMessage" style="margin-top:1rem; text-align:center;"></div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            if (newPassword !== confirmPassword) { alert('Passcodes do not match.'); return; }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: resetToken, newPassword })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                document.getElementById('resetMessage').innerHTML = `<p style="color:var(--success);">${data.message}</p><a href="/" style="color:var(--accent);">Return to Login</a>`;
+                document.getElementById('resetPasswordForm').style.display = 'none';
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+    }
+
     renderLogin() {
         this.appEl.innerHTML = `
             <div class="auth-container animate-mount">
@@ -66,7 +151,7 @@ class TerminalApp {
                         <h1 class="glow-text">Data Toyz</h1>
                         <p>Trade Value & Risk Terminal</p>
                     </div>
-                    
+
                     <div id="loginSection">
                         <form id="loginForm">
                             <div class="input-group">
@@ -80,7 +165,7 @@ class TerminalApp {
                             <button type="submit" class="btn">Authenticate</button>
                             <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem; display:flex; flex-direction:column; gap:0.5rem;">
                                 <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Initialize New Operative ID</a>
-                                <a href="#" id="showResetBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Passcode?</a>
+                                <a href="#" id="showForgotBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Passcode?</a>
                             </div>
                         </form>
                     </div>
@@ -106,23 +191,17 @@ class TerminalApp {
                         </form>
                     </div>
 
-                    <div id="resetSection" style="display:none;">
-                        <form id="resetForm">
+                    <div id="forgotSection" style="display:none;">
+                        <form id="forgotForm">
+                            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">Enter your registered email. If an account exists, we'll send a reset link.</p>
                             <div class="input-group">
-                                <label for="resUsername">My Username</label>
-                                <input type="text" id="resUsername" required autocomplete="off">
+                                <label for="forgotEmail">Registered Email</label>
+                                <input type="email" id="forgotEmail" required autocomplete="email">
                             </div>
-                            <div class="input-group">
-                                <label for="resEmail">My Registered Email Address</label>
-                                <input type="email" id="resEmail" required autocomplete="email">
-                            </div>
-                            <div class="input-group">
-                                <label for="resPassword">Re-enter password</label>
-                                <input type="password" id="resPassword" placeholder="Type your new password..." required>
-                            </div>
-                            <button type="submit" class="btn" style="background:#eab308; color:#000;">Save New Password & Login</button>
+                            <button type="submit" class="btn" style="background:#eab308; color:#000;">Send Reset Link</button>
+                            <div id="forgotMessage" style="margin-top:1rem; text-align:center;"></div>
                             <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem;">
-                                <a href="#" id="showLoginFromResetBtn" style="color:var(--text-secondary); text-decoration:none;">Cancel Override</a>
+                                <a href="#" id="showLoginFromForgotBtn" style="color:var(--text-secondary); text-decoration:none;">Return to Authentication</a>
                             </div>
                         </form>
                     </div>
@@ -142,15 +221,15 @@ class TerminalApp {
             document.getElementById('loginSection').style.display = 'block';
         });
 
-        document.getElementById('showResetBtn').addEventListener('click', (e) => {
+        document.getElementById('showForgotBtn').addEventListener('click', (e) => {
             e.preventDefault();
             document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('resetSection').style.display = 'block';
+            document.getElementById('forgotSection').style.display = 'block';
         });
 
-        document.getElementById('showLoginFromResetBtn').addEventListener('click', (e) => {
+        document.getElementById('showLoginFromForgotBtn').addEventListener('click', (e) => {
             e.preventDefault();
-            document.getElementById('resetSection').style.display = 'none';
+            document.getElementById('forgotSection').style.display = 'none';
             document.getElementById('loginSection').style.display = 'block';
         });
 
@@ -168,33 +247,29 @@ class TerminalApp {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Authentication Failed');
 
+                this.token = data.token;
                 this.user = data;
-                localStorage.setItem('terminal_user', JSON.stringify(this.user));
-                this.init();
+                localStorage.setItem('terminal_token', data.token);
+                await this.loadFigures();
+                this.renderApp();
             } catch (err) {
                 alert(err.message);
             }
         });
 
-        document.getElementById('resetForm').addEventListener('submit', async (e) => {
+        document.getElementById('forgotForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('resUsername').value.trim();
-            const email = document.getElementById('resEmail').value.trim();
-            const newPassword = document.getElementById('resPassword').value;
+            const email = document.getElementById('forgotEmail').value.trim();
 
             try {
-                const res = await fetch(`${API_URL}/auth/reset`, {
+                const res = await fetch(`${API_URL}/auth/forgot-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, newPassword })
+                    body: JSON.stringify({ email })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Password override failed.');
-
-                alert(data.message);
-                document.getElementById('resetSection').style.display = 'none';
-                document.getElementById('loginSection').style.display = 'block';
-                document.getElementById('resetForm').reset();
+                document.getElementById('forgotMessage').innerHTML = `<p style="color:var(--success); font-size:0.85rem;">✓ ${data.message}</p>`;
+                document.getElementById('forgotForm').querySelector('button').disabled = true;
             } catch (err) {
                 alert(err.message);
             }
@@ -215,9 +290,11 @@ class TerminalApp {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Registration Failed');
 
+                this.token = data.token;
                 this.user = data;
-                localStorage.setItem('terminal_user', JSON.stringify(this.user));
-                this.init();
+                localStorage.setItem('terminal_token', data.token);
+                await this.loadFigures();
+                this.renderApp();
             } catch (err) {
                 alert(err.message);
             }
@@ -497,7 +574,6 @@ class TerminalApp {
             const imageFile = document.getElementById('postImage').files[0];
 
             const formData = new FormData();
-            formData.append('author', this.user.username);
             formData.append('content', content);
             formData.append('sentiment', sentiment);
             if (imageFile) formData.append('image', imageFile);
@@ -507,7 +583,7 @@ class TerminalApp {
                 btn.disabled = true;
                 btn.innerText = "Transmitting...";
 
-                const res = await fetch(`${API_URL}/posts`, { method: 'POST', body: formData });
+                const res = await this.authFetch(`${API_URL}/posts`, { method: 'POST', body: formData });
                 if (!res.ok) throw new Error("Broadcast failed.");
                 this.renderFeed(container);
             } catch (err) {
@@ -529,10 +605,9 @@ class TerminalApp {
                     btn.disabled = true;
                     btn.innerText = "...";
 
-                    const res = await fetch(`${API_URL}/posts/${postId}/comments`, {
+                    const res = await this.authFetch(`${API_URL}/posts/${postId}/comments`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ author: this.user.username, content })
+                        body: JSON.stringify({ content })
                     });
                     if (!res.ok) throw new Error("Reply failed.");
                     this.renderFeed(container); // refresh feed completely
@@ -551,10 +626,9 @@ class TerminalApp {
                 const emoji = btn.dataset.emoji;
                 try {
                     btn.style.opacity = '0.5';
-                    const res = await fetch(`${API_URL}/posts/${postId}/react`, {
+                    const res = await this.authFetch(`${API_URL}/posts/${postId}/react`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ author: this.user.username, emoji })
+                        body: JSON.stringify({ emoji })
                     });
                     if (!res.ok) throw new Error("Reaction failed.");
                     this.renderFeed(container); // Refresh to grab updated arrays
@@ -765,9 +839,8 @@ class TerminalApp {
         const data = Object.fromEntries(formData.entries());
 
         try {
-            const req = await fetch(`${API_URL}/figures`, {
+            const req = await this.authFetch(`${API_URL}/figures`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             if (req.ok) {
@@ -1385,7 +1458,6 @@ class TerminalApp {
         formPayload.append('targetName', this.currentTarget.name);
         formPayload.append('targetTier', this.currentTarget.classTie);
         formPayload.append('date', new Date().toISOString());
-        formPayload.append('author', this.user.username);
         formPayload.append('mtsTotal', mtsTotal.toString());
         formPayload.append('approvalScore', approvalScore.toString());
 
@@ -1398,7 +1470,7 @@ class TerminalApp {
         }
 
         try {
-            const req = await fetch(`${API_URL}/submissions`, {
+            const req = await this.authFetch(`${API_URL}/submissions`, {
                 method: 'POST',
                 body: formPayload
             });
@@ -1556,8 +1628,9 @@ class TerminalApp {
                     <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Operative Settings</h2>
                     <p style="color:var(--text-secondary); font-size:1.1rem;">Manage your active identity credentials.</p>
                 </div>
-                
-                <div class="card" style="padding: 2.5rem;">
+
+                <div class="card" style="padding: 2.5rem; margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--text-secondary); margin-bottom:1.5rem;">🪪 Identity Credentials</h3>
                     <form id="profileForm">
                         <div class="form-group" style="margin-bottom:1.5rem;">
                             <label class="form-label">Profile Avatar</label>
@@ -1570,32 +1643,46 @@ class TerminalApp {
                             <label class="form-label">Active Username</label>
                             <input type="text" id="profUsername" value="${this.user.username}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="margin-bottom: 2rem;">
                             <label class="form-label">Secure Email Address</label>
                             <input type="email" id="profEmail" value="${this.user.email || ''}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
-                        <div class="form-group" style="margin-bottom: 2rem;">
-                            <label class="form-label">New Passcode (Leave blank to keep current)</label>
-                            <input type="password" id="profPassword" placeholder="••••••••" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
-                        </div>
                         <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem;">Encrypt & Update Profile</button>
+                    </form>
+                </div>
+
+                <div class="card" style="padding: 2.5rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--text-secondary); margin-bottom:1.5rem;">🔐 Change Passcode</h3>
+                    <form id="changePasswordForm">
+                        <div class="form-group">
+                            <label class="form-label">Current Passcode</label>
+                            <input type="password" id="cpOldPassword" required placeholder="Enter current passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">New Passcode</label>
+                            <input type="password" id="cpNewPassword" required placeholder="Enter new passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 2rem;">
+                            <label class="form-label">Confirm New Passcode</label>
+                            <input type="password" id="cpConfirmPassword" required placeholder="Confirm new passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                        </div>
+                        <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary);">Update Passcode</button>
                     </form>
                 </div>
             </div>
         `;
 
+        // Profile update handler
         document.getElementById('profileForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('profUsername').value.trim();
             const email = document.getElementById('profEmail').value.trim();
-            const password = document.getElementById('profPassword').value;
             const avatarFile = document.getElementById('profAvatar').files[0];
 
             const formData = new FormData();
             formData.append('username', username);
             formData.append('email', email);
             formData.append('oldUsername', this.user.username);
-            if (password) formData.append('password', password);
             if (avatarFile) formData.append('avatar', avatarFile);
 
             try {
@@ -1603,7 +1690,7 @@ class TerminalApp {
                 btn.disabled = true;
                 btn.innerText = "Encrypting...";
 
-                const res = await fetch(`${API_URL}/users/${this.user.id}`, {
+                const res = await this.authFetch(`${API_URL}/users/${this.user.id}`, {
                     method: 'PUT',
                     body: formData
                 });
@@ -1611,11 +1698,50 @@ class TerminalApp {
                 if (!res.ok) throw new Error(data.error || 'Failed to update profile.');
 
                 alert(data.message);
-                this.user = data;
-                localStorage.setItem('terminal_user', JSON.stringify(this.user));
+                if (data.token) {
+                    this.token = data.token;
+                    localStorage.setItem('terminal_token', data.token);
+                }
+                this.user = { id: data.id, username: data.username, email: data.email, avatar: data.avatar, role: data.role };
                 this.init(); // Refresh navbar
             } catch (err) {
                 alert(err.message);
+            }
+        });
+
+        // Change passcode handler
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const oldPassword = document.getElementById('cpOldPassword').value;
+            const newPassword = document.getElementById('cpNewPassword').value;
+            const confirmPassword = document.getElementById('cpConfirmPassword').value;
+
+            if (newPassword !== confirmPassword) { alert('New passcodes do not match.'); return; }
+            if (newPassword.length < 4) { alert('New passcode must be at least 4 characters.'); return; }
+
+            try {
+                const btn = e.target.querySelector('button');
+                btn.disabled = true;
+                btn.innerText = "Updating...";
+
+                const res = await this.authFetch(`${API_URL}/auth/change-password`, {
+                    method: 'POST',
+                    body: JSON.stringify({ oldPassword, newPassword })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to change passcode.');
+
+                alert(data.message || 'Passcode updated successfully.');
+                document.getElementById('cpOldPassword').value = '';
+                document.getElementById('cpNewPassword').value = '';
+                document.getElementById('cpConfirmPassword').value = '';
+                btn.disabled = false;
+                btn.innerText = "Update Passcode";
+            } catch (err) {
+                alert(err.message);
+                const btn = e.target.querySelector('button');
+                btn.disabled = false;
+                btn.innerText = "Update Passcode";
             }
         });
     }
@@ -1624,13 +1750,12 @@ class TerminalApp {
     async renderAdmin(container) {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Loading Admin Panel...</div>`;
 
-        const headers = { 'x-admin-user': this.user.username };
         let analytics = {}, users = [], figures = [];
 
         try {
             const [aRes, uRes, fRes] = await Promise.all([
-                fetch(`${API_URL}/admin/analytics`, { headers }),
-                fetch(`${API_URL}/admin/users`, { headers }),
+                this.authFetch(`${API_URL}/admin/analytics`),
+                this.authFetch(`${API_URL}/admin/users`),
                 fetch(`${API_URL}/figures`)
             ]);
             if (aRes.ok) analytics = await aRes.json();
@@ -1751,6 +1876,7 @@ class TerminalApp {
                                             ${u.username !== 'Prime Dynamixx' ? `
                                                 <button class="roleBtn" data-id="${u.id}" data-role="${u.role}" style="background:none; border:1px solid ${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isAdmin ? 'Demote' : 'Promote'}</button>
                                                 <button class="suspendBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid ${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isSuspended ? '✅ Reinstate' : '⚠️ Suspend'}</button>
+                                                <button class="resetPwBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid var(--accent); color:var(--accent); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">🔑 Reset PW</button>
                                                 <button class="delUserBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
                                             ` : '<span style="font-size:0.8rem; color:var(--text-muted);">Protected</span>'}
                                         </td>
@@ -1763,8 +1889,7 @@ class TerminalApp {
             </div>
         `;
 
-        // Wire up admin action handlers
-        const adminHeaders = { 'x-admin-user': this.user.username, 'Content-Type': 'application/json' };
+        // Wire up admin action handlers (all use JWT auth via authFetch)
 
         // Add User
         document.getElementById('addAdminUserBtn').addEventListener('click', async () => {
@@ -1772,16 +1897,17 @@ class TerminalApp {
             if (!username) return;
             const password = prompt("Enter new passcode:");
             if (!password) return;
-            // Fake email generation for manual admin adds
             const email = username.toLowerCase().replace(/[^a-z0-9]/g, '') + '@datatoyz.net';
             const role = confirm("Should this user be an Admin? (OK for Admin, Cancel for Analyst)") ? 'admin' : 'analyst';
 
-            const res = await fetch(`${API_URL}/admin/users`, {
-                method: 'POST', headers: adminHeaders,
-                body: JSON.stringify({ username, email, password, role })
-            });
-            if (res.ok) { this.renderAdmin(container); }
-            else { const err = await res.json(); alert(err.error); }
+            try {
+                const res = await this.authFetch(`${API_URL}/admin/users`, {
+                    method: 'POST',
+                    body: JSON.stringify({ username, email, password, role })
+                });
+                if (res.ok) { this.renderAdmin(container); }
+                else { const err = await res.json(); alert(err.error); }
+            } catch (e) { console.error(e); }
         });
 
         // Toggle User Role
@@ -1789,9 +1915,11 @@ class TerminalApp {
             btn.addEventListener('click', async () => {
                 const isPromoting = btn.dataset.role !== 'admin';
                 if (!confirm(`Are you sure you want to ${isPromoting ? 'PROMOTE' : 'DEMOTE'} this user?`)) return;
-                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}/role`, { method: 'PUT', headers: adminHeaders });
-                if (res.ok) { this.renderAdmin(container); }
-                else { const err = await res.json(); alert(err.error); }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/role`, { method: 'PUT' });
+                    if (res.ok) { this.renderAdmin(container); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
             });
         });
 
@@ -1799,20 +1927,22 @@ class TerminalApp {
         document.querySelectorAll('.delFigBtn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 if (!confirm(`Delete "${btn.dataset.name}" and ALL associated intel? This cannot be undone.`)) return;
-                const res = await fetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE', headers: adminHeaders });
-                if (res.ok) {
-                    MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
-                    this.renderAdmin(container);
-                } else {
-                    const err = await res.json();
-                    alert(err.error);
-                }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
+                        this.renderAdmin(container);
+                    } else {
+                        const err = await res.json();
+                        alert(err.error);
+                    }
+                } catch (e) { console.error(e); }
             });
         });
 
         // Edit figure
         document.querySelectorAll('.editFigBtn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const newName = prompt('Figure Name:', btn.dataset.name);
                 if (!newName) return;
                 const newBrand = prompt('Brand:', btn.dataset.brand);
@@ -1822,25 +1952,28 @@ class TerminalApp {
                 const newLine = prompt('Product Line:', btn.dataset.line);
                 if (!newLine) return;
 
-                fetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
-                    method: 'PUT', headers: adminHeaders,
-                    body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine })
-                }).then(res => {
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine })
+                    });
                     if (res.ok) {
                         const fig = MOCK_FIGURES.find(f => f.id == btn.dataset.id);
                         if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; }
                         this.renderAdmin(container);
                     }
-                });
+                } catch (e) { console.error(e); }
             });
         });
 
         // Suspend user
         document.querySelectorAll('.suspendBtn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}/suspend`, { method: 'PUT', headers: adminHeaders });
-                if (res.ok) { this.renderAdmin(container); }
-                else { const err = await res.json(); alert(err.error); }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/suspend`, { method: 'PUT' });
+                    if (res.ok) { this.renderAdmin(container); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
             });
         });
 
@@ -1848,9 +1981,27 @@ class TerminalApp {
         document.querySelectorAll('.delUserBtn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 if (!confirm(`Permanently delete user "${btn.dataset.name}"? This cannot be undone.`)) return;
-                const res = await fetch(`${API_URL}/admin/users/${btn.dataset.id}`, { method: 'DELETE', headers: adminHeaders });
-                if (res.ok) { this.renderAdmin(container); }
-                else { const err = await res.json(); alert(err.error); }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}`, { method: 'DELETE' });
+                    if (res.ok) { this.renderAdmin(container); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
+            });
+        });
+
+        // Admin Reset Password
+        document.querySelectorAll('.resetPwBtn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const newPw = prompt(`Enter new passcode for "${btn.dataset.name}":`);
+                if (!newPw || newPw.length < 4) { if (newPw !== null) alert('Passcode must be at least 4 characters.'); return; }
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/reset-password`, {
+                        method: 'POST',
+                        body: JSON.stringify({ newPassword: newPw })
+                    });
+                    if (res.ok) { alert(`Passcode reset for "${btn.dataset.name}".`); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
             });
         });
     }
@@ -1858,7 +2009,7 @@ class TerminalApp {
     async deleteSubmission(id) {
         if (!confirm("Are you sure you want to retract this intel from the Market Pulse?")) return;
         try {
-            const res = await fetch(`${API_URL}/submissions/${id}`, { method: 'DELETE' });
+            const res = await this.authFetch(`${API_URL}/submissions/${id}`, { method: 'DELETE' });
             if (res.ok) { this.renderApp(); }
         } catch (e) {
             console.error(e);
@@ -2066,7 +2217,7 @@ class TerminalApp {
 
     async updateNotifBadge() {
         try {
-            const res = await fetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}/count`);
+            const res = await this.authFetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}/count`);
             const data = await res.json();
             const badge = document.getElementById('notifBadge');
             if (badge) {
@@ -2086,7 +2237,7 @@ class TerminalApp {
         dropdown.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Loading...</div>';
 
         try {
-            const res = await fetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}`);
+            const res = await this.authFetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}`);
             const notifs = await res.json();
 
             if (notifs.length === 0) {
@@ -2119,7 +2270,7 @@ class TerminalApp {
                     const id = item.dataset.notifId;
                     const linkType = item.dataset.linkType;
                     const linkId = item.dataset.linkId;
-                    await fetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
+                    await this.authFetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
                     if (linkType === 'post') { this.currentView = 'feed'; this.renderApp(); }
                     else if (linkType === 'figure') { this.selectTarget(parseInt(linkId)); }
                     dropdown.style.display = 'none';
@@ -2130,9 +2281,8 @@ class TerminalApp {
             if (markAllBtn) {
                 markAllBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    await fetch(`${API_URL}/notifications/read-all`, {
+                    await this.authFetch(`${API_URL}/notifications/read-all`, {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username: this.user.username })
                     });
                     this.updateNotifBadge();
@@ -2156,7 +2306,9 @@ class TerminalApp {
     }
 
     logout() {
+        this.token = null;
         this.user = null;
+        localStorage.removeItem('terminal_token');
         localStorage.removeItem('terminal_user');
         sessionStorage.removeItem('terminalView');
         sessionStorage.removeItem('terminalTarget');
