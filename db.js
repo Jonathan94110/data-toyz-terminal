@@ -113,6 +113,19 @@ async function initDB() {
             FOREIGN KEY(targetId) REFERENCES Figures(id)
         )`);
 
+        // Create Notifications Table
+        await pool.query(`CREATE TABLE IF NOT EXISTS Notifications (
+            id SERIAL PRIMARY KEY,
+            recipient TEXT NOT NULL,
+            type TEXT NOT NULL,
+            message TEXT NOT NULL,
+            link_type TEXT,
+            link_id INTEGER,
+            sender TEXT,
+            read BOOLEAN DEFAULT false,
+            created_at TEXT NOT NULL
+        )`);
+
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {

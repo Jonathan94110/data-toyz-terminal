@@ -23,6 +23,10 @@ class TerminalApp {
     constructor() {
         this.appEl = document.getElementById('app');
 
+        // Theme init
+        const savedTheme = localStorage.getItem('terminal_theme') || 'dark';
+        document.body.setAttribute('data-theme', savedTheme);
+
         try {
             const stored = localStorage.getItem('terminal_user');
             this.user = stored && stored !== 'undefined' ? JSON.parse(stored) : null;
@@ -31,7 +35,6 @@ class TerminalApp {
             localStorage.removeItem('terminal_user');
             this.user = null;
         }
-
 
         this.init();
     }
@@ -226,13 +229,15 @@ class TerminalApp {
             <div class="app-layout animate-mount">
                 <aside class="sidebar">
                     <div class="sidebar-brand" style="cursor:pointer; display: flex; flex-direction: column; align-items: center; text-align: center;" onclick="app.currentView='feed'; app.renderApp();">
-                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 80px; width: auto; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));">
-                        <h2 class="glow-text" style="font-size: 1.5rem; margin-bottom: 0;">DATA TOYZ</h2>
-                        <small style="color:var(--text-muted); font-family:var(--font-body); letter-spacing:0.1em; text-transform:uppercase; font-size:0.75rem;">Terminal</small>
+                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));">
+
                     </div>
                     <nav class="sidebar-nav">
                         <div class="nav-item ${this.currentView === 'feed' ? 'active' : ''}" data-view="feed">
                             Comms Feed
+                        </div>
+                        <div class="nav-item ${this.currentView === 'market_pulse' ? 'active' : ''}" data-view="market_pulse">
+                            Market Pulse
                         </div>
                         <div class="nav-item ${this.currentView === 'search' ? 'active' : ''}" data-view="search">
                             Target Search
@@ -251,12 +256,20 @@ class TerminalApp {
                             ⚙️ Admin Panel
                         </div>
                         ` : ''}
+                        <div id="themeToggle" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
+                            ${document.body.getAttribute('data-theme') === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+                        </div>
                     </nav>
                 </aside>
                 
                 <main class="main-content">
                     <header class="topbar">
                         <div class="user-profile">
+                            <div id="notifBell" style="position:relative; cursor:pointer; margin-right:1rem; padding:0.5rem;">
+                                <span style="font-size:1.3rem;">🔔</span>
+                                <span id="notifBadge" style="display:none; position:absolute; top:0; right:0; background:var(--danger); color:#fff; font-size:0.6rem; font-weight:800; padding:1px 5px; border-radius:10px; min-width:16px; text-align:center;"></span>
+                                <div id="notifDropdown" class="notif-dropdown" style="display:none;"></div>
+                            </div>
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${this.user.username.charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${this.user.username}</div>
@@ -271,7 +284,7 @@ class TerminalApp {
             </div>
         `;
 
-        document.querySelectorAll('.nav-item').forEach(item => {
+        document.querySelectorAll('.nav-item[data-view]').forEach(item => {
             item.addEventListener('click', (e) => {
                 this.currentView = e.currentTarget.dataset.view;
                 this.renderApp();
@@ -279,12 +292,43 @@ class TerminalApp {
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const current = document.body.getAttribute('data-theme') || 'dark';
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-theme', next);
+            localStorage.setItem('terminal_theme', next);
+            this.renderApp();
+        });
+
+        // Notification bell
+        const bell = document.getElementById('notifBell');
+        const dropdown = document.getElementById('notifDropdown');
+        bell.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (dropdown.style.display === 'none') {
+                this.loadNotifications();
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        });
+        document.addEventListener('click', () => { dropdown.style.display = 'none'; }, { once: true });
+
+        // Poll notifications
+        if (this._notifInterval) clearInterval(this._notifInterval);
+        this._notifInterval = setInterval(() => this.updateNotifBadge(), 30000);
+        this.updateNotifBadge();
+
         this.renderCurrentView();
     }
 
     renderCurrentView() {
         const contentArea = document.getElementById('mainContent');
         if (this.currentView === 'feed') this.renderFeed(contentArea);
+        else if (this.currentView === 'market_pulse') this.renderMarketPulse(contentArea);
         else if (this.currentView === 'search') this.renderSearch(contentArea);
         else if (this.currentView === 'dashboard') this.renderDashboard(contentArea);
         else if (this.currentView === 'leaderboards') this.renderLeaderboards(contentArea);
@@ -292,6 +336,7 @@ class TerminalApp {
         else if (this.currentView === 'submission') this.renderSubmission(contentArea);
         else if (this.currentView === 'add_target') this.renderAddTarget(contentArea);
         else if (this.currentView === 'profile') this.renderProfile(contentArea);
+        else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
         else if (this.currentView === 'admin' && (this.user.role === 'admin' || this.user.username === 'Prime Dynamixx')) this.renderAdmin(contentArea);
     }
 
@@ -365,7 +410,7 @@ class TerminalApp {
                         commentsHtml += `
                             <div style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
                                 <div style="display:flex; justify-content:space-between; margin-bottom: 0.25rem;">
-                                    <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};">${c.author}</span>
+                                    <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${c.author.replace(/'/g, "\\'")}')">${c.author}</span>
                                     <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
                                 </div>
                                 <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${c.content}</div>
@@ -422,7 +467,7 @@ class TerminalApp {
                     <div class="card feed-item animate-stagger" style="margin-bottom:1.5rem; padding:1.5rem; border-left: 4px solid ${badgeColor}; animation-delay: ${index * 0.08}s;">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
                             <div>
-                                <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};">${p.author}</div>
+                                <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${p.author.replace(/'/g, "\\'")}')">${p.author}</div>
                                 <div style="font-size:0.75rem; color:var(--text-secondary);">${dateStr}</div>
                             </div>
                             <div style="background:${badgeGlow}; color:${badgeColor}; border:1px solid ${badgeColor}; padding:0.25rem 0.75rem; border-radius:1rem; font-weight:800; font-size:0.85rem; box-shadow: 0 0 10px ${badgeGlow}; text-transform:uppercase;">
@@ -522,8 +567,18 @@ class TerminalApp {
     }
 
 
-    renderSearch(container) {
-        const uniqueBrands = [...new Set(MOCK_FIGURES.map(f => f.brand))].sort();
+    async renderSearch(container) {
+        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading target database...</div>`;
+
+        // Fetch ranked figures with submission counts + grades
+        let rankedFigures = MOCK_FIGURES;
+        try {
+            const res = await fetch(`${API_URL}/figures/ranked`);
+            if (res.ok) rankedFigures = await res.json();
+        } catch (e) { /* fallback to MOCK_FIGURES */ }
+
+        let currentSort = sessionStorage.getItem('searchSort') || 'name';
+        const uniqueBrands = [...new Set(rankedFigures.map(f => f.brand))].sort();
 
         container.innerHTML = `
             <div class="search-container animate-mount">
@@ -534,18 +589,25 @@ class TerminalApp {
                     </div>
                     <button class="btn" style="padding: 0.75rem 1.5rem;" onclick="app.currentView='add_target'; app.renderApp();">+ Add New Target</button>
                 </div>
-                
+
                 <div class="search-bar">
                     <input type="text" id="searchInput" placeholder="Search by name, brand, or line (e.g. FT-55, Optimus, XTB)...">
                     <button class="btn" style="width: auto; padding: 0 2rem;" id="searchBtn">SEARCH</button>
                 </div>
-                
-                <div class="search-filters" style="margin-bottom:1.5rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+
+                <div class="search-filters" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
                     <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Brands:</span>
                     <span class="badge brandFilter" data-brand="" style="border-color:var(--accent); color:var(--accent); font-weight:700; cursor:pointer;">ALL</span>
                     ${uniqueBrands.map(b => `<span class="badge brandFilter" data-brand="${b}" style="cursor:pointer;">${b}</span>`).join('')}
                 </div>
-                
+
+                <div style="margin-bottom:1.5rem; display:flex; gap:0.5rem; align-items:center;">
+                    <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Sort:</span>
+                    <span class="badge sortBtn ${currentSort === 'name' ? 'active' : ''}" data-sort="name" style="${currentSort === 'name' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Name</span>
+                    <span class="badge sortBtn ${currentSort === 'grade' ? 'active' : ''}" data-sort="grade" style="${currentSort === 'grade' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Grade</span>
+                    <span class="badge sortBtn ${currentSort === 'submissions' ? 'active' : ''}" data-sort="submissions" style="${currentSort === 'submissions' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Most Reviewed</span>
+                </div>
+
                 <div id="searchResults" class="grid-2"></div>
             </div>
         `;
@@ -560,12 +622,21 @@ class TerminalApp {
             let query = document.getElementById('searchInput').value.toLowerCase().trim();
             const expanded = brandAliases[query];
 
-            const results = MOCK_FIGURES.filter(f =>
+            let results = rankedFigures.filter(f =>
                 f.name.toLowerCase().includes(query) ||
                 f.brand.toLowerCase().includes(query) ||
                 f.line.toLowerCase().includes(query) ||
                 (expanded && f.brand.toLowerCase().includes(expanded))
             );
+
+            // Apply sort
+            if (currentSort === 'grade') {
+                results.sort((a, b) => (parseFloat(b.avgGrade) || 0) - (parseFloat(a.avgGrade) || 0));
+            } else if (currentSort === 'submissions') {
+                results.sort((a, b) => (b.submissions || 0) - (a.submissions || 0));
+            } else {
+                results.sort((a, b) => a.name.localeCompare(b.name));
+            }
 
             const resultsHTML = results.map((f, index) => `
                 <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s;" onclick="app.selectTarget(${f.id})">
@@ -573,8 +644,12 @@ class TerminalApp {
                         <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${f.brand} &bull; ${f.line}</div>
                         <span class="tier-badge ${f.classTie.toLowerCase()}">${f.classTie}</span>
                     </div>
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.25rem;">${f.name}</h3>
-                    <div style="display:flex; justify-content:flex-end; align-items:center; border-top:1px solid var(--border-light); padding-top:1rem;">
+                    <h3 style="margin-bottom: 1rem; font-size: 1.25rem;">${f.name}</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-light); padding-top:1rem;">
+                        <div style="display:flex; gap:1rem; font-size:0.85rem; color:var(--text-muted);">
+                            ${f.submissions > 0 ? `<span>${f.submissions} report${f.submissions !== 1 ? 's' : ''}</span>` : '<span>No reports</span>'}
+                            ${f.avgGrade ? `<span style="color:var(--accent); font-weight:700;">${f.avgGrade}</span>` : ''}
+                        </div>
                         <span style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em;">Assess Target &rarr;</span>
                     </div>
                 </div>
@@ -599,6 +674,22 @@ class TerminalApp {
                 tab.style.color = 'var(--accent)';
                 tab.style.fontWeight = '700';
                 document.getElementById('searchInput').value = tab.dataset.brand;
+                doSearch();
+            });
+        });
+
+        document.querySelectorAll('.sortBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.sortBtn').forEach(b => {
+                    b.style.borderColor = 'var(--border)';
+                    b.style.color = 'var(--text-secondary)';
+                    b.style.fontWeight = '400';
+                });
+                btn.style.borderColor = 'var(--accent)';
+                btn.style.color = 'var(--accent)';
+                btn.style.fontWeight = '700';
+                currentSort = btn.dataset.sort;
+                sessionStorage.setItem('searchSort', currentSort);
                 doSearch();
             });
         });
@@ -783,11 +874,22 @@ class TerminalApp {
 
         container.innerHTML = `
             <div style="max-width: 900px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
-                <div style="display:flex; align-items:center; gap:1rem; margin-bottom: 2rem;">
-                    <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();">&larr; Back to Search</button>
-                    <div>
-                        <h2 style="margin:0; font-size:2rem;">Market Pulse Analysis</h2>
-                        <div style="color:var(--text-secondary); font-size:0.95rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">Target: ${this.currentTarget.brand} ${this.currentTarget.name}</div>
+                <div style="margin-bottom: 2rem;">
+                    <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();" style="margin-bottom:1.5rem;">&larr; Back to Search</button>
+                    <div class="card" style="display:flex; align-items:center; gap:1.5rem;">
+                        <div style="flex:1;">
+                            <h2 style="margin:0 0 0.5rem; font-size:1.75rem;">${this.currentTarget.name}</h2>
+                            <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                                <span style="color:var(--text-secondary); font-size:0.9rem; font-weight:600;">${this.currentTarget.brand}</span>
+                                <span style="color:var(--text-muted);">&bull;</span>
+                                <span style="color:var(--text-muted); font-size:0.85rem;">${this.currentTarget.line || ''}</span>
+                                <span class="tier-badge ${(this.currentTarget.classTie || '').toLowerCase()}">${this.currentTarget.classTie}</span>
+                            </div>
+                        </div>
+                        <div style="text-align:center; padding-left:1.5rem; border-left:1px solid var(--border-light);">
+                            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">Reports</div>
+                            <div style="font-size:1.5rem; font-weight:900; color:var(--accent);">${figureSubs.length}</div>
+                        </div>
                     </div>
                 </div>
 
@@ -830,11 +932,33 @@ class TerminalApp {
                     <div style="height: 250px; width: 100%;">
                         <canvas id="projectionsChart"></canvas>
                     </div>
-                    <div id="imageGallery" style="margin-top:2rem; display:flex; justify-content:center; flex-wrap:wrap; gap:1rem; padding-bottom:1rem;"></div>
+                    <h3 style="margin-top:2rem; font-family:var(--font-heading); font-size:1rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">📸 Field Evidence Gallery</h3>
+                    <div id="imageGallery" style="margin-top:0.75rem; display:flex; justify-content:center; flex-wrap:wrap; gap:1.5rem; padding-bottom:1rem;"></div>
                 </div>
                 ` : ''}
 
-                <div style="text-align: center; border-top: 1px solid var(--border-light); padding-top: 3rem;">
+                ${figureSubs.length > 0 ? `
+                <div style="margin-top:2.5rem; padding-top:2rem; border-top:1px solid var(--border-light);">
+                    <h3 style="margin-bottom:1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">📋 Recent Intel Reports</h3>
+                    <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                        ${figureSubs.slice(0, 10).map(s => {
+                            const grade = ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1);
+                            const date = new Date(s.date).toLocaleDateString();
+                            return `
+                                <div class="card" style="padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
+                                    <div style="display:flex; align-items:center; gap:1rem;">
+                                        <span class="user-link" onclick="app.viewUserProfile('${s.author.replace(/'/g, "\\'")}')" style="font-weight:700;">${s.author}</span>
+                                        <span style="color:var(--text-muted); font-size:0.8rem;">${date}</span>
+                                    </div>
+                                    <div style="font-weight:800; font-size:1.1rem; color:${parseFloat(grade) >= 70 ? 'var(--success)' : parseFloat(grade) >= 50 ? '#fbbf24' : 'var(--danger)'};">${grade}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                <div style="text-align: center; border-top: 1px solid var(--border-light); padding-top: 3rem; margin-top:2rem;">
                     <h3 style="margin-bottom: 1rem;">Contribute Intelligence</h3>
                     <p style="color:var(--text-secondary); margin-bottom: 2rem;">Help stabilize the market pulse by adding your in-hand assessment.</p>
                     <button class="btn" style="max-width: 300px;" onclick="app.currentView='submission'; app.renderApp();">Execute Trade Scan</button>
@@ -990,7 +1114,14 @@ class TerminalApp {
                 let galleryHtml = '';
                 sortedSubs.forEach(s => {
                     if (s.data && s.data.imagePath) {
-                        galleryHtml += `<img src="${s.data.imagePath}" style="width:auto; height:180px; object-fit:contain; background:var(--bg-panel); border-radius:8px; border:1px solid var(--border); box-shadow: 0 4px 6px var(--accent-glow);" title="${s.author}'s Evidence">`;
+                        const grade = s.mtsTotal ? ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1) : '—';
+                        galleryHtml += `
+                            <div style="display:flex; flex-direction:column; align-items:center; gap:0.4rem;">
+                                <img src="${s.data.imagePath}" style="width:auto; height:200px; object-fit:contain; background:var(--bg-panel); border-radius:8px; border:1px solid var(--border); box-shadow: 0 4px 6px var(--accent-glow); cursor:pointer;" title="${s.author}'s Evidence" onclick="this.style.maxHeight = this.style.maxHeight === 'none' ? '200px' : 'none'; this.style.height = this.style.height === 'auto' ? '200px' : 'auto';">
+                                <span style="font-size:0.75rem; color:var(--text-muted);">
+                                    by <span class="user-link" onclick="app.viewUserProfile('${s.author}')">${s.author}</span> · Grade: <span style="color:var(--accent); font-weight:600;">${grade}</span>
+                                </span>
+                            </div>`;
                     }
                 });
                 if (galleryHtml) {
@@ -1397,7 +1528,7 @@ class TerminalApp {
                 return `
                     <tr>
                         <td style="text-align: center; vertical-align: middle;">${rankBadge}</td>
-                        <td style="font-weight: 800; font-size: 1.1rem; color: ${this.user.username === authorName ? 'var(--accent)' : 'var(--text-primary)'};">${authorName} ${this.user.username === authorName ? '<span style="font-weight:400; font-size:0.75rem; color:var(--text-muted);">(You)</span>' : ''}</td>
+                        <td style="font-weight: 800; font-size: 1.1rem; color: ${this.user.username === authorName ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="app.viewUserProfile('${authorName.replace(/'/g, "\\'")}')">${authorName} ${this.user.username === authorName ? '<span style="font-weight:400; font-size:0.75rem; color:var(--text-muted);">(You)</span>' : ''}</td>
                         <td><span style="font-weight: 800;">${count}</span> <span style="font-size: 0.8rem; color: var(--text-secondary);">logs</span></td>
                         <td><span class="badge" style="background:transparent; border-color:${titleColor}; color:${titleColor};">${title}</span></td>
                     </tr>
@@ -1734,11 +1865,302 @@ class TerminalApp {
         }
     }
 
+    // --- MARKET PULSE DASHBOARD --- //
+
+    async renderMarketPulse(container) {
+        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading Market Pulse...</div>`;
+
+        try {
+            const [overviewRes, indexesRes, headlinesRes, topRatedRes] = await Promise.all([
+                fetch(`${API_URL}/stats/overview`),
+                fetch(`${API_URL}/stats/indexes`),
+                fetch(`${API_URL}/stats/headlines`),
+                fetch(`${API_URL}/figures/top-rated`)
+            ]);
+            const overview = await overviewRes.json();
+            const indexes = await indexesRes.json();
+            const headlines = await headlinesRes.json();
+            const topRated = await topRatedRes.json();
+
+            container.innerHTML = `
+                <div style="max-width:1000px; margin:0 auto;">
+                    <h1 style="font-size:2.5rem; font-weight:900; text-transform:uppercase; letter-spacing:-0.02em; margin-bottom:0.5rem;">Market Pulse</h1>
+                    <p style="color:var(--text-secondary); font-size:1.1rem; margin-bottom:2.5rem;">Global intelligence overview and market activity.</p>
+
+                    <!-- Overview Stats -->
+                    <div class="grid-4" style="margin-bottom:2.5rem;">
+                        <div class="stat-box">
+                            <div class="stat-value">${overview.totalIntel}</div>
+                            <div class="stat-label">Intel Reports</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${overview.uniqueAnalysts}</div>
+                            <div class="stat-label">Active Analysts</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${overview.avgGrade}</div>
+                            <div class="stat-label">Avg Grade</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${overview.totalTargets}</div>
+                            <div class="stat-label">Cataloged Targets</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="margin-bottom:2.5rem;">
+                        <!-- Top Rated Figures -->
+                        <div class="card" style="padding:0; overflow:hidden;">
+                            <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0;">🏆 Top Rated Targets</h3>
+                            </div>
+                            <div style="max-height:400px; overflow-y:auto;">
+                                ${topRated.length > 0 ? topRated.map((f, i) => `
+                                    <div class="pulse-headline-item" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${f.id})">
+                                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                                            <span style="color:var(--text-muted); font-weight:700; font-size:0.85rem; width:24px;">#${i + 1}</span>
+                                            <div>
+                                                <div style="font-weight:600; font-size:0.9rem;">${f.name}</div>
+                                                <div style="font-size:0.75rem; color:var(--text-muted);">${f.brand} · ${f.submissions} report${f.submissions !== 1 ? 's' : ''}</div>
+                                            </div>
+                                        </div>
+                                        <div style="font-weight:800; color:var(--accent); font-size:1.1rem;">${f.avgGrade}</div>
+                                    </div>
+                                `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No rated targets yet.</div>'}
+                            </div>
+                        </div>
+
+                        <!-- Intel Headlines -->
+                        <div class="card" style="padding:0; overflow:hidden;">
+                            <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0;">📡 Intel Headlines</h3>
+                            </div>
+                            <div style="max-height:400px; overflow-y:auto;">
+                                ${headlines.length > 0 ? headlines.map(h => `
+                                    <div class="pulse-headline-item">
+                                        <div style="font-size:0.9rem; margin-bottom:0.25rem;">${h.headline}</div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted);">${new Date(h.date).toLocaleDateString()} · ${h.brand}</div>
+                                    </div>
+                                `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No intel yet.</div>'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Brand/Line Indexes -->
+                    <div class="card" style="padding:0; overflow:hidden;">
+                        <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                            <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0;">📊 Brand / Line Performance Index</h3>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Brand</th>
+                                        <th>Line</th>
+                                        <th>Targets</th>
+                                        <th>Reports</th>
+                                        <th>Avg Grade</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${indexes.map(idx => `
+                                        <tr>
+                                            <td style="font-weight:600;">${idx.brand}</td>
+                                            <td style="color:var(--text-secondary);">${idx.line}</td>
+                                            <td>${idx.targets}</td>
+                                            <td>${idx.submissions}</td>
+                                            <td style="font-weight:700; color:${idx.avgGrade ? (parseFloat(idx.avgGrade) >= 70 ? 'var(--success)' : parseFloat(idx.avgGrade) >= 50 ? '#fbbf24' : 'var(--danger)') : 'var(--text-muted)'};">${idx.avgGrade || '—'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load market data.</div>`;
+            console.error(e);
+        }
+    }
+
+    // --- USER PROFILE VIEW --- //
+
+    viewUserProfile(username) {
+        sessionStorage.setItem('profileUser', username);
+        this.currentView = 'user_profile';
+        this.renderApp();
+    }
+
+    async renderUserProfile(container) {
+        const username = sessionStorage.getItem('profileUser');
+        if (!username) { this.currentView = 'feed'; this.renderApp(); return; }
+
+        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading operative dossier...</div>`;
+
+        try {
+            const res = await fetch(`${API_URL}/users/${encodeURIComponent(username)}/profile`);
+            if (!res.ok) throw new Error('Profile not found');
+            const profile = await res.json();
+
+            const titleColors = {
+                'Prime Intel Officer': '#a78bfa',
+                'Senior Field Evaluator': 'var(--text-secondary)',
+                'Field Evaluator': 'var(--success)',
+                'Junior Analyst': 'var(--accent)',
+                'Rookie Analyst': 'var(--text-muted)'
+            };
+
+            container.innerHTML = `
+                <div style="max-width:800px; margin:0 auto;">
+                    <button onclick="history.back(); app.currentView='${this.currentView === 'user_profile' ? 'leaderboards' : 'feed'}'; app.renderApp();" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; margin-bottom:2rem; padding:0;">&larr; Back</button>
+
+                    <div class="card" style="display:flex; align-items:center; gap:2rem; margin-bottom:2rem;">
+                        ${profile.avatar ? `<img src="${profile.avatar}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:80px; height:80px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${profile.username.charAt(0).toUpperCase()}</div>`}
+                        <div style="flex:1;">
+                            <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${profile.username}</h2>
+                            <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                                <span style="color:${titleColors[profile.title] || 'var(--text-muted)'}; font-weight:700; font-size:0.9rem; border:1px solid; padding:0.2rem 0.6rem; border-radius:4px;">${profile.title}</span>
+                                ${profile.role === 'admin' ? '<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">★ ADMIN</span>' : ''}
+                                <span style="color:var(--text-muted); font-size:0.85rem;">Joined ${new Date(profile.joinDate).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:2rem; font-weight:900; background:var(--gradient-primary); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">${profile.submissionCount}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Reports</div>
+                        </div>
+                    </div>
+
+                    ${profile.recentSubmissions.length > 0 ? `
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">Recent Intel Reports</h3>
+                    <div class="card" style="padding:0; overflow:hidden;">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Date</th><th>Target</th><th>Grade</th></tr>
+                            </thead>
+                            <tbody>
+                                ${profile.recentSubmissions.map(s => {
+                                    const grade = ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1);
+                                    return `
+                                    <tr style="cursor:pointer;" onclick="app.selectTarget(${s.targetId})">
+                                        <td style="color:var(--text-muted);">${new Date(s.date).toLocaleDateString()}</td>
+                                        <td>
+                                            <span class="tier-badge ${(s.targetTier || '').toLowerCase()}" style="font-size:0.65rem; margin-right:0.5rem;">${s.targetTier}</span>
+                                            ${s.targetName}
+                                        </td>
+                                        <td style="font-weight:700; color:${parseFloat(grade) >= 70 ? 'var(--success)' : parseFloat(grade) >= 50 ? '#fbbf24' : 'var(--danger)'};">${grade}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : '<p style="color:var(--text-muted); text-align:center; padding:2rem;">No intel reports yet.</p>'}
+                </div>
+            `;
+        } catch (e) {
+            container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load profile.</div>`;
+            console.error(e);
+        }
+    }
+
+    // --- NOTIFICATION METHODS --- //
+
+    async updateNotifBadge() {
+        try {
+            const res = await fetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}/count`);
+            const data = await res.json();
+            const badge = document.getElementById('notifBadge');
+            if (badge) {
+                if (data.unread > 0) {
+                    badge.textContent = data.unread > 99 ? '99+' : data.unread;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async loadNotifications() {
+        const dropdown = document.getElementById('notifDropdown');
+        if (!dropdown) return;
+        dropdown.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Loading...</div>';
+
+        try {
+            const res = await fetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}`);
+            const notifs = await res.json();
+
+            if (notifs.length === 0) {
+                dropdown.innerHTML = '<div style="padding:2rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">No notifications yet.</div>';
+                return;
+            }
+
+            const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋' };
+
+            dropdown.innerHTML = `
+                <div style="padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em;">Notifications</span>
+                    <button id="markAllRead" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.8rem; font-weight:600;">Mark all read</button>
+                </div>
+                ${notifs.slice(0, 20).map(n => {
+                    const timeAgo = this.timeAgo(n.created_at);
+                    return `
+                    <div class="notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}" data-link-type="${n.link_type}" data-link-id="${n.link_id}">
+                        <span class="notif-icon">${icons[n.type] || '🔔'}</span>
+                        <div>
+                            <div class="notif-text">${n.message}</div>
+                            <div class="notif-time">${timeAgo}</div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            `;
+
+            dropdown.querySelectorAll('.notif-item').forEach(item => {
+                item.addEventListener('click', async () => {
+                    const id = item.dataset.notifId;
+                    const linkType = item.dataset.linkType;
+                    const linkId = item.dataset.linkId;
+                    await fetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
+                    if (linkType === 'post') { this.currentView = 'feed'; this.renderApp(); }
+                    else if (linkType === 'figure') { this.selectTarget(parseInt(linkId)); }
+                    dropdown.style.display = 'none';
+                });
+            });
+
+            const markAllBtn = document.getElementById('markAllRead');
+            if (markAllBtn) {
+                markAllBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await fetch(`${API_URL}/notifications/read-all`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: this.user.username })
+                    });
+                    this.updateNotifBadge();
+                    dropdown.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
+                });
+            }
+        } catch (e) {
+            dropdown.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--danger); font-size:0.85rem;">Failed to load.</div>';
+        }
+    }
+
+    timeAgo(dateStr) {
+        const now = new Date();
+        const d = new Date(dateStr);
+        const secs = Math.floor((now - d) / 1000);
+        if (secs < 60) return 'just now';
+        if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+        if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+        if (secs < 604800) return `${Math.floor(secs / 86400)}d ago`;
+        return d.toLocaleDateString();
+    }
+
     logout() {
         this.user = null;
         localStorage.removeItem('terminal_user');
         sessionStorage.removeItem('terminalView');
         sessionStorage.removeItem('terminalTarget');
+        if (this._notifInterval) clearInterval(this._notifInterval);
         this.renderLogin();
     }
 }

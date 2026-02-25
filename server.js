@@ -36,6 +36,20 @@ function normalizeRow(row) {
 }
 function normalizeRows(rows) { return rows.map(normalizeRow); }
 
+// --- NOTIFICATION HELPER --- //
+async function createNotification(recipient, type, message, linkType, linkId, sender) {
+    if (recipient === sender) return;
+    try {
+        await db.query(
+            `INSERT INTO Notifications (recipient, type, message, link_type, link_id, sender, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [recipient, type, message, linkType, linkId, sender, new Date().toISOString()]
+        );
+    } catch (e) {
+        console.error("Failed to create notification:", e);
+    }
+}
+
 // --- AUTHENTICATION API --- //
 
 // Register a new operative
@@ -175,6 +189,13 @@ app.post('/api/posts/:postId/comments', async (req, res) => {
     try {
         const result = await db.query("INSERT INTO Comments (postId, author, content, date) VALUES ($1, $2, $3, $4) RETURNING id",
             [postId, author, content, new Date().toISOString()]);
+
+        // Notify post author
+        const post = await db.query("SELECT author FROM Posts WHERE id = $1", [postId]);
+        if (post.rows[0]) {
+            await createNotification(post.rows[0].author, 'comment', `${author} replied to your broadcast`, 'post', parseInt(postId), author);
+        }
+
         res.status(201).json({ id: result.rows[0].id, message: "Reply transmitted." });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -202,6 +223,13 @@ app.post('/api/posts/:postId/react', async (req, res) => {
             }
         } else {
             await db.query("INSERT INTO Reactions (postId, author, emoji) VALUES ($1, $2, $3)", [postId, author, emoji]);
+
+            // Notify post author
+            const post = await db.query("SELECT author FROM Posts WHERE id = $1", [postId]);
+            if (post.rows[0]) {
+                await createNotification(post.rows[0].author, 'reaction', `${author} reacted ${emoji} to your broadcast`, 'post', parseInt(postId), author);
+            }
+
             res.status(201).json({ action: 'added' });
         }
     } catch (err) {
@@ -325,6 +353,15 @@ app.post('/api/submissions', upload.single('image'), async (req, res) => {
                 parseFloat(req.body.mtsTotal), parseFloat(req.body.approvalScore), JSON.stringify(submissionData), req.body.date
             ]
         );
+        // Notify co-reviewers
+        const coReviewers = await db.query(
+            "SELECT DISTINCT author FROM Submissions WHERE targetId = $1 AND author != $2",
+            [req.body.targetId, req.body.author]
+        );
+        for (const row of coReviewers.rows) {
+            await createNotification(row.author, 'co_reviewer', `${req.body.author} also reviewed ${req.body.targetName}`, 'figure', parseInt(req.body.targetId), req.body.author);
+        }
+
         res.status(201).json({ id: result.rows[0].id, message: "Intelligence report successfully committed." });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -437,6 +474,152 @@ app.get('/api/stats/headlines', async (req, res) => {
         });
 
         res.json(headlines);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- TOP RATED FIGURES API --- //
+
+app.get('/api/figures/top-rated', async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT s.targetId, s.targetName, f.brand, f.classTie, f.line,
+                   AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade,
+                   COUNT(*) as submissions
+            FROM Submissions s
+            LEFT JOIN Figures f ON f.id = s.targetId
+            GROUP BY s.targetId, s.targetName, f.brand, f.classTie, f.line
+            ORDER BY avgGrade DESC
+            LIMIT 10
+        `);
+        res.json(result.rows.map(r => ({
+            id: r.targetid,
+            name: r.targetname,
+            brand: r.brand,
+            classTie: r.classtie,
+            line: r.line,
+            avgGrade: parseFloat(r.avggrade).toFixed(1),
+            submissions: parseInt(r.submissions)
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- RANKED FIGURES API --- //
+
+app.get('/api/figures/ranked', async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT f.id, f.name, f.brand, f.classTie, f.line,
+                   COUNT(s.id) as submissions,
+                   AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade
+            FROM Figures f
+            LEFT JOIN Submissions s ON f.id = s.targetId
+            GROUP BY f.id, f.name, f.brand, f.classTie, f.line
+            ORDER BY f.name ASC
+        `);
+        res.json(result.rows.map(r => ({
+            id: r.id,
+            name: r.name,
+            brand: r.brand,
+            classTie: r.classtie,
+            line: r.line,
+            submissions: parseInt(r.submissions) || 0,
+            avgGrade: r.avggrade ? parseFloat(r.avggrade).toFixed(1) : null
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- USER PROFILE API --- //
+
+app.get('/api/users/:username/profile', async (req, res) => {
+    try {
+        const userRes = await db.query(
+            "SELECT id, username, avatar, role, created_at FROM Users WHERE username = $1",
+            [req.params.username]
+        );
+        if (!userRes.rows[0]) return res.status(404).json({ error: "User not found." });
+        const user = normalizeRow(userRes.rows[0]);
+
+        const subsRes = await db.query(
+            "SELECT * FROM Submissions WHERE author = $1 ORDER BY id DESC LIMIT 20",
+            [req.params.username]
+        );
+        const submissions = normalizeRows(subsRes.rows);
+        submissions.forEach(r => {
+            try { r.data = JSON.parse(r.jsonData); } catch (e) { r.data = {}; }
+        });
+
+        const countRes = await db.query(
+            "SELECT COUNT(*) as count FROM Submissions WHERE author = $1",
+            [req.params.username]
+        );
+        const totalSubs = parseInt(countRes.rows[0].count);
+
+        let title = 'Rookie Analyst';
+        if (totalSubs >= 15) title = 'Prime Intel Officer';
+        else if (totalSubs >= 10) title = 'Senior Field Evaluator';
+        else if (totalSubs >= 5) title = 'Field Evaluator';
+        else if (totalSubs >= 2) title = 'Junior Analyst';
+
+        res.json({
+            username: user.username,
+            avatar: user.avatar,
+            role: user.role || 'analyst',
+            joinDate: user.created_at,
+            submissionCount: totalSubs,
+            title,
+            recentSubmissions: submissions
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- NOTIFICATIONS API --- //
+
+app.get('/api/notifications/:username', async (req, res) => {
+    try {
+        const result = await db.query(
+            "SELECT * FROM Notifications WHERE recipient = $1 ORDER BY id DESC LIMIT 50",
+            [req.params.username]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/notifications/:username/count', async (req, res) => {
+    try {
+        const result = await db.query(
+            "SELECT COUNT(*) as count FROM Notifications WHERE recipient = $1 AND read = false",
+            [req.params.username]
+        );
+        res.json({ unread: parseInt(result.rows[0].count) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/notifications/:id/read', async (req, res) => {
+    try {
+        await db.query("UPDATE Notifications SET read = true WHERE id = $1", [req.params.id]);
+        res.json({ message: "Notification marked as read." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/notifications/read-all', async (req, res) => {
+    const { username } = req.body;
+    try {
+        await db.query("UPDATE Notifications SET read = true WHERE recipient = $1", [username]);
+        res.json({ message: "All notifications marked as read." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
