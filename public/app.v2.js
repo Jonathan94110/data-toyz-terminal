@@ -674,11 +674,26 @@ class TerminalApp {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Initiating secure scan on the Market Pulse...</div>`;
 
         let figureSubs = [];
+        let overviewStats = {};
+        let indexes = [];
+        let headlines = [];
         try {
             const res = await fetch(`${API_URL}/submissions/target/${this.currentTarget.id}`);
             if (res.ok) figureSubs = await res.json();
         } catch (e) {
             console.error("Failed retrieving pulse data", e);
+        }
+        try {
+            const [ovRes, idxRes, hdRes] = await Promise.all([
+                fetch(`${API_URL}/stats/overview`),
+                fetch(`${API_URL}/stats/indexes`),
+                fetch(`${API_URL}/stats/headlines`)
+            ]);
+            if (ovRes.ok) overviewStats = await ovRes.json();
+            if (idxRes.ok) indexes = await idxRes.json();
+            if (hdRes.ok) headlines = await hdRes.json();
+        } catch (e) {
+            console.error("Failed retrieving market stats", e);
         }
 
         let mtsAvg = 0, approvalAvg = 0, overallAvg = 0, confidenceStars = 1;
@@ -795,6 +810,90 @@ class TerminalApp {
                     <p style="color:var(--text-secondary); margin-bottom: 2rem;">Help stabilize the market pulse by adding your in-hand assessment.</p>
                     <button class="btn" style="max-width: 300px;" onclick="app.currentView='submission'; app.renderApp();">Execute Trade Scan</button>
                 </div>
+
+                <!-- MARKET ACTIVITY RECAP -->
+                <div style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light);">
+                    <h3 style="margin-bottom: 1.5rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">📊 Market Activity Recap</h3>
+                    <div class="grid-2" style="gap: 1rem;">
+                        <div class="stat-box" style="padding:1.5rem;">
+                            <div class="stat-value" style="font-size:2.5rem; color:var(--accent);">${overviewStats.totalIntel || 0}</div>
+                            <div class="stat-label">Total Intel Reports</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.5rem;">
+                            <div class="stat-value" style="font-size:2.5rem; color:var(--accent);">${overviewStats.uniqueAnalysts || 0}</div>
+                            <div class="stat-label">Active Analysts</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.5rem;">
+                            <div class="stat-value" style="font-size:2.5rem; color:var(--accent);">${overviewStats.avgGrade || '0.0'}</div>
+                            <div class="stat-label">Avg Overall Grade</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.5rem;">
+                            <div class="stat-value" style="font-size:2.5rem; color:var(--accent);">${overviewStats.totalTargets || 0}</div>
+                            <div class="stat-label">Cataloged Targets</div>
+                        </div>
+                    </div>
+                    ${overviewStats.topFigure ? `
+                        <div class="card" style="margin-top:1rem; padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${overviewStats.topFigure.id})">
+                            <div>
+                                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">🏆 Highest Rated Target</div>
+                                <div style="font-size:1.1rem; font-weight:700; margin-top:0.25rem;">${overviewStats.topFigure.name}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:1.5rem; font-weight:800; color:var(--accent);">${overviewStats.topFigure.grade}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">${overviewStats.topFigure.subs} report${overviewStats.topFigure.subs !== 1 ? 's' : ''}</div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- BRAND / LINE INDEXES -->
+                ${indexes.length > 0 ? `
+                <div style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light);">
+                    <h3 style="margin-bottom: 1.5rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">📈 Brand & Line Indexes</h3>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
+                        ${indexes.map(idx => {
+            const grade = idx.avgGrade ? parseFloat(idx.avgGrade) : null;
+            const gradeColor = grade >= 70 ? 'var(--success)' : grade >= 45 ? '#fbbf24' : grade ? 'var(--danger)' : 'var(--text-muted)';
+            const trendIcon = grade >= 70 ? '↑' : grade >= 45 ? '→' : grade ? '↓' : '—';
+            return `
+                                <div class="card" style="padding:1.25rem; display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <div style="font-weight:700; font-size:0.95rem;">${idx.brand}</div>
+                                        <div style="font-size:0.8rem; color:var(--text-muted);">${idx.line} • ${idx.targets} target${idx.targets !== 1 ? 's' : ''}</div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <span style="font-size:1.25rem; font-weight:800; color:${gradeColor};">${grade ? idx.avgGrade : '—'}</span>
+                                        <span style="font-size:1.1rem; margin-left:0.25rem; color:${gradeColor};">${trendIcon}</span>
+                                        <div style="font-size:0.7rem; color:var(--text-muted);">${idx.submissions} report${idx.submissions !== 1 ? 's' : ''}</div>
+                                    </div>
+                                </div>
+                            `;
+        }).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- INTEL HEADLINES -->
+                ${headlines.length > 0 ? `
+                <div style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light);">
+                    <h3 style="margin-bottom: 1.5rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">📰 Intel Headlines</h3>
+                    <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                        ${headlines.map(h => {
+            const gradeColor = h.grade >= 70 ? 'var(--success)' : h.grade >= 45 ? '#fbbf24' : 'var(--danger)';
+            const timeAgo = h.date ? new Date(h.date).toLocaleDateString() : '';
+            return `
+                                <div class="card" style="padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+                                    <div style="flex:1;">
+                                        <div style="font-size:0.95rem; font-weight:500; line-height:1.4;">${h.headline}</div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">${h.brand} • ${h.classTie} • ${timeAgo}</div>
+                                    </div>
+                                    <div style="font-size:1.25rem; font-weight:800; color:${gradeColor}; white-space:nowrap;">${h.grade.toFixed(1)}</div>
+                                </div>
+                            `;
+        }).join('')}
+                    </div>
+                </div>
+                ` : ''}
             </div>
         `;
 
