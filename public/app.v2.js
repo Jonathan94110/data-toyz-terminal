@@ -636,10 +636,14 @@ class TerminalApp {
                                 <span id="imgName" style="margin-left:0.5rem; font-size:0.8rem; color:var(--accent);"></span>
                             </div>
                             
-                            <div class="segmented-control" style="margin:0; min-width:200px;">
+                            <div class="segmented-control" style="margin:0; min-width:280px;">
                                 <label class="risk-bullish" style="padding:0.5rem;">
                                     <input type="radio" name="sentiment" value="fire" required>
                                     <span style="font-size:1.2rem;">🔥 HOT</span>
+                                </label>
+                                <label class="risk-neutral" style="padding:0.5rem;">
+                                    <input type="radio" name="sentiment" value="fence" required>
+                                    <span style="font-size:1.2rem;">🤺 FENCE</span>
                                 </label>
                                 <label class="risk-bearish" style="padding:0.5rem;">
                                     <input type="radio" name="sentiment" value="ice" required>
@@ -661,9 +665,10 @@ class TerminalApp {
         } else {
             posts.forEach((p, index) => {
                 const isFire = p.sentiment === 'fire';
-                const badgeColor = isFire ? '#ef4444' : '#3b82f6';
-                const badgeGlow = isFire ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)';
-                const badgeIcon = isFire ? '🔥' : '🧊';
+                const isFence = p.sentiment === 'fence';
+                const badgeColor = isFire ? '#ef4444' : isFence ? '#f59e0b' : '#3b82f6';
+                const badgeGlow = isFire ? 'rgba(239, 68, 68, 0.2)' : isFence ? 'rgba(245, 158, 11, 0.2)' : 'rgba(59, 130, 246, 0.2)';
+                const badgeIcon = isFire ? '🔥' : isFence ? '🤺' : '🧊';
                 const dateStr = new Date(p.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
 
                 let commentsHtml = '';
@@ -2786,7 +2791,7 @@ class TerminalApp {
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Features:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li><strong>Post Broadcasts</strong> &mdash; Share text updates with optional image attachments</li>
-                        <li><strong>Sentiment Tags</strong> &mdash; Each post is tagged with a sentiment: Bullish (positive), Bearish (negative), or Neutral</li>
+                        <li><strong>Sentiment Tags</strong> &mdash; Each post is tagged with a sentiment: \u{1F525} HOT (bullish), \u{1F93A} FENCE (neutral), or \u{1F9CA} NOT (bearish)</li>
                         <li><strong>Comments</strong> &mdash; Reply to any broadcast to start a discussion thread</li>
                         <li><strong>Emoji Reactions</strong> &mdash; React to posts with one of four emojis: \u{1F44D} \u{2764}\u{FE0F} \u{1F602} \u{1F610} (one reaction per user per post, toggles on/off)</li>
                         <li><strong>@-Mentions</strong> &mdash; Tag other operatives with <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@username</code> in posts or comments. The mentioned operative receives an in-app notification and the mention appears as a clickable profile link.</li>
