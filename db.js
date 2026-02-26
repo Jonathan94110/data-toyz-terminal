@@ -251,6 +251,28 @@ async function initDB() {
             FOREIGN KEY(submission_id) REFERENCES Submissions(id) ON DELETE SET NULL
         )`);
 
+        // Create Flags Table (Post Flagging/Reporting)
+        await pool.query(`CREATE TABLE IF NOT EXISTS Flags (
+            id SERIAL PRIMARY KEY,
+            post_id INTEGER NOT NULL,
+            flagged_by TEXT NOT NULL,
+            reason TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(post_id, flagged_by),
+            FOREIGN KEY(post_id) REFERENCES Posts(id) ON DELETE CASCADE
+        )`);
+
+        // Create Follows Table (User Following)
+        await pool.query(`CREATE TABLE IF NOT EXISTS Follows (
+            id SERIAL PRIMARY KEY,
+            follower_id INTEGER NOT NULL,
+            following_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(follower_id, following_id),
+            FOREIGN KEY(follower_id) REFERENCES Users(id) ON DELETE CASCADE,
+            FOREIGN KEY(following_id) REFERENCES Users(id) ON DELETE CASCADE
+        )`);
+
         // Create AuditLog Table (S-10: Security audit trail)
         await pool.query(`CREATE TABLE IF NOT EXISTS AuditLog (
             id SERIAL PRIMARY KEY,
@@ -300,6 +322,29 @@ async function initDB() {
             await pool.query(`ALTER TABLE Submissions ADD COLUMN cost_basis REAL`);
         }
 
+        // Migration: add edited_at column to Posts for edit tracking
+        const editedAtCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'posts' AND column_name = 'edited_at'
+        `);
+        if (editedAtCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Posts ADD COLUMN edited_at TEXT`);
+        }
+
+        // Migration: add follow, mention, flag notification preferences
+        const followInappCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'notificationprefs' AND column_name = 'follow_inapp'
+        `);
+        if (followInappCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN follow_inapp BOOLEAN DEFAULT true`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN follow_email BOOLEAN DEFAULT false`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN mention_inapp BOOLEAN DEFAULT true`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN mention_email BOOLEAN DEFAULT false`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN flag_inapp BOOLEAN DEFAULT true`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN flag_email BOOLEAN DEFAULT false`);
+        }
+
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {
@@ -322,6 +367,8 @@ async function initDB() {
         // Always sync the auto-increment sequences to prevent duplicate key errors
         await pool.query("SELECT setval(pg_get_serial_sequence('figures', 'id'), (SELECT COALESCE(MAX(id), 1) FROM Figures))");
         await pool.query("SELECT setval(pg_get_serial_sequence('markettransactions', 'id'), (SELECT COALESCE(MAX(id), 1) FROM MarketTransactions))");
+        await pool.query("SELECT setval(pg_get_serial_sequence('flags', 'id'), (SELECT COALESCE(MAX(id), 1) FROM Flags))");
+        await pool.query("SELECT setval(pg_get_serial_sequence('follows', 'id'), (SELECT COALESCE(MAX(id), 1) FROM Follows))");
 
         // One-time data migration: extract market_price from jsonData into MarketTransactions
         await migrateMarketPrices();

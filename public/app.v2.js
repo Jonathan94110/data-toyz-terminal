@@ -21,6 +21,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     if (installBtn) installBtn.style.display = 'flex';
 });
 
+// Render @mentions as clickable links (runs AFTER escapeHTML for XSS safety)
+function renderMentions(text) {
+    return escapeHTML(text).replace(/@(\w+)/g, (match, username) => {
+        return `<span class="mention-link user-link" onclick="event.stopPropagation(); app.viewUserProfile('${username}')" style="color:var(--accent); cursor:pointer; font-weight:600;">@${username}</span>`;
+    });
+}
+
 // S-6: XSS Prevention — escape HTML entities in user-generated content
 function escapeHTML(str) {
     if (!str) return '';
@@ -97,6 +104,13 @@ class TerminalApp {
                     this.currentTarget = target;
                     this.currentView = 'pulse';
                 }
+            }
+
+            // Deep-link support: ?post=ID (shared post link)
+            const postParam = urlParams.get('post');
+            if (postParam) {
+                sessionStorage.setItem('sharedPostId', postParam);
+                this.currentView = 'feed';
             }
 
             this.renderApp();
@@ -341,6 +355,12 @@ class TerminalApp {
                     const target = MOCK_FIGURES.find(f => f.id == fId);
                     if (target) { this.currentTarget = target; this.currentView = 'pulse'; }
                 }
+                // Preserve shared post deep-link
+                const postParam = urlParams.get('post');
+                if (postParam) {
+                    sessionStorage.setItem('sharedPostId', postParam);
+                    this.currentView = 'feed';
+                }
 
                 this.renderApp();
             } catch (err) {
@@ -576,10 +596,22 @@ class TerminalApp {
 
         let posts = [];
         try {
-            const res = await fetch(`${API_URL}/posts`);
+            // Use authFetch so admin users get flag counts
+            const res = await this.authFetch(`${API_URL}/posts`);
             if (res.ok) posts = await res.json();
         } catch (e) {
             console.error("Failed fetching posts", e);
+        }
+
+        // Handle shared post deep-link
+        let sharedPostId = sessionStorage.getItem('sharedPostId');
+        if (sharedPostId) {
+            sessionStorage.removeItem('sharedPostId');
+            const sharedIdx = posts.findIndex(p => p.id == sharedPostId);
+            if (sharedIdx > 0) {
+                const [shared] = posts.splice(sharedIdx, 1);
+                posts.unshift(shared);
+            }
         }
 
         let feedHtml = `
@@ -644,14 +676,14 @@ class TerminalApp {
                                     <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(c.author).replace(/'/g, "\\'")}')">${escapeHTML(c.author)}</span>
                                     <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
                                 </div>
-                                <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${escapeHTML(c.content)}</div>
+                                <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderMentions(c.content)}</div>
                             </div>
                         `;
                     });
                     commentsHtml += '</div>';
                 }
 
-                let likes = 0, hearts = 0, lmaos = 0, sads = 0;
+                let likes = 0, hearts = 0, lmaos = 0, sads = 0, mehs = 0;
                 let myReaction = null;
                 if (p.reactions) {
                     p.reactions.forEach(r => {
@@ -659,6 +691,7 @@ class TerminalApp {
                         else if (r.emoji === 'heart') hearts++;
                         else if (r.emoji === 'lmao') lmaos++;
                         else if (r.emoji === 'sad') sads++;
+                        else if (r.emoji === 'meh') mehs++;
 
                         if (r.author === this.user.username) myReaction = r.emoji;
                     });
@@ -679,11 +712,12 @@ class TerminalApp {
                 `;
 
                 const reactionsHtml = `
-                    <div style="display:flex; gap:0.5rem; margin-top:1rem; padding-top:0.75rem;">
+                    <div style="display:flex; gap:0.5rem; margin-top:1rem; padding-top:0.75rem; flex-wrap:wrap;">
                         <button class="reactBtn" data-postid="${p.id}" data-emoji="like" style="${rBtnStyle('like')}">👍 ${likes}</button>
                         <button class="reactBtn" data-postid="${p.id}" data-emoji="heart" style="${rBtnStyle('heart')}">❤️ ${hearts}</button>
                         <button class="reactBtn" data-postid="${p.id}" data-emoji="lmao" style="${rBtnStyle('lmao')}">😂 ${lmaos}</button>
                         <button class="reactBtn" data-postid="${p.id}" data-emoji="sad" style="${rBtnStyle('sad')}">😢 ${sads}</button>
+                        <button class="reactBtn" data-postid="${p.id}" data-emoji="meh" style="${rBtnStyle('meh')}">😐 ${mehs}</button>
                     </div>
                 `;
 
@@ -694,19 +728,45 @@ class TerminalApp {
                     </form>
                 `;
 
+                const isSharedPost = sharedPostId && p.id == sharedPostId;
+                const isMyPost = p.author === this.user.username;
+                const isAdmin = this.user.role === 'admin';
+
+                // Post action buttons (edit/delete for author, admin delete, flag, share)
+                let postActionsHtml = '<div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">';
+                if (isMyPost) {
+                    postActionsHtml += `
+                        <button class="editPostBtn" data-postid="${p.id}" style="background:none; border:1px solid var(--border-light); color:var(--text-muted); padding:0.25rem 0.5rem; border-radius:4px; font-size:0.75rem; cursor:pointer;">✏️ Edit</button>
+                        <button class="deletePostBtn" data-postid="${p.id}" style="background:none; border:1px solid var(--border-light); color:var(--text-muted); padding:0.25rem 0.5rem; border-radius:4px; font-size:0.75rem; cursor:pointer;">🗑️</button>
+                    `;
+                } else if (isAdmin) {
+                    postActionsHtml += `
+                        <button class="deletePostBtn" data-postid="${p.id}" style="background:none; border:1px solid var(--danger, #ef4444); color:var(--danger, #ef4444); padding:0.25rem 0.5rem; border-radius:4px; font-size:0.75rem; cursor:pointer;">🗑️ Admin</button>
+                    `;
+                }
+                if (!isMyPost) {
+                    postActionsHtml += `<button class="flagPostBtn" data-postid="${p.id}" style="background:none; border:none; color:var(--text-muted); font-size:0.75rem; cursor:pointer; padding:0.25rem 0;">🚩 Report</button>`;
+                }
+                postActionsHtml += `<button class="sharePostBtn" data-postid="${p.id}" style="background:none; border:none; color:var(--text-muted); font-size:0.75rem; cursor:pointer; padding:0.25rem 0;">📋 Share</button>`;
+                if (isAdmin && p.flagCount) {
+                    postActionsHtml += `<span style="color:var(--danger, #ef4444); font-size:0.75rem; font-weight:600; margin-left:auto;">⚠️ ${p.flagCount} flag${p.flagCount > 1 ? 's' : ''}</span>`;
+                }
+                postActionsHtml += '</div>';
+
                 feedHtml += `
-                    <div class="card feed-item animate-stagger" style="margin-bottom:1.5rem; padding:1.5rem; border-left: 4px solid ${badgeColor}; animation-delay: ${index * 0.08}s;">
+                    <div class="card feed-item animate-stagger" style="margin-bottom:1.5rem; padding:1.5rem; border-left: 4px solid ${badgeColor}; animation-delay: ${index * 0.08}s;${isSharedPost ? ' box-shadow: 0 0 20px rgba(255, 42, 95, 0.3); border: 1px solid var(--accent);' : ''}">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
                             <div>
                                 <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(p.author).replace(/'/g, "\\'")}')">${escapeHTML(p.author)}</div>
-                                <div style="font-size:0.75rem; color:var(--text-secondary);">${dateStr}</div>
+                                <div style="font-size:0.75rem; color:var(--text-secondary);">${dateStr}${p.editedAt ? ' <span style="color:var(--text-muted); font-style:italic;">(edited)</span>' : ''}</div>
                             </div>
                             <div style="background:${badgeGlow}; color:${badgeColor}; border:1px solid ${badgeColor}; padding:0.25rem 0.75rem; border-radius:1rem; font-weight:800; font-size:0.85rem; box-shadow: 0 0 10px ${badgeGlow}; text-transform:uppercase;">
                                 ${badgeIcon} ${escapeHTML(p.sentiment)}
                             </div>
                         </div>
-                        <p style="font-size:1rem; line-height:1.6; color:var(--text-primary); margin-bottom:${p.imagePath ? '1rem' : '0'}; white-space:pre-wrap;">${escapeHTML(p.content)}</p>
+                        <p class="post-content" style="font-size:1rem; line-height:1.6; color:var(--text-primary); margin-bottom:${p.imagePath ? '1rem' : '0'}; white-space:pre-wrap;">${renderMentions(p.content)}</p>
                         ${p.imagePath ? `<img src="${p.imagePath}" style="max-width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); max-height:400px; object-fit:contain; background:var(--bg-surface); display:block;">` : ''}
+                        ${postActionsHtml}
                         ${reactionsHtml}
                         ${commentsHtml}
                         ${replyFormHtml}
@@ -790,7 +850,7 @@ class TerminalApp {
 
                     // Find all reaction buttons for this post
                     const postBtns = document.querySelectorAll(`.reactBtn[data-postid="${postId}"]`);
-                    const emojiMap = { like: '👍', heart: '❤️', lmao: '😂', sad: '😢' };
+                    const emojiMap = { like: '👍', heart: '❤️', lmao: '😂', sad: '😢', meh: '😐' };
 
                     postBtns.forEach(b => {
                         const bEmoji = b.dataset.emoji;
@@ -827,6 +887,98 @@ class TerminalApp {
                     console.error(err);
                     btn.style.opacity = '1';
                 }
+            });
+        });
+
+        // Edit Post Handlers
+        document.querySelectorAll('.editPostBtn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const postId = btn.dataset.postid;
+                const postCard = btn.closest('.feed-item');
+                const contentEl = postCard.querySelector('.post-content');
+                const currentText = contentEl.textContent;
+
+                contentEl.innerHTML = `
+                    <textarea class="editTextarea" style="width:100%; min-height:80px; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--accent); color:var(--text-primary); border-radius:var(--radius-sm); font-family:var(--font-body); resize:vertical; font-size:1rem;">${escapeHTML(currentText)}</textarea>
+                    <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                        <button class="saveEditBtn btn" style="padding:0.4rem 1rem; font-size:0.85rem;">Save</button>
+                        <button class="cancelEditBtn" style="padding:0.4rem 1rem; font-size:0.85rem; background:none; border:1px solid var(--border-light); color:var(--text-secondary); border-radius:var(--radius-sm); cursor:pointer;">Cancel</button>
+                    </div>
+                `;
+
+                contentEl.querySelector('.saveEditBtn').addEventListener('click', async () => {
+                    const newContent = contentEl.querySelector('.editTextarea').value.trim();
+                    if (!newContent) return;
+                    try {
+                        const res = await app.authFetch(`${API_URL}/posts/${postId}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ content: newContent })
+                        });
+                        if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+                        app.renderFeed(container);
+                    } catch (err) { alert(err.message); }
+                });
+
+                contentEl.querySelector('.cancelEditBtn').addEventListener('click', () => {
+                    app.renderFeed(container);
+                });
+            });
+        });
+
+        // Delete Post Handlers
+        document.querySelectorAll('.deletePostBtn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const postId = btn.dataset.postid;
+                if (!confirm('Are you sure you want to purge this broadcast? This cannot be undone.')) return;
+                try {
+                    const res = await app.authFetch(`${API_URL}/posts/${postId}`, { method: 'DELETE' });
+                    if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+                    app.renderFeed(container);
+                } catch (err) { alert(err.message); }
+            });
+        });
+
+        // Flag Post Handlers
+        document.querySelectorAll('.flagPostBtn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const postId = btn.dataset.postid;
+                const reason = prompt('Why are you reporting this broadcast? (optional)');
+                if (reason === null) return;
+                try {
+                    btn.disabled = true;
+                    btn.textContent = 'Reporting...';
+                    const res = await app.authFetch(`${API_URL}/posts/${postId}/flag`, {
+                        method: 'POST',
+                        body: JSON.stringify({ reason: reason || '' })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error);
+                    btn.textContent = '✓ Reported';
+                    btn.style.color = 'var(--success, #22c55e)';
+                } catch (err) {
+                    alert(err.message);
+                    btn.disabled = false;
+                    btn.textContent = '🚩 Report';
+                }
+            });
+        });
+
+        // Share Post Handlers
+        document.querySelectorAll('.sharePostBtn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const postId = btn.dataset.postid;
+                const url = `${window.location.origin}${window.location.pathname}?post=${postId}`;
+                navigator.clipboard.writeText(url).then(() => {
+                    btn.textContent = '✓ Link Copied!';
+                    setTimeout(() => { btn.textContent = '📋 Share'; }, 2000);
+                }).catch(() => {
+                    btn.textContent = '✗ Failed';
+                    setTimeout(() => { btn.textContent = '📋 Share'; }, 2000);
+                });
             });
         });
     }
@@ -2278,6 +2430,47 @@ class TerminalApp {
                                 </label>
                             </div>
                         </div>
+
+                        <!-- Row: @Mentions -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when I'm @mentioned</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="mention_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="mention_inapp">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Row: New Follower -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when someone follows me</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="follow_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="follow_inapp">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Row: Flagged Posts (Admin Only) -->
+                        ${this.user.role === 'admin' ? `
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when posts are flagged <span style="color:#fbbf24; font-size:0.75rem;">★ Admin</span></span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="flag_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="flag_inapp">
+                                </label>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     <div id="notifPrefsSaved" style="display:none; text-align:center; color:var(--success); font-size:0.85rem; margin-top:0.75rem;">Preferences saved.</div>
                 </div>
@@ -2417,6 +2610,7 @@ class TerminalApp {
             { id: 'leaderboards', title: 'Global Leaderboard & Ranks' },
             { id: 'profile', title: 'Profile Settings' },
             { id: 'notifications', title: 'Notifications' },
+            { id: 'flagging', title: 'Flagging a Post' },
             { id: 'admin', title: 'Admin Panel' },
             { id: 'security', title: 'Security & Authentication' },
             { id: 'soc2', title: 'SOC 2 Alignment' },
@@ -2721,9 +2915,32 @@ class TerminalApp {
                     <p style="color:var(--text-muted); font-size:0.85rem;">Tip: If you want to be notified by email when new figures are added to the catalog, toggle the "Email" switch for "New figure added to catalog" on your profile page.</p>
                 </div>
 
-                <!-- 13. ADMIN PANEL -->
+                <!-- 13. FLAGGING A POST -->
+                <div id="doc-flagging" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. Flagging a Post</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        If you encounter a broadcast that violates community guidelines or contains inappropriate content, you can flag it for admin review. Flagging is anonymous to the post author &mdash; they will not be notified that their post was flagged.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>How to Flag:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Click the <strong>🚩 Report</strong> button on any broadcast in the Comms Feed</li>
+                        <li>Optionally provide a reason for the flag (up to 500 characters)</li>
+                        <li>Each user can flag a broadcast only once</li>
+                        <li>You cannot flag your own broadcasts</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>What Happens Next:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Admins receive a notification about the flagged broadcast</li>
+                        <li>Admins can view all flags in the Admin Panel under "Flagged Broadcasts"</li>
+                        <li>Admins can either delete the flagged broadcast or dismiss the flag</li>
+                        <li>The post author is <strong>never</strong> notified about flags on their content</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Please flag responsibly. Flagging is meant for content that genuinely violates community standards.</p>
+                </div>
+
+                <!-- 14. ADMIN PANEL -->
                 <div id="doc-admin" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. Admin Panel</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Admin Panel</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Admin Panel is only visible to operatives with the <strong>admin</strong> role. It provides full control over the platform:
                     </p>
@@ -2750,7 +2967,7 @@ class TerminalApp {
 
                 <!-- 14. SECURITY & AUTHENTICATION -->
                 <div id="doc-security" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Security & Authentication</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Security & Authentication</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1.5rem;">
                         Data Toyz Terminal implements layered, industry-standard security controls designed to protect user accounts, platform integrity, and stored data.
                     </p>
@@ -2820,9 +3037,9 @@ class TerminalApp {
                     <p style="color:var(--text-secondary); line-height:1.8;">Internal errors are logged server-side. Only sanitized, generic error responses are returned to clients.</p>
                 </div>
 
-                <!-- 15. SOC 2 ALIGNMENT -->
+                <!-- 16. SOC 2 ALIGNMENT -->
                 <div id="doc-soc2" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. SOC 2 Alignment</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">16. SOC 2 Alignment</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;">
                         Data Toyz Terminal implements technical and operational controls aligned with the SOC 2 Trust Services Criteria across all five principles.
                     </p>
@@ -2876,9 +3093,9 @@ class TerminalApp {
                     </ul>
                 </div>
 
-                <!-- 16. GLOSSARY -->
+                <!-- 17. GLOSSARY -->
                 <div id="doc-glossary" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">16. Glossary</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">17. Glossary</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Data Toyz Terminal uses intelligence/spy-themed terminology throughout the platform:
                     </p>
@@ -2919,17 +3136,19 @@ class TerminalApp {
     async renderAdmin(container) {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Loading Admin Panel...</div>`;
 
-        let analytics = {}, users = [], figures = [];
+        let analytics = {}, users = [], figures = [], flags = [];
 
         try {
-            const [aRes, uRes, fRes] = await Promise.all([
+            const [aRes, uRes, fRes, flagRes] = await Promise.all([
                 this.authFetch(`${API_URL}/admin/analytics`),
                 this.authFetch(`${API_URL}/admin/users`),
-                fetch(`${API_URL}/figures`)
+                fetch(`${API_URL}/figures`),
+                this.authFetch(`${API_URL}/admin/flags`)
             ]);
             if (aRes.ok) analytics = await aRes.json();
             if (uRes.ok) users = await uRes.json();
             if (fRes.ok) figures = await fRes.json();
+            if (flagRes.ok) flags = await flagRes.json();
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
             return;
@@ -2975,6 +3194,37 @@ class TerminalApp {
                             </div>
                         `).join('')}
                     </div>
+                </div>
+                ` : ''}
+
+                <!-- FLAGGED BROADCASTS -->
+                ${flags.length > 0 ? `
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--danger, #ef4444); margin-bottom:1rem; margin-top:2.5rem;">🚩 Flagged Broadcasts (${flags.length})</h3>
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--bg-panel); text-align:left;">
+                                <th style="padding:0.75rem 1rem; font-weight:700;">Post Author</th>
+                                <th style="padding:0.75rem 1rem; font-weight:700;">Flagged By</th>
+                                <th style="padding:0.75rem 1rem; font-weight:700;">Reason</th>
+                                <th style="padding:0.75rem 1rem; font-weight:700;">Date</th>
+                                <th style="padding:0.75rem 1rem; font-weight:700;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${flags.map(f => `
+                            <tr style="border-bottom:1px solid var(--border-light);">
+                                <td style="padding:0.75rem 1rem; font-weight:700;">${escapeHTML(f.postAuthor)}</td>
+                                <td style="padding:0.75rem 1rem;">${escapeHTML(f.flaggedBy)}</td>
+                                <td style="padding:0.75rem 1rem; color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(f.reason || 'No reason given')}</td>
+                                <td style="padding:0.75rem 1rem; color:var(--text-muted); font-size:0.85rem;">${new Date(f.created_at).toLocaleDateString()}</td>
+                                <td style="padding:0.75rem 1rem; white-space:nowrap;">
+                                    <button class="adminDeleteFlaggedPost btn" data-postid="${f.postId}" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:var(--danger, #ef4444); border-color:var(--danger, #ef4444); margin-right:0.25rem;">Delete Post</button>
+                                    <button class="adminDismissFlag btn" data-flagid="${f.id}" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:var(--bg-surface); border-color:var(--border-light); color:var(--text-secondary);">Dismiss</button>
+                                </td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
                 </div>
                 ` : ''}
 
@@ -3112,6 +3362,25 @@ class TerminalApp {
         });
 
         // Edit figure
+        // Flagged post admin actions
+        document.querySelectorAll('.adminDeleteFlaggedPost').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Delete this flagged broadcast?')) return;
+                try {
+                    const res = await this.authFetch(`${API_URL}/posts/${btn.dataset.postid}`, { method: 'DELETE' });
+                    if (res.ok) { this.renderAdmin(container); }
+                } catch (e) { console.error(e); }
+            });
+        });
+        document.querySelectorAll('.adminDismissFlag').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/flags/${btn.dataset.flagid}`, { method: 'DELETE' });
+                    if (res.ok) { this.renderAdmin(container); }
+                } catch (e) { console.error(e); }
+            });
+        });
+
         document.querySelectorAll('.editFigBtn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const newName = prompt('Figure Name:', btn.dataset.name);
@@ -3354,12 +3623,23 @@ class TerminalApp {
                             <div style="font-size:2rem; font-weight:900; background:var(--gradient-primary); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">${profile.submissionCount}</div>
                             <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Reports</div>
                         </div>
+                        <div style="text-align:center;">
+                            <div id="followerCount" style="font-size:2rem; font-weight:900; color:var(--text-primary);">-</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Followers</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div id="followingCount" style="font-size:2rem; font-weight:900; color:var(--text-primary);">-</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Following</div>
+                        </div>
                     </div>
 
                     ${profile.username !== this.user.username ? `
-                    <button class="btn" onclick="app.startDM('${escapeHTML(profile.username).replace(/'/g, "\\'")}')" style="width:100%; margin-bottom:2rem; padding:0.85rem; font-size:0.95rem;">
-                        🔒 Open Secure Channel
-                    </button>
+                    <div style="display:flex; gap:1rem; margin-bottom:2rem;">
+                        <button class="btn" id="followBtn" data-userid="${profile.userId}" style="flex:1; padding:0.85rem; font-size:0.95rem;">Loading...</button>
+                        <button class="btn" onclick="app.startDM('${escapeHTML(profile.username).replace(/'/g, "\\'")}')" style="flex:1; padding:0.85rem; font-size:0.95rem;">
+                            🔒 Open Secure Channel
+                        </button>
+                    </div>
                     ` : ''}
 
                     ${profile.recentSubmissions.length > 0 ? `
@@ -3388,6 +3668,61 @@ class TerminalApp {
                     ` : '<p style="color:var(--text-muted); text-align:center; padding:2rem;">No intel reports yet.</p>'}
                 </div>
             `;
+
+            // Fetch follow stats
+            try {
+                const statsRes = await fetch(`${API_URL}/users/${profile.userId}/follow-stats`);
+                if (statsRes.ok) {
+                    const stats = await statsRes.json();
+                    const followerEl = document.getElementById('followerCount');
+                    const followingEl = document.getElementById('followingCount');
+                    if (followerEl) followerEl.textContent = stats.followers;
+                    if (followingEl) followingEl.textContent = stats.following;
+                }
+            } catch (e) { /* silent */ }
+
+            // Set up follow button
+            if (profile.username !== this.user.username) {
+                const followBtn = document.getElementById('followBtn');
+                if (followBtn) {
+                    try {
+                        const isFollowingRes = await this.authFetch(`${API_URL}/users/${profile.userId}/is-following`);
+                        const { isFollowing } = await isFollowingRes.json();
+                        followBtn.textContent = isFollowing ? '✓ Following' : '+ Follow';
+                        if (isFollowing) {
+                            followBtn.style.background = 'var(--bg-surface)';
+                            followBtn.style.borderColor = 'var(--border-light)';
+                            followBtn.style.color = 'var(--text-secondary)';
+                        }
+                    } catch (e) { followBtn.textContent = '+ Follow'; }
+
+                    followBtn.addEventListener('click', async () => {
+                        try {
+                            followBtn.disabled = true;
+                            const res = await this.authFetch(`${API_URL}/users/${profile.userId}/follow`, { method: 'POST' });
+                            if (!res.ok) throw new Error('Follow failed');
+                            const data = await res.json();
+                            if (data.action === 'followed') {
+                                followBtn.textContent = '✓ Following';
+                                followBtn.style.background = 'var(--bg-surface)';
+                                followBtn.style.borderColor = 'var(--border-light)';
+                                followBtn.style.color = 'var(--text-secondary)';
+                                const el = document.getElementById('followerCount');
+                                if (el) el.textContent = parseInt(el.textContent || '0') + 1;
+                            } else {
+                                followBtn.textContent = '+ Follow';
+                                followBtn.style.background = '';
+                                followBtn.style.borderColor = '';
+                                followBtn.style.color = '';
+                                const el = document.getElementById('followerCount');
+                                if (el) el.textContent = Math.max(0, parseInt(el.textContent || '0') - 1);
+                            }
+                            followBtn.disabled = false;
+                        } catch (err) { alert('Follow action failed.'); followBtn.disabled = false; }
+                    });
+                }
+            }
+
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load profile.</div>`;
             console.error(e);
@@ -3426,7 +3761,7 @@ class TerminalApp {
                 return;
             }
 
-            const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', message: '🔒' };
+            const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', message: '🔒', follow: '👥', mention: '📢', flag: '🚩' };
 
             dropdown.innerHTML = `
                 <div style="padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center;">
@@ -3892,7 +4227,7 @@ class TerminalApp {
     _renderMessage(m, self) {
         const isOwn = m.author === self;
         const initial = escapeHTML(m.author).charAt(0).toUpperCase();
-        const emojis = ['👍', '❤️', '😂', '😢'];
+        const emojis = ['👍', '❤️', '😂', '😢', '😐'];
         const reactionCounts = {};
         (m.reactions || []).forEach(r => {
             if (!reactionCounts[r.emoji]) reactionCounts[r.emoji] = { count: 0, users: [], active: false };

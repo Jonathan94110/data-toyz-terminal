@@ -199,7 +199,11 @@ const COL_MAP = {
     figure_id: 'figureId', price_high: 'priceHigh', price_avg: 'priceAvg',
     price_low: 'priceLow', submitted_by: 'submittedBy', submission_id: 'submissionId',
     cost_basis: 'costBasis', market_signal: 'marketSignal',
-    market_signal_updated_at: 'marketSignalUpdatedAt'
+    market_signal_updated_at: 'marketSignalUpdatedAt',
+    edited_at: 'editedAt', post_id: 'postId', flagged_by: 'flaggedBy',
+    follower_id: 'followerId', following_id: 'followingId',
+    post_author: 'postAuthor', post_content: 'postContent', post_date: 'postDate',
+    flag_count: 'flagCount'
 };
 function normalizeRow(row) {
     if (!row) return row;
@@ -226,7 +230,7 @@ async function getNotificationPrefs(userId) {
 }
 
 function buildNotificationEmail(recipientName, message, type, linkType, linkId) {
-    const icons = { comment: '\uD83D\uDCAC', reaction: '\u2764\uFE0F', co_reviewer: '\uD83D\uDCCB', new_figure: '\uD83C\uDFAF', hq_updates: '\uD83D\uDCE1', message: '\uD83D\uDD12' };
+    const icons = { comment: '\uD83D\uDCAC', reaction: '\u2764\uFE0F', co_reviewer: '\uD83D\uDCCB', new_figure: '\uD83C\uDFAF', hq_updates: '\uD83D\uDCE1', message: '\uD83D\uDD12', follow: '\uD83D\uDC65', mention: '\uD83D\uDCE2', flag: '\uD83D\uDEA9' };
     const icon = icons[type] || '\uD83D\uDD14';
     // Build direct link based on notification context
     let actionUrl = APP_URL;
@@ -591,6 +595,22 @@ app.get('/api/posts', async (req, res) => {
             p.reactions = reactions.filter(r => r.postId === p.id);
         });
 
+        // If request has valid admin auth, attach flag counts
+        const authHeader = req.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            try {
+                const token = authHeader.split(' ')[1];
+                const decoded = jwt.verify(token, JWT_SECRET);
+                const userResult = await db.query("SELECT role FROM Users WHERE id = $1", [decoded.id]);
+                if (userResult.rows[0] && userResult.rows[0].role === 'admin') {
+                    const flagsRes = await db.query("SELECT post_id, COUNT(*) as flag_count FROM Flags GROUP BY post_id");
+                    const flagMap = {};
+                    flagsRes.rows.forEach(f => { flagMap[f.post_id] = parseInt(f.flag_count); });
+                    posts.forEach(p => { p.flagCount = flagMap[p.id] || 0; });
+                }
+            } catch (e) { /* not admin or invalid token, ignore */ }
+        }
+
         res.json(posts);
     } catch (err) {
         // S-9: Error sanitization
@@ -617,6 +637,19 @@ app.post('/api/posts/:postId/comments', requireAuth, async (req, res) => {
         const post = await db.query("SELECT author FROM Posts WHERE id = $1", [postId]);
         if (post.rows[0]) {
             await createNotification(post.rows[0].author, 'comment', `${author} replied to your broadcast`, 'post', parseInt(postId), author);
+        }
+
+        // Parse @mentions in reply and create notifications
+        const mentions = content.match(/@(\w+)/g);
+        if (mentions) {
+            const uniqueMentions = [...new Set(mentions.map(m => m.slice(1)))];
+            for (const mentioned of uniqueMentions) {
+                if (mentioned === author) continue;
+                const userCheck = await db.query("SELECT id FROM Users WHERE username = $1", [mentioned]);
+                if (userCheck.rows[0]) {
+                    await createNotification(mentioned, 'mention', `${author} mentioned you in a reply`, 'post', parseInt(postId), author);
+                }
+            }
         }
 
         res.status(201).json({ id: result.rows[0].id, message: "Reply transmitted." });
@@ -684,10 +717,142 @@ app.post('/api/posts', requireAuth, upload.single('image'), async (req, res) => 
     try {
         const result = await db.query("INSERT INTO Posts (author, content, imagePath, sentiment, date) VALUES ($1, $2, $3, $4, $5) RETURNING id",
             [author, content, imagePath, sentiment, new Date().toISOString()]);
+
+        // Parse @mentions and create notifications
+        const mentions = content.match(/@(\w+)/g);
+        if (mentions) {
+            const uniqueMentions = [...new Set(mentions.map(m => m.slice(1)))];
+            for (const mentioned of uniqueMentions) {
+                if (mentioned === author) continue;
+                const userCheck = await db.query("SELECT id FROM Users WHERE username = $1", [mentioned]);
+                if (userCheck.rows[0]) {
+                    await createNotification(mentioned, 'mention', `${author} mentioned you in a broadcast`, 'post', result.rows[0].id, author);
+                }
+            }
+        }
+
         res.status(201).json({ id: result.rows[0].id, message: "Broadcast transmitted securely." });
     } catch (err) {
         // S-9: Error sanitization
         log.error('Create post error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Edit a broadcast (author only, content field only)
+app.put('/api/posts/:postId', requireAuth, async (req, res) => {
+    const { content } = req.body;
+    const { postId } = req.params;
+
+    if (!content || !content.trim()) return res.status(400).json({ error: "Content cannot be empty." });
+    if (content.length > 5000) return res.status(400).json({ error: "Content must be 5000 characters or fewer." });
+
+    try {
+        const post = await db.query("SELECT author FROM Posts WHERE id = $1", [postId]);
+        if (!post.rows[0]) return res.status(404).json({ error: "Broadcast not found." });
+        if (post.rows[0].author !== req.user.username) {
+            return res.status(403).json({ error: "You can only edit your own broadcasts." });
+        }
+
+        const now = new Date().toISOString();
+        await db.query("UPDATE Posts SET content = $1, edited_at = $2 WHERE id = $3", [content.trim(), now, postId]);
+
+        await auditLog('POST_EDIT', req.user.username, `post_id:${postId}`, 'User edited their broadcast', req.ip);
+
+        res.json({ message: "Broadcast updated.", editedAt: now });
+    } catch (err) {
+        log.error('Edit post error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Delete a broadcast (author or admin)
+app.delete('/api/posts/:postId', requireAuth, async (req, res) => {
+    const { postId } = req.params;
+
+    try {
+        const post = await db.query("SELECT author FROM Posts WHERE id = $1", [postId]);
+        if (!post.rows[0]) return res.status(404).json({ error: "Broadcast not found." });
+
+        const isAuthor = post.rows[0].author === req.user.username;
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isAuthor && !isAdmin) {
+            return res.status(403).json({ error: "You can only delete your own broadcasts." });
+        }
+
+        // CASCADE handles Comments, Reactions, and Flags automatically
+        await db.query("DELETE FROM Posts WHERE id = $1", [postId]);
+
+        const action = isAdmin && !isAuthor ? 'ADMIN_POST_DELETE' : 'POST_DELETE';
+        await auditLog(action, req.user.username, `post_id:${postId}`,
+            `${isAdmin && !isAuthor ? 'Admin deleted' : 'User deleted'} broadcast by ${post.rows[0].author}`, req.ip);
+
+        res.json({ message: "Broadcast purged." });
+    } catch (err) {
+        log.error('Delete post error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Flag a broadcast for admin review
+app.post('/api/posts/:postId/flag', requireAuth, async (req, res) => {
+    const { postId } = req.params;
+    const { reason } = req.body;
+    const flaggedBy = req.user.username;
+
+    if (reason && reason.length > 500) return res.status(400).json({ error: "Reason must be 500 characters or fewer." });
+
+    try {
+        const post = await db.query("SELECT author FROM Posts WHERE id = $1", [postId]);
+        if (!post.rows[0]) return res.status(404).json({ error: "Broadcast not found." });
+
+        if (post.rows[0].author === flaggedBy) {
+            return res.status(400).json({ error: "You cannot flag your own broadcast." });
+        }
+
+        await db.query(
+            "INSERT INTO Flags (post_id, flagged_by, reason, created_at) VALUES ($1, $2, $3, $4)",
+            [postId, flaggedBy, reason || null, new Date().toISOString()]
+        );
+
+        // Notify admins (NOT the flagged user)
+        const admins = await db.query("SELECT username FROM Users WHERE role = 'admin'");
+        for (const admin of admins.rows) {
+            await createNotification(admin.username, 'flag',
+                `${flaggedBy} flagged a broadcast by ${post.rows[0].author}`,
+                'post', parseInt(postId), flaggedBy);
+        }
+
+        await auditLog('POST_FLAG', flaggedBy, `post_id:${postId}`,
+            `User flagged broadcast by ${post.rows[0].author}${reason ? ': ' + reason.slice(0, 100) : ''}`, req.ip);
+
+        res.status(201).json({ message: "Broadcast flagged for review. Thank you for helping keep the network secure." });
+    } catch (err) {
+        if (err.message && err.message.includes('unique')) {
+            return res.status(409).json({ error: "You have already flagged this broadcast." });
+        }
+        log.error('Flag post error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Get a single post by ID (for shared links)
+app.get('/api/posts/:postId', async (req, res) => {
+    try {
+        const postRes = await db.query("SELECT * FROM Posts WHERE id = $1", [req.params.postId]);
+        if (!postRes.rows[0]) return res.status(404).json({ error: "Broadcast not found." });
+
+        const post = normalizeRow(postRes.rows[0]);
+        const commentsRes = await db.query("SELECT * FROM Comments WHERE postId = $1 ORDER BY id ASC", [req.params.postId]);
+        const reactionsRes = await db.query("SELECT * FROM Reactions WHERE postId = $1", [req.params.postId]);
+
+        post.comments = normalizeRows(commentsRes.rows);
+        post.reactions = normalizeRows(reactionsRes.rows);
+
+        res.json(post);
+    } catch (err) {
+        log.error('Get single post error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1251,6 +1416,7 @@ app.get('/api/users/:username/profile', async (req, res) => {
         else if (totalSubs >= 2) title = 'Junior Analyst';
 
         res.json({
+            userId: user.id,
             username: user.username,
             avatar: user.avatar,
             role: user.role || 'analyst',
@@ -1262,6 +1428,70 @@ app.get('/api/users/:username/profile', async (req, res) => {
     } catch (err) {
         // S-9: Error sanitization
         log.error('User profile error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Toggle follow/unfollow a user
+app.post('/api/users/:id/follow', requireAuth, async (req, res) => {
+    const targetId = parseInt(req.params.id);
+    if (targetId === req.user.id) return res.status(400).json({ error: "You cannot follow yourself." });
+
+    try {
+        const targetUser = await db.query("SELECT id, username FROM Users WHERE id = $1", [targetId]);
+        if (!targetUser.rows[0]) return res.status(404).json({ error: "User not found." });
+
+        const existing = await db.query(
+            "SELECT id FROM Follows WHERE follower_id = $1 AND following_id = $2",
+            [req.user.id, targetId]
+        );
+
+        if (existing.rows[0]) {
+            await db.query("DELETE FROM Follows WHERE id = $1", [existing.rows[0].id]);
+            res.json({ action: 'unfollowed' });
+        } else {
+            await db.query(
+                "INSERT INTO Follows (follower_id, following_id, created_at) VALUES ($1, $2, $3)",
+                [req.user.id, targetId, new Date().toISOString()]
+            );
+
+            await createNotification(targetUser.rows[0].username, 'follow',
+                `${req.user.username} started following you`, null, null, req.user.username);
+
+            res.status(201).json({ action: 'followed' });
+        }
+    } catch (err) {
+        log.error('Follow toggle error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Get followers count and following count for a user
+app.get('/api/users/:id/follow-stats', async (req, res) => {
+    const userId = parseInt(req.params.id);
+    try {
+        const followers = await db.query("SELECT COUNT(*) as count FROM Follows WHERE following_id = $1", [userId]);
+        const following = await db.query("SELECT COUNT(*) as count FROM Follows WHERE follower_id = $1", [userId]);
+        res.json({
+            followers: parseInt(followers.rows[0].count),
+            following: parseInt(following.rows[0].count)
+        });
+    } catch (err) {
+        log.error('Follow stats error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Check if current user follows a specific user
+app.get('/api/users/:id/is-following', requireAuth, async (req, res) => {
+    try {
+        const result = await db.query(
+            "SELECT id FROM Follows WHERE follower_id = $1 AND following_id = $2",
+            [req.user.id, parseInt(req.params.id)]
+        );
+        res.json({ isFollowing: result.rows.length > 0 });
+    } catch (err) {
+        log.error('Is following check error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1288,7 +1518,10 @@ app.put('/api/notifications/preferences', requireAuth, async (req, res) => {
         'co_reviewer_inapp', 'co_reviewer_email',
         'new_figure_inapp', 'new_figure_email',
         'hq_updates_inapp', 'hq_updates_email',
-        'message_inapp', 'message_email'
+        'message_inapp', 'message_email',
+        'follow_inapp', 'follow_email',
+        'mention_inapp', 'mention_email',
+        'flag_inapp', 'flag_email'
     ];
 
     try {
@@ -2042,6 +2275,8 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) =
         await db.query("DELETE FROM Comments WHERE author = $1", [username]);
         await db.query("DELETE FROM Posts WHERE author = $1", [username]);
         await db.query("DELETE FROM Submissions WHERE author = $1", [username]);
+        await db.query("DELETE FROM Flags WHERE flagged_by = $1", [username]);
+        await db.query("DELETE FROM Follows WHERE follower_id = $1 OR following_id = $1", [req.params.id]);
         await db.query("DELETE FROM NotificationPrefs WHERE user_id = $1", [req.params.id]);
         await db.query("DELETE FROM Users WHERE id = $1", [req.params.id]);
 
@@ -2104,6 +2339,34 @@ app.get('/api/admin/analytics', requireAuth, requireAdmin, async (req, res) => {
     } catch (err) {
         // S-9: Error sanitization
         log.error('Admin analytics error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Admin: Get all flagged posts with flag details
+app.get('/api/admin/flags', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT f.id, f.post_id, f.flagged_by, f.reason, f.created_at,
+                   p.author as post_author, p.content as post_content, p.date as post_date
+            FROM Flags f
+            JOIN Posts p ON f.post_id = p.id
+            ORDER BY f.created_at DESC
+        `);
+        res.json(normalizeRows(result.rows));
+    } catch (err) {
+        log.error('Admin get flags error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Admin: Dismiss a flag
+app.delete('/api/admin/flags/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        await db.query("DELETE FROM Flags WHERE id = $1", [req.params.id]);
+        res.json({ message: "Flag dismissed." });
+    } catch (err) {
+        log.error('Admin dismiss flag error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
