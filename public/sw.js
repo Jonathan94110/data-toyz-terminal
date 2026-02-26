@@ -1,7 +1,7 @@
 // Data Toyz Terminal — Service Worker
 // Precache app shell, network-first for API, cache-first for static assets
 
-const CACHE_NAME = 'datatoyz-v2';
+const CACHE_NAME = 'datatoyz-v3';
 const SHELL_ASSETS = [
     '/',
     '/index.html',

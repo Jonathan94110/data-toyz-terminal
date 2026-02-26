@@ -90,7 +90,7 @@ class TerminalApp {
             const figureParam = urlParams.get('figure');
             if (figureParam) {
                 const fId = parseInt(figureParam);
-                const target = MOCK_FIGURES.find(f => f.id === fId);
+                const target = MOCK_FIGURES.find(f => f.id == fId);
                 if (target) {
                     this.currentTarget = target;
                     this.currentView = 'pulse';
@@ -1068,13 +1068,33 @@ class TerminalApp {
         }
     }
 
-    selectTarget(id) {
-        this.currentTarget = MOCK_FIGURES.find(f => f.id === id);
-        this.currentView = 'pulse';
+    async selectTarget(id) {
+        // Try MOCK_FIGURES first (loose equality handles string/number mismatch)
+        this.currentTarget = MOCK_FIGURES.find(f => f.id == id);
+        // If not found locally, fetch from API
+        if (!this.currentTarget) {
+            try {
+                const res = await fetch(`${API_URL}/figures`);
+                if (res.ok) {
+                    MOCK_FIGURES = await res.json();
+                    this.currentTarget = MOCK_FIGURES.find(f => f.id == id);
+                }
+            } catch (e) { console.error('Failed to fetch figures', e); }
+        }
+        if (!this.currentTarget) {
+            alert('Target not found. It may have been removed.');
+            this.currentView = 'search';
+        } else {
+            this.currentView = 'pulse';
+        }
         this.renderApp();
     }
 
     async renderPulse(container) {
+        if (!this.currentTarget) {
+            container.innerHTML = `<div style="padding:3rem; text-align:center;"><p style="color:var(--text-secondary);">No target selected.</p><button class="btn" onclick="app.currentView='search'; app.renderApp();">Back to Search</button></div>`;
+            return;
+        }
         container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('stats', 4)}</div>`;
 
         let figureSubs = [];
