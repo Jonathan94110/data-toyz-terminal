@@ -1,38 +1,149 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');               // S-11: Security headers
+const rateLimit = require('express-rate-limit'); // S-3: Rate limiting
 const path = require('path');
 const multer = require('multer');
 const db = require('./db.js');
-
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(cors());
-app.use(express.json());
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Resend } = require('resend');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_ME_IN_PRODUCTION';
+// --- S-1: JWT Secret — throw in production if missing, auto-generate in dev --- //
+let JWT_SECRET;
+if (process.env.JWT_SECRET) {
+    JWT_SECRET = process.env.JWT_SECRET;
+} else if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: JWT_SECRET environment variable is required in production.');
+} else {
+    JWT_SECRET = crypto.randomBytes(64).toString('hex');
+    console.warn('[WARN] JWT_SECRET not set — auto-generated a random secret for development. Sessions will not persist across restarts.');
+}
+
+// --- PI-2: Configurable admin username --- //
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Prime Dynamixx';
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
-// --- JWT HELPERS --- //
+// --- S-8: File Upload Limits — 5 MB, images only --- //
+const storage = multer.memoryStorage();
+const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: (req, file, cb) => {
+        if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files (JPEG, PNG, GIF, WebP) are allowed.'));
+        }
+    }
+});
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// --- A-2: HTTPS Enforcement in production --- //
+app.use((req, res, next) => {
+    if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+        return res.redirect(301, `https://${req.hostname}${req.originalUrl}`);
+    }
+    next();
+});
+
+// --- S-4: CORS — configured origin instead of wildcard --- //
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    credentials: true
+}));
+
+// --- S-11: Security headers --- //
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "blob:"],
+            connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameSrc: ["'none'"]
+        }
+    }
+}));
+
+// Body parser with size limit
+app.use(express.json({ limit: '10mb' }));
+
+// --- S-3: Rate Limiting --- //
+// Global rate limiter: 100 requests per 15 min per IP
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' }
+});
+app.use(globalLimiter);
+
+// Auth rate limiter: 10 requests per 15 min per IP
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many authentication attempts. Please try again later.' }
+});
+
+// Message rate limiter: 30 per minute per IP
+const messageLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Message rate limit exceeded. Please slow down.' }
+});
+
+// Serve static frontend files from 'public' directory (AFTER helmet/cors/rate-limit)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- S-5: Password Validation Helper --- //
+function validatePassword(pw) {
+    if (!pw || pw.length < 8) return 'Password must be at least 8 characters.';
+    if (!/[A-Z]/.test(pw)) return 'Password must contain at least one uppercase letter.';
+    if (!/[a-z]/.test(pw)) return 'Password must contain at least one lowercase letter.';
+    if (!/[0-9]/.test(pw)) return 'Password must contain at least one number.';
+    return null;
+}
+
+// --- S-10: Audit Logging Helper --- //
+async function auditLog(action, actor, target, details, ip) {
+    try {
+        await db.query(
+            "INSERT INTO AuditLog (action, actor, target, details, ip_address, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+            [action, actor || null, target || null, details || null, ip || null, new Date().toISOString()]
+        );
+    } catch (e) {
+        console.error('Audit log write failed:', e.message);
+    }
+}
+
+// --- A-1: JWT Expiry reduced to 24h --- //
 function generateToken(user) {
     return jwt.sign(
         { id: user.id, username: user.username, role: user.role || 'analyst' },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '24h' }
     );
 }
 
+// --- C-3: Session invalidation on password change --- //
 async function requireAuth(req, res, next) {
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -41,18 +152,25 @@ async function requireAuth(req, res, next) {
     try {
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, JWT_SECRET);
-        const result = await db.query("SELECT id, username, role, suspended FROM Users WHERE id = $1", [decoded.id]);
+        const result = await db.query("SELECT id, username, role, suspended, password_changed_at FROM Users WHERE id = $1", [decoded.id]);
         if (!result.rows[0]) return res.status(401).json({ error: 'Account no longer exists.' });
         if (result.rows[0].suspended) return res.status(403).json({ error: 'Your account has been suspended.' });
+
+        // C-3: Reject token if it was issued before the password was changed
+        const passwordChangedAt = result.rows[0].password_changed_at;
+        if (passwordChangedAt && decoded.iat) {
+            const changedAtSec = Math.floor(new Date(passwordChangedAt).getTime() / 1000);
+            if (decoded.iat < changedAtSec) {
+                return res.status(401).json({ error: 'Password has been changed. Please log in again.' });
+            }
+        }
+
         req.user = { id: result.rows[0].id, username: result.rows[0].username, role: result.rows[0].role || 'analyst' };
         next();
     } catch (err) {
         return res.status(401).json({ error: 'Invalid or expired token. Please log in again.' });
     }
 }
-
-// Serve static frontend files from 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Postgres lowercases all column names. This remaps them back to camelCase for the frontend.
 const COL_MAP = {
@@ -142,14 +260,27 @@ async function createNotification(recipient, type, message, linkType, linkId, se
     }
 }
 
+// --- A-5: Health Check --- //
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 // --- AUTHENTICATION API --- //
 
 // Register a new operative
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) {
         return res.status(400).json({ error: "Missing required fields." });
     }
+
+    // PI-3: Input length validation
+    if (username.length > 50) return res.status(400).json({ error: "Username must be 50 characters or fewer." });
+    if (email.length > 254) return res.status(400).json({ error: "Email must be 254 characters or fewer." });
+
+    // S-5: Password validation
+    const pwError = validatePassword(password);
+    if (pwError) return res.status(400).json({ error: pwError });
 
     try {
         const hash = await bcrypt.hash(password, 10);
@@ -157,36 +288,56 @@ app.post('/api/auth/register', async (req, res) => {
         const result = await db.query(q, [username, email, hash, new Date().toISOString()]);
         const newUser = { id: result.rows[0].id, username, email, role: 'analyst' };
         const token = generateToken(newUser);
+
+        // S-10: Audit log
+        await auditLog('USER_REGISTER', username, username, 'New user registration', req.ip);
+
         res.status(201).json({ ...newUser, token });
     } catch (e) {
         if (e.message && e.message.includes("unique constraint")) {
             if (e.message.includes("username")) return res.status(409).json({ error: "Username already active." });
             if (e.message.includes("email")) return res.status(409).json({ error: "Email already active." });
         }
-        res.status(500).json({ error: e.message });
+        // S-9: Error sanitization
+        console.error('Register error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
 // Authenticate operative
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Missing credentials." });
 
     try {
         const result = await db.query("SELECT * FROM Users WHERE username = $1", [username]);
         const user = result.rows[0];
-        if (!user) return res.status(401).json({ error: "Invalid Operative ID or Passcode." });
+        if (!user) {
+            // S-10: Audit failed login
+            await auditLog('LOGIN_FAILURE', username, username, 'Invalid username', req.ip);
+            return res.status(401).json({ error: "Invalid Operative ID or Passcode." });
+        }
 
         const match = await bcrypt.compare(password, user.password_hash);
-        if (!match) return res.status(401).json({ error: "Invalid Operative ID or Passcode." });
+        if (!match) {
+            // S-10: Audit failed login
+            await auditLog('LOGIN_FAILURE', username, username, 'Invalid password', req.ip);
+            return res.status(401).json({ error: "Invalid Operative ID or Passcode." });
+        }
 
         if (user.suspended) return res.status(403).json({ error: "Your account has been suspended. Contact an administrator." });
 
         const userData = { id: user.id, username: user.username, email: user.email, avatar: user.avatar, role: user.role || 'analyst' };
         const token = generateToken(userData);
+
+        // S-10: Audit successful login
+        await auditLog('LOGIN_SUCCESS', username, username, 'Successful login', req.ip);
+
         res.json({ ...userData, token });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        // S-9: Error sanitization
+        console.error('Login error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -200,7 +351,9 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
         if (!result.rows[0]) return res.status(404).json({ error: 'User not found.' });
         res.json(result.rows[0]);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        // S-9: Error sanitization
+        console.error('Get me error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -208,7 +361,10 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     const { oldPassword, newPassword } = req.body;
     if (!oldPassword || !newPassword) return res.status(400).json({ error: 'Current password and new password are required.' });
-    if (newPassword.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+
+    // S-5: Password validation
+    const pwError = validatePassword(newPassword);
+    if (pwError) return res.status(400).json({ error: pwError });
 
     try {
         const result = await db.query("SELECT password_hash FROM Users WHERE id = $1", [req.user.id]);
@@ -218,15 +374,23 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
         if (!match) return res.status(401).json({ error: 'Current passcode is incorrect.' });
 
         const hash = await bcrypt.hash(newPassword, 10);
-        await db.query("UPDATE Users SET password_hash = $1 WHERE id = $2", [hash, req.user.id]);
+        // C-3: Update password_changed_at for session invalidation
+        const now = new Date().toISOString();
+        await db.query("UPDATE Users SET password_hash = $1, password_changed_at = $2 WHERE id = $3", [hash, now, req.user.id]);
+
+        // S-10: Audit log
+        await auditLog('PASSWORD_CHANGE', req.user.username, req.user.username, 'User changed their password', req.ip);
+
         res.json({ message: 'Passcode successfully updated.' });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        // S-9: Error sanitization
+        console.error('Change password error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
 // Forgot password — send reset email
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required.' });
 
@@ -272,10 +436,13 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 });
 
 // Reset password with token (from email link)
-app.post('/api/auth/reset-password', async (req, res) => {
+app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
     const { token, newPassword } = req.body;
     if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password are required.' });
-    if (newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+
+    // S-5: Password validation
+    const pwError = validatePassword(newPassword);
+    if (pwError) return res.status(400).json({ error: pwError });
 
     try {
         const result = await db.query("SELECT id, reset_token_expires FROM Users WHERE reset_token = $1", [token]);
@@ -285,12 +452,19 @@ app.post('/api/auth/reset-password', async (req, res) => {
         if (expires < new Date()) return res.status(400).json({ error: 'Reset link has expired. Please request a new one.' });
 
         const hash = await bcrypt.hash(newPassword, 10);
-        await db.query("UPDATE Users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2",
-            [hash, result.rows[0].id]);
+        // C-3: Update password_changed_at for session invalidation
+        const now = new Date().toISOString();
+        await db.query("UPDATE Users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL, password_changed_at = $2 WHERE id = $3",
+            [hash, now, result.rows[0].id]);
+
+        // S-10: Audit log
+        await auditLog('PASSWORD_RESET', null, `user_id:${result.rows[0].id}`, 'Password reset via email token', req.ip);
 
         res.json({ message: 'Passcode successfully reset. You may now log in.' });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        // S-9: Error sanitization
+        console.error('Reset password error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -300,6 +474,10 @@ app.put('/api/users/:id', requireAuth, upload.single('avatar'), async (req, res)
         return res.status(403).json({ error: 'You can only update your own profile.' });
     }
     const { username, email, oldUsername } = req.body;
+
+    // PI-3: Input length validation
+    if (username && username.length > 50) return res.status(400).json({ error: "Username must be 50 characters or fewer." });
+    if (email && email.length > 254) return res.status(400).json({ error: "Email must be 254 characters or fewer." });
 
     try {
         let updateQuery = "UPDATE Users SET username = $1, email = $2 ";
@@ -326,7 +504,34 @@ app.put('/api/users/:id', requireAuth, upload.single('avatar'), async (req, res)
         const token = generateToken({ id: updatedUser.id, username: updatedUser.username, role: updatedUser.role || 'analyst' });
         res.json({ ...updatedUser, token, message: "Profile successfully encrypted and updated." });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        // S-9: Error sanitization
+        console.error('Update user error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// --- P-2: Data Export — returns all user data as JSON --- //
+app.get('/api/users/me/export', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const username = req.user.username;
+
+        const profile = await db.query("SELECT id, username, email, avatar, role, created_at FROM Users WHERE id = $1", [userId]);
+        const submissions = await db.query("SELECT * FROM Submissions WHERE author = $1 ORDER BY id DESC", [username]);
+        const posts = await db.query("SELECT * FROM Posts WHERE author = $1 ORDER BY id DESC", [username]);
+        const comments = await db.query("SELECT * FROM Comments WHERE author = $1 ORDER BY id DESC", [username]);
+        const notifications = await db.query("SELECT * FROM Notifications WHERE recipient = $1 ORDER BY id DESC", [username]);
+
+        res.json({
+            profile: profile.rows[0] || null,
+            submissions: normalizeRows(submissions.rows),
+            posts: normalizeRows(posts.rows),
+            comments: normalizeRows(comments.rows),
+            notifications: notifications.rows
+        });
+    } catch (e) {
+        console.error('Data export error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -350,7 +555,9 @@ app.get('/api/posts', async (req, res) => {
 
         res.json(posts);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get posts error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -361,6 +568,8 @@ app.post('/api/posts/:postId/comments', requireAuth, async (req, res) => {
     const { postId } = req.params;
 
     if (!content) return res.status(400).json({ error: "Missing reply content." });
+    // PI-3: Content length validation
+    if (content.length > 5000) return res.status(400).json({ error: "Content must be 5000 characters or fewer." });
 
     try {
         const result = await db.query("INSERT INTO Comments (postId, author, content, date) VALUES ($1, $2, $3, $4) RETURNING id",
@@ -374,7 +583,9 @@ app.post('/api/posts/:postId/comments', requireAuth, async (req, res) => {
 
         res.status(201).json({ id: result.rows[0].id, message: "Reply transmitted." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Post comment error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -410,7 +621,9 @@ app.post('/api/posts/:postId/react', requireAuth, async (req, res) => {
             res.status(201).json({ action: 'added' });
         }
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Post react error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -427,13 +640,17 @@ app.post('/api/posts', requireAuth, upload.single('image'), async (req, res) => 
     if (!author || !content || !sentiment) {
         return res.status(400).json({ error: "Missing transmission fields." });
     }
+    // PI-3: Content length validation
+    if (content.length > 5000) return res.status(400).json({ error: "Content must be 5000 characters or fewer." });
 
     try {
         const result = await db.query("INSERT INTO Posts (author, content, imagePath, sentiment, date) VALUES ($1, $2, $3, $4, $5) RETURNING id",
             [author, content, imagePath, sentiment, new Date().toISOString()]);
         res.status(201).json({ id: result.rows[0].id, message: "Broadcast transmitted securely." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Create post error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -445,7 +662,9 @@ app.get('/api/figures', async (req, res) => {
         const result = await db.query("SELECT * FROM Figures ORDER BY name ASC");
         res.json(normalizeRows(result.rows));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get figures error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -476,7 +695,9 @@ app.post('/api/figures', requireAuth, async (req, res) => {
 
         res.status(201).json({ id: result.rows[0].id, message: "Target added successfully." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Create figure error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -490,7 +711,9 @@ app.get('/api/submissions/target/:targetId', async (req, res) => {
         });
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get submissions by target error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -504,7 +727,9 @@ app.get('/api/submissions/user/:username', async (req, res) => {
         });
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get submissions by user error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -514,7 +739,9 @@ app.get('/api/submissions', async (req, res) => {
         const result = await db.query("SELECT author FROM Submissions");
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get all submissions error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -532,8 +759,8 @@ app.post('/api/submissions', requireAuth, upload.single('image'), async (req, re
     }
 
     try {
-        const result = await db.query(`INSERT INTO Submissions 
-            (targetId, targetName, targetTier, author, mtsTotal, approvalScore, jsonData, date) 
+        const result = await db.query(`INSERT INTO Submissions
+            (targetId, targetName, targetTier, author, mtsTotal, approvalScore, jsonData, date)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
             [
                 req.body.targetId, req.body.targetName, req.body.targetTier, req.user.username,
@@ -551,7 +778,9 @@ app.post('/api/submissions', requireAuth, upload.single('image'), async (req, re
 
         res.status(201).json({ id: result.rows[0].id, message: "Intelligence report successfully committed." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Submit intelligence error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -566,7 +795,9 @@ app.delete('/api/submissions/:id', requireAuth, async (req, res) => {
         await db.query("DELETE FROM Submissions WHERE id = $1", [req.params.id]);
         res.json({ message: "Intelligence retracted" });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Delete submission error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -580,7 +811,7 @@ app.get('/api/stats/overview', async (req, res) => {
         const avgGrade = await db.query("SELECT AVG((mtsTotal + approvalScore) / 2) as avg FROM Submissions");
         const topFigure = await db.query(`
             SELECT s.targetName, s.targetId, AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade, COUNT(*) as subs
-            FROM Submissions s GROUP BY s.targetName, s.targetId 
+            FROM Submissions s GROUP BY s.targetName, s.targetId
             ORDER BY avgGrade DESC LIMIT 1
         `);
         const totalTargets = await db.query("SELECT COUNT(*) as count FROM Figures");
@@ -598,7 +829,9 @@ app.get('/api/stats/overview', async (req, res) => {
             } : null
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Stats overview error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -606,7 +839,7 @@ app.get('/api/stats/overview', async (req, res) => {
 app.get('/api/stats/indexes', async (req, res) => {
     try {
         const result = await db.query(`
-            SELECT f.brand, f.line, 
+            SELECT f.brand, f.line,
                    COUNT(s.id) as submissions,
                    AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade,
                    COUNT(DISTINCT s.targetId) as targets
@@ -626,7 +859,9 @@ app.get('/api/stats/indexes', async (req, res) => {
 
         res.json(indexes);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Stats indexes error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -667,7 +902,9 @@ app.get('/api/stats/headlines', async (req, res) => {
 
         res.json(headlines);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Stats headlines error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -695,7 +932,9 @@ app.get('/api/figures/top-rated', async (req, res) => {
             submissions: parseInt(r.submissions)
         })));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Top rated figures error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -722,7 +961,9 @@ app.get('/api/figures/ranked', async (req, res) => {
             avgGrade: r.avggrade ? parseFloat(r.avggrade).toFixed(1) : null
         })));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Ranked figures error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -768,7 +1009,9 @@ app.get('/api/users/:username/profile', async (req, res) => {
             recentSubmissions: submissions
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('User profile error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -781,7 +1024,9 @@ app.get('/api/notifications/preferences', requireAuth, async (req, res) => {
         if (!prefs) return res.status(500).json({ error: 'Failed to load preferences.' });
         res.json(prefs);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get notification prefs error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -818,7 +1063,9 @@ app.put('/api/notifications/preferences', requireAuth, async (req, res) => {
         const updated = await db.query("SELECT * FROM NotificationPrefs WHERE user_id = $1", [req.user.id]);
         res.json(updated.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Update notification prefs error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -831,7 +1078,9 @@ app.get('/api/notifications/:username', requireAuth, async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get notifications error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -844,7 +1093,9 @@ app.get('/api/notifications/:username/count', requireAuth, async (req, res) => {
         );
         res.json({ unread: parseInt(result.rows[0].count) });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Notification count error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -853,7 +1104,9 @@ app.put('/api/notifications/:id/read', requireAuth, async (req, res) => {
         await db.query("UPDATE Notifications SET read = true WHERE id = $1 AND recipient = $2", [req.params.id, req.user.username]);
         res.json({ message: "Notification marked as read." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Mark notification read error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -862,7 +1115,9 @@ app.put('/api/notifications/read-all', requireAuth, async (req, res) => {
         await db.query("UPDATE Notifications SET read = true WHERE recipient = $1", [req.user.username]);
         res.json({ message: "All notifications marked as read." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Mark all notifications read error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -894,7 +1149,9 @@ app.get('/api/users/search', requireAuth, async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('User search error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -903,6 +1160,9 @@ app.post('/api/rooms', requireAuth, async (req, res) => {
     const { name, type, members } = req.body;
     if (!type || !['dm', 'group'].includes(type)) return res.status(400).json({ error: 'Invalid channel type.' });
     if (!members || !Array.isArray(members) || members.length === 0) return res.status(400).json({ error: 'At least one member is required.' });
+
+    // PI-3: Room name length validation
+    if (name && name.length > 100) return res.status(400).json({ error: "Room name must be 100 characters or fewer." });
 
     try {
         if (type === 'dm') {
@@ -953,10 +1213,15 @@ app.post('/api/rooms', requireAuth, async (req, res) => {
             }
         }
 
+        // S-10: Audit log for room creation
+        await auditLog('ROOM_CREATE', req.user.username, `room_id:${roomId}`, `Created ${type} room${name ? ': ' + name.trim() : ''}`, req.ip);
+
         const allMembers = await db.query("SELECT username, role, joined_at FROM RoomMembers WHERE room_id = $1", [roomId]);
         res.status(201).json({ id: roomId, name: type === 'dm' ? null : name.trim(), type, createdBy: req.user.username, createdAt: now, members: allMembers.rows });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Create room error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1030,7 +1295,9 @@ app.get('/api/rooms', requireAuth, async (req, res) => {
 
         res.json(result);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('List rooms error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1055,7 +1322,9 @@ app.get('/api/rooms/unread-total', requireAuth, async (req, res) => {
         `, [req.user.username]);
         res.json({ unread: parseInt(result.rows[0].total) });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Unread total error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1075,7 +1344,9 @@ app.get('/api/rooms/:roomId', requireAuth, requireRoomMember, async (req, res) =
         const r = room.rows[0];
         res.json({ id: r.id, name: r.name, type: r.type, createdBy: r.created_by, members: members.rows });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get room error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1084,11 +1355,15 @@ app.put('/api/rooms/:roomId', requireAuth, requireRoomMember, async (req, res) =
     if (req.roomMember.role !== 'owner') return res.status(403).json({ error: 'Only the channel commander can modify settings.' });
     const { name } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Channel name is required.' });
+    // PI-3: Room name length validation
+    if (name.length > 100) return res.status(400).json({ error: "Room name must be 100 characters or fewer." });
     try {
         await db.query("UPDATE Rooms SET name = $1 WHERE id = $2", [name.trim(), req.params.roomId]);
         res.json({ message: 'Channel name updated.', name: name.trim() });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Update room error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1113,7 +1388,9 @@ app.post('/api/rooms/:roomId/members', requireAuth, requireRoomMember, async (re
         await createNotification(username, 'message', `${req.user.username} added you to "${room.rows[0].name}"`, 'room', parseInt(req.params.roomId), req.user.username);
         res.json({ message: `${username} added to channel.` });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Add room member error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1134,6 +1411,10 @@ app.delete('/api/rooms/:roomId/members/:username', requireAuth, requireRoomMembe
         if (remaining.rows.length === 0) {
             // Delete room if no members left
             await db.query("DELETE FROM Rooms WHERE id = $1", [req.params.roomId]);
+
+            // S-10: Audit log for room deletion
+            await auditLog('ROOM_DELETE', req.user.username, `room_id:${req.params.roomId}`, 'Room dissolved — all operatives departed', req.ip);
+
             return res.json({ message: 'Channel dissolved — all operatives have departed.' });
         }
 
@@ -1149,7 +1430,9 @@ app.delete('/api/rooms/:roomId/members/:username', requireAuth, requireRoomMembe
 
         res.json({ message: isLeavingSelf ? 'You have left the channel.' : `${targetUsername} removed from channel.` });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Remove room member error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1199,16 +1482,20 @@ app.get('/api/rooms/:roomId/messages', requireAuth, requireRoomMember, async (re
         // Return in chronological order (oldest first)
         res.json(result.reverse());
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Get room messages error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
 // Send a message
-app.post('/api/rooms/:roomId/messages', requireAuth, requireRoomMember, upload.single('image'), async (req, res) => {
+app.post('/api/rooms/:roomId/messages', requireAuth, requireRoomMember, messageLimiter, upload.single('image'), async (req, res) => {
     const { content } = req.body;
     const image = req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : null;
 
     if (!content && !image) return res.status(400).json({ error: 'Message content or image required.' });
+    // PI-3: Content length validation
+    if (content && content.length > 5000) return res.status(400).json({ error: "Message must be 5000 characters or fewer." });
 
     try {
         const now = new Date().toISOString();
@@ -1239,7 +1526,9 @@ app.post('/api/rooms/:roomId/messages', requireAuth, requireRoomMember, upload.s
             content: content || null, image, createdAt: now, reactions: []
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Send message error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1268,7 +1557,9 @@ app.post('/api/rooms/:roomId/messages/:messageId/react', requireAuth, requireRoo
             res.json({ action: 'updated' });
         }
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Message react error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1283,7 +1574,9 @@ app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, requireRoomMem
         await db.query("DELETE FROM Messages WHERE id = $1", [req.params.messageId]);
         res.json({ message: 'Message redacted.' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Delete message error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1327,12 +1620,14 @@ app.get('/api/rooms/:roomId/poll', requireAuth, requireRoomMember, async (req, r
 
         res.json({ messages: formattedMessages, typing: typing.rows.map(r => r.username) });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Room poll error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
 // Signal typing status
-app.post('/api/rooms/:roomId/typing', requireAuth, requireRoomMember, async (req, res) => {
+app.post('/api/rooms/:roomId/typing', requireAuth, requireRoomMember, messageLimiter, async (req, res) => {
     try {
         const now = new Date().toISOString();
         await db.query(
@@ -1341,7 +1636,9 @@ app.post('/api/rooms/:roomId/typing', requireAuth, requireRoomMember, async (req
         );
         res.json({ ok: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Typing indicator error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1358,18 +1655,31 @@ function requireAdmin(req, res, next) {
 app.post('/api/admin/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
     const { newPassword } = req.body;
     if (!newPassword) return res.status(400).json({ error: 'New password required.' });
-    if (newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+
+    // S-5: Password validation
+    const pwError = validatePassword(newPassword);
+    if (pwError) return res.status(400).json({ error: pwError });
+
     try {
         const user = await db.query("SELECT username FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: 'User not found.' });
-        if (user.rows[0].username === 'Prime Dynamixx' && req.user.username !== 'Prime Dynamixx') {
+        // PI-2: Use ADMIN_USERNAME const instead of hardcoded string
+        if (user.rows[0].username === ADMIN_USERNAME && req.user.username !== ADMIN_USERNAME) {
             return res.status(403).json({ error: 'Cannot reset primary admin password.' });
         }
         const hash = await bcrypt.hash(newPassword, 10);
-        await db.query("UPDATE Users SET password_hash = $1 WHERE id = $2", [hash, req.params.id]);
+        // C-3: Update password_changed_at for session invalidation
+        const now = new Date().toISOString();
+        await db.query("UPDATE Users SET password_hash = $1, password_changed_at = $2 WHERE id = $3", [hash, now, req.params.id]);
+
+        // S-10: Audit log
+        await auditLog('ADMIN_PASSWORD_RESET', req.user.username, user.rows[0].username, 'Admin reset user password', req.ip);
+
         res.json({ message: 'Password reset successfully.' });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        // S-9: Error sanitization
+        console.error('Admin reset password error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1379,7 +1689,9 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
         const result = await db.query("SELECT id, username, email, created_at, avatar, role, suspended FROM Users ORDER BY id ASC");
         res.json(normalizeRows(result.rows));
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Admin get users error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1388,17 +1700,31 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
     const { username, email, password, role } = req.body;
     if (!username || !email || !password) return res.status(400).json({ error: "Missing required fields." });
 
+    // PI-3: Input length validation
+    if (username.length > 50) return res.status(400).json({ error: "Username must be 50 characters or fewer." });
+    if (email.length > 254) return res.status(400).json({ error: "Email must be 254 characters or fewer." });
+
+    // S-5: Password validation
+    const pwError = validatePassword(password);
+    if (pwError) return res.status(400).json({ error: pwError });
+
     try {
         const hash = await bcrypt.hash(password, 10);
         const q = "INSERT INTO Users (username, email, password_hash, created_at, role) VALUES ($1, $2, $3, $4, $5) RETURNING id";
         await db.query(q, [username, email, hash, new Date().toISOString(), role || 'analyst']);
+
+        // S-10: Audit log
+        await auditLog('ADMIN_CREATE_USER', req.user.username, username, `Admin created user with role: ${role || 'analyst'}`, req.ip);
+
         res.status(201).json({ message: "User account created successfully." });
     } catch (e) {
         if (e.message && e.message.includes("unique constraint")) {
             if (e.message.includes("username")) return res.status(409).json({ error: "Username already active." });
             if (e.message.includes("email")) return res.status(409).json({ error: "Email already active." });
         }
-        res.status(500).json({ error: e.message });
+        // S-9: Error sanitization
+        console.error('Admin create user error:', e);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1407,13 +1733,20 @@ app.put('/api/admin/users/:id/role', requireAuth, requireAdmin, async (req, res)
     try {
         const user = await db.query("SELECT username, role FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
-        if (user.rows[0].username === 'Prime Dynamixx') return res.status(403).json({ error: "Cannot modify the primary admin's role." });
+        // PI-2: Use ADMIN_USERNAME const
+        if (user.rows[0].username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot modify the primary admin's role." });
 
         const newRole = user.rows[0].role === 'admin' ? 'analyst' : 'admin';
         await db.query("UPDATE Users SET role = $1 WHERE id = $2", [newRole, req.params.id]);
+
+        // S-10: Audit log
+        await auditLog('ADMIN_ROLE_CHANGE', req.user.username, user.rows[0].username, `Role changed from ${user.rows[0].role} to ${newRole}`, req.ip);
+
         res.json({ message: `User role changed to ${newRole.toUpperCase()}.`, role: newRole });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Admin toggle role error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1422,27 +1755,53 @@ app.put('/api/admin/users/:id/suspend', requireAuth, requireAdmin, async (req, r
     try {
         const user = await db.query("SELECT username, suspended FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
-        if (user.rows[0].username === 'Prime Dynamixx') return res.status(403).json({ error: "Cannot suspend the primary admin." });
+        // PI-2: Use ADMIN_USERNAME const
+        if (user.rows[0].username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot suspend the primary admin." });
 
         const newStatus = !user.rows[0].suspended;
         await db.query("UPDATE Users SET suspended = $1 WHERE id = $2", [newStatus, req.params.id]);
+
+        // S-10: Audit log
+        await auditLog('ADMIN_SUSPEND', req.user.username, user.rows[0].username, `User ${newStatus ? 'suspended' : 'reinstated'}`, req.ip);
+
         res.json({ message: `User ${newStatus ? 'suspended' : 'reinstated'} successfully.`, suspended: newStatus });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Admin suspend error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
-// 11. Admin: Delete user
+// 11. Admin: Delete user — C-2: Complete user deletion
 app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
         const user = await db.query("SELECT username FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
-        if (user.rows[0].username === 'Prime Dynamixx') return res.status(403).json({ error: "Cannot delete the primary admin." });
+        // PI-2: Use ADMIN_USERNAME const
+        if (user.rows[0].username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot delete the primary admin." });
 
+        const username = user.rows[0].username;
+
+        // C-2: Delete all user data before deleting the user
+        await db.query("DELETE FROM MessageReactions WHERE author = $1", [username]);
+        await db.query("DELETE FROM Messages WHERE author = $1", [username]);
+        await db.query("DELETE FROM RoomMembers WHERE username = $1", [username]);
+        await db.query("DELETE FROM Notifications WHERE recipient = $1 OR sender = $1", [username]);
+        await db.query("DELETE FROM Reactions WHERE author = $1", [username]);
+        await db.query("DELETE FROM Comments WHERE author = $1", [username]);
+        await db.query("DELETE FROM Posts WHERE author = $1", [username]);
+        await db.query("DELETE FROM Submissions WHERE author = $1", [username]);
+        await db.query("DELETE FROM NotificationPrefs WHERE user_id = $1", [req.params.id]);
         await db.query("DELETE FROM Users WHERE id = $1", [req.params.id]);
+
+        // S-10: Audit log
+        await auditLog('ADMIN_DELETE_USER', req.user.username, username, 'User and all associated data purged', req.ip);
+
         res.json({ message: "User purged from the system." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Admin delete user error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1453,7 +1812,9 @@ app.delete('/api/admin/figures/:id', requireAuth, requireAdmin, async (req, res)
         await db.query("DELETE FROM Figures WHERE id = $1", [req.params.id]);
         res.json({ message: "Target and all associated intel purged." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Admin delete figure error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1465,7 +1826,9 @@ app.put('/api/admin/figures/:id', requireAuth, requireAdmin, async (req, res) =>
             [name, brand, classTie, line, req.params.id]);
         res.json({ message: "Target updated successfully." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Admin edit figure error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1488,14 +1851,66 @@ app.get('/api/admin/analytics', requireAuth, requireAdmin, async (req, res) => {
             topAnalysts: activeAnalysts.rows
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // S-9: Error sanitization
+        console.error('Admin analytics error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
+// --- C-1: Data Retention — Admin cleanup endpoint --- //
+app.delete('/api/admin/cleanup', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+        const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+
+        const notifResult = await db.query("DELETE FROM Notifications WHERE created_at < $1", [ninetyDaysAgo]);
+        const typingResult = await db.query("DELETE FROM TypingIndicators WHERE updated_at < $1", [oneMinuteAgo]);
+
+        await auditLog('ADMIN_CLEANUP', req.user.username, null, `Cleaned ${notifResult.rowCount} old notifications, ${typingResult.rowCount} stale typing indicators`, req.ip);
+
+        res.json({
+            message: 'Cleanup completed.',
+            deletedNotifications: notifResult.rowCount,
+            deletedTypingIndicators: typingResult.rowCount
+        });
+    } catch (err) {
+        console.error('Admin cleanup error:', err);
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// --- A-3: Graceful Shutdown --- //
+let server;
+
 // Start Server
 if (require.main === module) {
-    app.listen(PORT, () => {
+    server = app.listen(PORT, () => {
         console.log(`Data Toyz Terminal Server active on port ${PORT}`);
     });
+
+    const gracefulShutdown = (signal) => {
+        console.log(`\n${signal} received. Shutting down gracefully...`);
+        if (server) {
+            server.close(() => {
+                console.log('HTTP server closed.');
+                db.end(() => {
+                    console.log('Database pool closed.');
+                    process.exit(0);
+                });
+            });
+        } else {
+            db.end(() => {
+                process.exit(0);
+            });
+        }
+        // Force exit after 10 seconds if graceful shutdown stalls
+        setTimeout(() => {
+            console.error('Forced shutdown after timeout.');
+            process.exit(1);
+        }, 10000);
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 module.exports = app;

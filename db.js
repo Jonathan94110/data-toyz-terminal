@@ -1,11 +1,19 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
+// --- A-4: Configure connection pool limits --- //
 const pool = new Pool({
     connectionString: process.env.POSTGRES_URL,
     ssl: {
-        rejectUnauthorized: false
-    }
+        rejectUnauthorized: process.env.NODE_ENV === 'production' // S-7: Enable SSL verification in production
+    },
+    max: 20,             // Maximum pool size
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000
+});
+
+pool.on('error', (err) => {
+    console.error('Unexpected database pool error:', err.message);
 });
 
 pool.connect((err, client, release) => {
@@ -41,7 +49,7 @@ async function initDB() {
 
         // Migration Failsafe: only add avatar column if it doesn't exist
         const colCheck = await pool.query(`
-            SELECT column_name FROM information_schema.columns 
+            SELECT column_name FROM information_schema.columns
             WHERE table_name = 'users' AND column_name = 'avatar'
         `);
         if (colCheck.rows.length === 0) {
@@ -50,7 +58,7 @@ async function initDB() {
 
         // Migration: add role column (admin/analyst)
         const roleCheck = await pool.query(`
-            SELECT column_name FROM information_schema.columns 
+            SELECT column_name FROM information_schema.columns
             WHERE table_name = 'users' AND column_name = 'role'
         `);
         if (roleCheck.rows.length === 0) {
@@ -59,7 +67,7 @@ async function initDB() {
 
         // Migration: add suspended column
         const suspCheck = await pool.query(`
-            SELECT column_name FROM information_schema.columns 
+            SELECT column_name FROM information_schema.columns
             WHERE table_name = 'users' AND column_name = 'suspended'
         `);
         if (suspCheck.rows.length === 0) {
@@ -76,8 +84,18 @@ async function initDB() {
             await pool.query(`ALTER TABLE Users ADD COLUMN reset_token_expires TEXT`);
         }
 
-        // Ensure Prime Dynamixx is admin
-        await pool.query(`UPDATE Users SET role = 'admin' WHERE username = 'Prime Dynamixx'`);
+        // Migration: add password_changed_at column for session invalidation (C-3)
+        const pwChangedCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'password_changed_at'
+        `);
+        if (pwChangedCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Users ADD COLUMN password_changed_at TEXT`);
+        }
+
+        // PI-2: Configurable admin username from env
+        const adminUsername = process.env.ADMIN_USERNAME || 'Prime Dynamixx';
+        await pool.query(`UPDATE Users SET role = 'admin' WHERE username = $1`, [adminUsername]);
 
         // Create Posts Table (Comms Feed)
         await pool.query(`CREATE TABLE IF NOT EXISTS Posts (
@@ -205,6 +223,17 @@ async function initDB() {
             updated_at TEXT NOT NULL,
             UNIQUE(room_id, username),
             FOREIGN KEY(room_id) REFERENCES Rooms(id) ON DELETE CASCADE
+        )`);
+
+        // Create AuditLog Table (S-10: Security audit trail)
+        await pool.query(`CREATE TABLE IF NOT EXISTS AuditLog (
+            id SERIAL PRIMARY KEY,
+            action TEXT NOT NULL,
+            actor TEXT,
+            target TEXT,
+            details TEXT,
+            ip_address TEXT,
+            created_at TEXT NOT NULL
         )`);
 
         // Migration: add message notification preferences to NotificationPrefs

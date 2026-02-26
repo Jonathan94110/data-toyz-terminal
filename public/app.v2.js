@@ -3,6 +3,17 @@
 const API_URL = '/api';
 let MOCK_FIGURES = [];
 
+// S-6: XSS Prevention — escape HTML entities in user-generated content
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 class TerminalApp {
     get currentView() {
         return sessionStorage.getItem('terminalView') || 'feed';
@@ -134,7 +145,7 @@ class TerminalApp {
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
-                document.getElementById('resetMessage').innerHTML = `<p style="color:var(--success);">${data.message}</p><a href="/" style="color:var(--accent);">Return to Login</a>`;
+                document.getElementById('resetMessage').innerHTML = `<p style="color:var(--success);">${escapeHTML(data.message)}</p><a href="/" style="color:var(--accent);">Return to Login</a>`;
                 document.getElementById('resetPasswordForm').style.display = 'none';
             } catch (err) {
                 alert(err.message);
@@ -268,7 +279,7 @@ class TerminalApp {
                     body: JSON.stringify({ email })
                 });
                 const data = await res.json();
-                document.getElementById('forgotMessage').innerHTML = `<p style="color:var(--success); font-size:0.85rem;">✓ ${data.message}</p>`;
+                document.getElementById('forgotMessage').innerHTML = `<p style="color:var(--success); font-size:0.85rem;">✓ ${escapeHTML(data.message)}</p>`;
                 document.getElementById('forgotForm').querySelector('button').disabled = true;
             } catch (err) {
                 alert(err.message);
@@ -354,9 +365,9 @@ class TerminalApp {
                                 <span id="notifBadge" style="display:none; position:absolute; top:0; right:0; background:var(--danger); color:#fff; font-size:0.6rem; font-weight:800; padding:1px 5px; border-radius:10px; min-width:16px; text-align:center;"></span>
                                 <div id="notifDropdown" class="notif-dropdown" style="display:none;"></div>
                             </div>
-                            ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${this.user.username.charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${this.user.username.charAt(0).toUpperCase()}</div>`}
+                            ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
-                                <div style="font-weight:600; font-size:0.95rem;">${this.user.username}</div>
+                                <div style="font-weight:600; font-size:0.95rem;">${escapeHTML(this.user.username)}</div>
                                 <div style="font-size:0.75rem; color:${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '#fbbf24' : 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '★ Admin' : 'Analyst'}</div>
                             </div>
                             <button id="logoutBtn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; margin-left:1.5rem; font-size:0.85rem; transition:color 0.2s;">[ Exit ]</button>
@@ -508,10 +519,10 @@ class TerminalApp {
                         commentsHtml += `
                             <div style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
                                 <div style="display:flex; justify-content:space-between; margin-bottom: 0.25rem;">
-                                    <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${c.author.replace(/'/g, "\\'")}')">${c.author}</span>
+                                    <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(c.author).replace(/'/g, "\\'")}')">${escapeHTML(c.author)}</span>
                                     <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
                                 </div>
-                                <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${c.content}</div>
+                                <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${escapeHTML(c.content)}</div>
                             </div>
                         `;
                     });
@@ -565,14 +576,14 @@ class TerminalApp {
                     <div class="card feed-item animate-stagger" style="margin-bottom:1.5rem; padding:1.5rem; border-left: 4px solid ${badgeColor}; animation-delay: ${index * 0.08}s;">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
                             <div>
-                                <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${p.author.replace(/'/g, "\\'")}')">${p.author}</div>
+                                <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(p.author).replace(/'/g, "\\'")}')">${escapeHTML(p.author)}</div>
                                 <div style="font-size:0.75rem; color:var(--text-secondary);">${dateStr}</div>
                             </div>
                             <div style="background:${badgeGlow}; color:${badgeColor}; border:1px solid ${badgeColor}; padding:0.25rem 0.75rem; border-radius:1rem; font-weight:800; font-size:0.85rem; box-shadow: 0 0 10px ${badgeGlow}; text-transform:uppercase;">
-                                ${badgeIcon} ${p.sentiment}
+                                ${badgeIcon} ${escapeHTML(p.sentiment)}
                             </div>
                         </div>
-                        <p style="font-size:1rem; line-height:1.6; color:var(--text-primary); margin-bottom:${p.imagePath ? '1rem' : '0'}; white-space:pre-wrap;">${p.content}</p>
+                        <p style="font-size:1rem; line-height:1.6; color:var(--text-primary); margin-bottom:${p.imagePath ? '1rem' : '0'}; white-space:pre-wrap;">${escapeHTML(p.content)}</p>
                         ${p.imagePath ? `<img src="${p.imagePath}" style="max-width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); max-height:400px; object-fit:contain; background:var(--bg-surface); display:block;">` : ''}
                         ${reactionsHtml}
                         ${commentsHtml}
@@ -693,7 +704,7 @@ class TerminalApp {
                 <div class="search-filters" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
                     <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Brands:</span>
                     <span class="badge brandFilter" data-brand="" style="border-color:var(--accent); color:var(--accent); font-weight:700; cursor:pointer;">ALL</span>
-                    ${uniqueBrands.map(b => `<span class="badge brandFilter" data-brand="${b}" style="cursor:pointer;">${b}</span>`).join('')}
+                    ${uniqueBrands.map(b => `<span class="badge brandFilter" data-brand="${escapeHTML(b)}" style="cursor:pointer;">${escapeHTML(b)}</span>`).join('')}
                 </div>
 
                 <div style="margin-bottom:1.5rem; display:flex; gap:0.5rem; align-items:center;">
@@ -736,10 +747,10 @@ class TerminalApp {
             const resultsHTML = results.map((f, index) => `
                 <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s;" onclick="app.selectTarget(${f.id})">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 0.5rem;">
-                        <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${f.brand} &bull; ${f.line}</div>
-                        <span class="tier-badge ${f.classTie.toLowerCase()}">${f.classTie}</span>
+                        <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${escapeHTML(f.brand)} &bull; ${escapeHTML(f.line)}</div>
+                        <span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}">${escapeHTML(f.classTie)}</span>
                     </div>
-                    <h3 style="margin-bottom: 1rem; font-size: 1.25rem;">${f.name}</h3>
+                    <h3 style="margin-bottom: 1rem; font-size: 1.25rem;">${escapeHTML(f.name)}</h3>
                     <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-light); padding-top:1rem;">
                         <div style="display:flex; gap:1rem; font-size:0.85rem; color:var(--text-muted);">
                             ${f.submissions > 0 ? `<span>${f.submissions} report${f.submissions !== 1 ? 's' : ''}</span>` : '<span>No reports</span>'}
@@ -972,12 +983,12 @@ class TerminalApp {
                     <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();" style="margin-bottom:1.5rem;">&larr; Back to Search</button>
                     <div class="card" style="display:flex; align-items:center; gap:1.5rem;">
                         <div style="flex:1;">
-                            <h2 style="margin:0 0 0.5rem; font-size:1.75rem;">${this.currentTarget.name}</h2>
+                            <h2 style="margin:0 0 0.5rem; font-size:1.75rem;">${escapeHTML(this.currentTarget.name)}</h2>
                             <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
-                                <span style="color:var(--text-secondary); font-size:0.9rem; font-weight:600;">${this.currentTarget.brand}</span>
+                                <span style="color:var(--text-secondary); font-size:0.9rem; font-weight:600;">${escapeHTML(this.currentTarget.brand)}</span>
                                 <span style="color:var(--text-muted);">&bull;</span>
-                                <span style="color:var(--text-muted); font-size:0.85rem;">${this.currentTarget.line || ''}</span>
-                                <span class="tier-badge ${(this.currentTarget.classTie || '').toLowerCase()}">${this.currentTarget.classTie}</span>
+                                <span style="color:var(--text-muted); font-size:0.85rem;">${escapeHTML(this.currentTarget.line || '')}</span>
+                                <span class="tier-badge ${escapeHTML(this.currentTarget.classTie || '').toLowerCase()}">${escapeHTML(this.currentTarget.classTie)}</span>
                             </div>
                         </div>
                         <div style="text-align:center; padding-left:1.5rem; border-left:1px solid var(--border-light);">
@@ -989,7 +1000,7 @@ class TerminalApp {
 
                 ${isGuestimate ? `
                     <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 1rem 1.5rem; border-radius: var(--radius-sm); margin-bottom: 2rem; color: var(--text-primary);">
-                        <strong style="color: var(--danger);">⚠️ Anti-Hype Notice:</strong> Insufficient community data. Displaying TVI Anchored Guestimate based on class tier (${this.currentTarget.classTie}).
+                        <strong style="color: var(--danger);">⚠️ Anti-Hype Notice:</strong> Insufficient community data. Displaying TVI Anchored Guestimate based on class tier (${escapeHTML(this.currentTarget.classTie)}).
                     </div>
                 ` : ''}
 
@@ -1041,7 +1052,7 @@ class TerminalApp {
                             return `
                                 <div class="card" style="padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
                                     <div style="display:flex; align-items:center; gap:1rem;">
-                                        <span class="user-link" onclick="app.viewUserProfile('${s.author.replace(/'/g, "\\'")}')" style="font-weight:700;">${s.author}</span>
+                                        <span class="user-link" onclick="app.viewUserProfile('${escapeHTML(s.author).replace(/'/g, "\\'")}')" style="font-weight:700;">${escapeHTML(s.author)}</span>
                                         <span style="color:var(--text-muted); font-size:0.8rem;">${date}</span>
                                     </div>
                                     <div style="font-weight:800; font-size:1.1rem; color:${parseFloat(grade) >= 70 ? 'var(--success)' : parseFloat(grade) >= 50 ? '#fbbf24' : 'var(--danger)'};">${grade}</div>
@@ -1083,7 +1094,7 @@ class TerminalApp {
                         <div class="card" style="margin-top:1rem; padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${overviewStats.topFigure.id})">
                             <div>
                                 <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">🏆 Highest Rated Target</div>
-                                <div style="font-size:1.1rem; font-weight:700; margin-top:0.25rem;">${overviewStats.topFigure.name}</div>
+                                <div style="font-size:1.1rem; font-weight:700; margin-top:0.25rem;">${escapeHTML(overviewStats.topFigure.name)}</div>
                             </div>
                             <div style="text-align:right;">
                                 <div style="font-size:1.5rem; font-weight:800; color:var(--accent);">${overviewStats.topFigure.grade}</div>
@@ -1105,11 +1116,11 @@ class TerminalApp {
             return `
                                 <div class="card" style="padding:1.25rem; display:flex; justify-content:space-between; align-items:center;">
                                     <div>
-                                        <div style="font-weight:700; font-size:0.95rem;">${idx.brand}</div>
-                                        <div style="font-size:0.8rem; color:var(--text-muted);">${idx.line} • ${idx.targets} target${idx.targets !== 1 ? 's' : ''}</div>
+                                        <div style="font-weight:700; font-size:0.95rem;">${escapeHTML(idx.brand)}</div>
+                                        <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHTML(idx.line)} • ${idx.targets} target${idx.targets !== 1 ? 's' : ''}</div>
                                     </div>
                                     <div style="text-align:right;">
-                                        <span style="font-size:1.25rem; font-weight:800; color:${gradeColor};">${grade ? idx.avgGrade : '—'}</span>
+                                        <span style="font-size:1.25rem; font-weight:800; color:${gradeColor};">${grade ? escapeHTML(idx.avgGrade) : '—'}</span>
                                         <span style="font-size:1.1rem; margin-left:0.25rem; color:${gradeColor};">${trendIcon}</span>
                                         <div style="font-size:0.7rem; color:var(--text-muted);">${idx.submissions} report${idx.submissions !== 1 ? 's' : ''}</div>
                                     </div>
@@ -1131,8 +1142,8 @@ class TerminalApp {
             return `
                                 <div class="card" style="padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; gap:1rem;">
                                     <div style="flex:1;">
-                                        <div style="font-size:0.95rem; font-weight:500; line-height:1.4;">${h.headline}</div>
-                                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">${h.brand} • ${h.classTie} • ${timeAgo}</div>
+                                        <div style="font-size:0.95rem; font-weight:500; line-height:1.4;">${escapeHTML(h.headline)}</div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">${escapeHTML(h.brand)} • ${escapeHTML(h.classTie)} • ${timeAgo}</div>
                                     </div>
                                     <div style="font-size:1.25rem; font-weight:800; color:${gradeColor}; white-space:nowrap;">${h.grade.toFixed(1)}</div>
                                 </div>
@@ -1211,9 +1222,9 @@ class TerminalApp {
                         const grade = s.mtsTotal ? ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1) : '—';
                         galleryHtml += `
                             <div style="display:flex; flex-direction:column; align-items:center; gap:0.4rem;">
-                                <img src="${s.data.imagePath}" style="width:auto; height:200px; object-fit:contain; background:var(--bg-panel); border-radius:8px; border:1px solid var(--border); box-shadow: 0 4px 6px var(--accent-glow); cursor:pointer;" title="${s.author}'s Evidence" onclick="this.style.maxHeight = this.style.maxHeight === 'none' ? '200px' : 'none'; this.style.height = this.style.height === 'auto' ? '200px' : 'auto';">
+                                <img src="${s.data.imagePath}" style="width:auto; height:200px; object-fit:contain; background:var(--bg-panel); border-radius:8px; border:1px solid var(--border); box-shadow: 0 4px 6px var(--accent-glow); cursor:pointer;" title="${escapeHTML(s.author)}'s Evidence" onclick="this.style.maxHeight = this.style.maxHeight === 'none' ? '200px' : 'none'; this.style.height = this.style.height === 'auto' ? '200px' : 'auto';">
                                 <span style="font-size:0.75rem; color:var(--text-muted);">
-                                    by <span class="user-link" onclick="app.viewUserProfile('${s.author.replace(/'/g, "\\'")}')">${s.author}</span> · Grade: <span style="color:var(--accent); font-weight:600;">${grade}</span>
+                                    by <span class="user-link" onclick="app.viewUserProfile('${escapeHTML(s.author).replace(/'/g, "\\'")}')">${escapeHTML(s.author)}</span> · Grade: <span style="color:var(--accent); font-weight:600;">${grade}</span>
                                 </span>
                             </div>`;
                     }
@@ -1286,7 +1297,7 @@ class TerminalApp {
                     <button class="btn-outline" onclick="app.currentView='pulse'; app.renderApp();">&larr; Back</button>
                     <div>
                         <h2 style="margin:0; font-size:2rem;">Intelligence Submission</h2>
-                        <div style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">Target: ${this.currentTarget.name}</div>
+                        <div style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">Target: ${escapeHTML(this.currentTarget.name)}</div>
                     </div>
                 </div>
 
@@ -1541,9 +1552,9 @@ class TerminalApp {
                     <tr>
                         <td style="color:var(--text-secondary); font-size:0.9rem;">${d}</td>
                         <td style="font-weight:600;">
-                            <span class="tier-badge ${tier.toLowerCase()}" style="margin-right:0.5rem; font-size:0.6rem;">${tier}</span>
+                            <span class="tier-badge ${escapeHTML(tier).toLowerCase()}" style="margin-right:0.5rem; font-size:0.6rem;">${escapeHTML(tier)}</span>
                             <span style="cursor:pointer; text-decoration:underline; text-decoration-color:var(--border-light); text-underline-offset:4px; transition:color 0.2s;" onclick="app.selectTarget(${s.targetId})" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color=''">
-                                ${s.targetName}
+                                ${escapeHTML(s.targetName)}
                             </span>
                         </td>
                         <td><span style="color:var(--accent); font-weight:700;">${((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1)}</span></td>
@@ -1621,7 +1632,7 @@ class TerminalApp {
                 return `
                     <tr>
                         <td style="text-align: center; vertical-align: middle;">${rankBadge}</td>
-                        <td style="font-weight: 800; font-size: 1.1rem; color: ${this.user.username === authorName ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="app.viewUserProfile('${authorName.replace(/'/g, "\\'")}')">${authorName} ${this.user.username === authorName ? '<span style="font-weight:400; font-size:0.75rem; color:var(--text-muted);">(You)</span>' : ''}</td>
+                        <td style="font-weight: 800; font-size: 1.1rem; color: ${this.user.username === authorName ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="app.viewUserProfile('${escapeHTML(authorName).replace(/'/g, "\\'")}')">${escapeHTML(authorName)} ${this.user.username === authorName ? '<span style="font-weight:400; font-size:0.75rem; color:var(--text-muted);">(You)</span>' : ''}</td>
                         <td><span style="font-weight: 800;">${count}</span> <span style="font-size: 0.8rem; color: var(--text-secondary);">logs</span></td>
                         <td><span class="badge" style="background:transparent; border-color:${titleColor}; color:${titleColor};">${title}</span></td>
                     </tr>
@@ -1656,17 +1667,17 @@ class TerminalApp {
                         <div class="form-group" style="margin-bottom:1.5rem;">
                             <label class="form-label">Profile Avatar</label>
                             <div style="display:flex; align-items:center; gap:1rem;">
-                                ${this.user.avatar ? `<img src="${this.user.avatar}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid var(--border);" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:50px; height:50px; border-radius:50%; background:var(--bg-surface); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:700;\\'>${this.user.username.charAt(0).toUpperCase()}</div>';">` : `<div style="width:50px; height:50px; border-radius:50%; background:var(--bg-surface); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:700;">${this.user.username.charAt(0).toUpperCase()}</div>`}
+                                ${this.user.avatar ? `<img src="${this.user.avatar}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid var(--border);" onerror="this.onerror=null; this.outerHTML='<div style=\\'width:50px; height:50px; border-radius:50%; background:var(--bg-surface); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:700;\\'>${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>';">` : `<div style="width:50px; height:50px; border-radius:50%; background:var(--bg-surface); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:700;">${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>`}
                                 <input type="file" id="profAvatar" accept="image/*" style="flex:1; padding:0.5rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                             </div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Active Username</label>
-                            <input type="text" id="profUsername" value="${this.user.username}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                            <input type="text" id="profUsername" value="${escapeHTML(this.user.username)}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
                         <div class="form-group" style="margin-bottom: 2rem;">
                             <label class="form-label">Secure Email Address</label>
-                            <input type="email" id="profEmail" value="${this.user.email || ''}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                            <input type="email" id="profEmail" value="${escapeHTML(this.user.email || '')}" required style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
                         <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem;">Encrypt & Update Profile</button>
                     </form>
@@ -1919,6 +1930,7 @@ class TerminalApp {
             { id: 'notifications', title: 'Notifications' },
             { id: 'admin', title: 'Admin Panel' },
             { id: 'security', title: 'Security & Authentication' },
+            { id: 'soc2', title: 'SOC 2 Compliance' },
             { id: 'glossary', title: 'Glossary' }
         ];
 
@@ -2251,28 +2263,93 @@ class TerminalApp {
                 <div id="doc-security" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Security & Authentication</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The terminal uses industry-standard security practices to protect all operative accounts:
+                        The terminal uses industry-standard security practices to protect all operative accounts and data:
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Authentication:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li><strong>JWT Tokens</strong> &mdash; All authenticated actions use signed JSON Web Tokens (7-day expiry)</li>
-                        <li><strong>Password Hashing</strong> &mdash; Passcodes are hashed with bcrypt before storage (never stored in plain text)</li>
+                        <li><strong>JWT Tokens</strong> &mdash; All authenticated actions use signed JSON Web Tokens with 24-hour expiry</li>
+                        <li><strong>Password Hashing</strong> &mdash; Passcodes are hashed with bcrypt (10 salt rounds) before storage &mdash; never stored in plain text</li>
+                        <li><strong>Password Strength</strong> &mdash; All passcodes require minimum 8 characters, at least one uppercase letter, one lowercase letter, and one number</li>
+                        <li><strong>Session Invalidation</strong> &mdash; Changing your passcode immediately invalidates all existing sessions, requiring a fresh login</li>
                         <li><strong>Ownership Verification</strong> &mdash; You can only edit your own profile and retract your own submissions</li>
                         <li><strong>Server-Side Identity</strong> &mdash; Your username is extracted from your token on the server, not trusted from the browser</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Password Reset:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li><strong>Email Reset</strong> &mdash; Click "Forgot Passcode?" on the login screen, enter your email, and receive a reset link</li>
-                        <li><strong>Reset Link</strong> &mdash; The link contains a secure token that expires after 1 hour</li>
+                        <li><strong>Reset Link</strong> &mdash; The link contains a cryptographically secure token that expires after 1 hour</li>
                         <li><strong>Change Passcode</strong> &mdash; Logged-in operatives can change their passcode from Profile Settings (requires current passcode)</li>
                         <li><strong>Admin Backup</strong> &mdash; Admins can reset any user's passcode from the Admin Panel</li>
                     </ul>
-                    <p style="color:var(--text-muted); font-size:0.85rem;">Suspended accounts cannot log in or perform any actions. Session tokens are automatically invalidated when an account is suspended.</p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Data Protection:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>XSS Prevention</strong> &mdash; All user-generated content is HTML-escaped before rendering to prevent cross-site scripting attacks</li>
+                        <li><strong>Input Validation</strong> &mdash; All inputs are validated for type, length, and format before processing</li>
+                        <li><strong>SQL Injection</strong> &mdash; All database queries use parameterized statements &mdash; no raw string interpolation</li>
+                        <li><strong>File Uploads</strong> &mdash; Image uploads are restricted to 5 MB maximum, allowed formats: JPEG, PNG, GIF, WebP only</li>
+                        <li><strong>Error Handling</strong> &mdash; Internal errors are logged server-side; only generic error messages are returned to the client</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Suspended accounts cannot log in or perform any actions. Session tokens are automatically invalidated when an account is suspended or a passcode is changed.</p>
                 </div>
 
-                <!-- 15. GLOSSARY -->
+                <!-- 15. SOC 2 COMPLIANCE -->
+                <div id="doc-soc2" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. SOC 2 Compliance</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1.25rem;">
+                        Data Toyz Terminal implements controls aligned with the SOC 2 Trust Service Criteria across all five principles. The following measures are in effect:
+                    </p>
+
+                    <p style="color:var(--accent); font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128737; Security</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
+                        <li><strong>Helmet Security Headers</strong> &mdash; Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy, and COOP/CORP headers enforced on all responses</li>
+                        <li><strong>Rate Limiting</strong> &mdash; Three-tier rate limiting: global (100 req/15 min), authentication (10 req/15 min), and messaging (30 req/min) per IP address</li>
+                        <li><strong>CORS Policy</strong> &mdash; Cross-origin requests restricted to a configured origin &mdash; no wildcard access</li>
+                        <li><strong>HTTPS Enforcement</strong> &mdash; HTTP requests are automatically redirected to HTTPS in production environments</li>
+                        <li><strong>Audit Logging</strong> &mdash; All security-relevant events (login, registration, password changes, admin actions, room management) are recorded in an audit trail with actor, target, IP address, and timestamp</li>
+                        <li><strong>JWT Secret Management</strong> &mdash; Signing keys loaded from environment variables; production deployments require explicit configuration (no fallback secrets)</li>
+                    </ul>
+
+                    <p style="color:#10b981; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#9889; Availability</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
+                        <li><strong>Health Check Endpoint</strong> &mdash; <code style="background:var(--bg-panel); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">GET /api/health</code> returns server status and uptime for monitoring and load balancer integration</li>
+                        <li><strong>Graceful Shutdown</strong> &mdash; SIGTERM/SIGINT signals trigger a clean server shutdown: in-flight requests complete, database connections are closed, and a 10-second forced exit safeguard is in place</li>
+                        <li><strong>Connection Pool Management</strong> &mdash; Database connections are pooled (max 20) with idle timeout (30s) and connection timeout (5s) to prevent resource exhaustion</li>
+                        <li><strong>24-Hour Token Expiry</strong> &mdash; JWT tokens expire after 24 hours to limit the blast radius of compromised credentials</li>
+                    </ul>
+
+                    <p style="color:#3b82f6; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128736; Processing Integrity</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
+                        <li><strong>Input Validation</strong> &mdash; All user inputs validated for type and length: usernames (50 chars), emails (254 chars), content (5,000 chars), room names (100 chars)</li>
+                        <li><strong>Parameterized Queries</strong> &mdash; Every database operation uses parameterized SQL to prevent injection attacks</li>
+                        <li><strong>File Type Filtering</strong> &mdash; Uploaded files validated by MIME type (JPEG, PNG, GIF, WebP) and capped at 5 MB</li>
+                        <li><strong>Error Sanitization</strong> &mdash; Internal error details are never exposed to clients; generic messages are returned while full errors are logged server-side</li>
+                    </ul>
+
+                    <p style="color:#f59e0b; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128274; Confidentiality</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
+                        <li><strong>Session Invalidation</strong> &mdash; Password changes immediately invalidate all existing tokens by tracking <code style="background:var(--bg-panel); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">password_changed_at</code> against token issue time</li>
+                        <li><strong>Complete Data Deletion</strong> &mdash; User account deletion cascades across all tables: posts, comments, reactions, submissions, notifications, room memberships, messages, and message reactions</li>
+                        <li><strong>Data Retention Policy</strong> &mdash; Admin cleanup endpoint purges notifications older than 90 days and stale typing indicators</li>
+                        <li><strong>Configurable Admin Identity</strong> &mdash; Primary admin username loaded from environment variable instead of hardcoded values</li>
+                    </ul>
+
+                    <p style="color:#a78bfa; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128101; Privacy</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Data Export (Right of Access)</strong> &mdash; Any user can export their complete data via <code style="background:var(--bg-panel); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">GET /api/users/me/export</code> &mdash; returns profile, submissions, posts, comments, and notifications as JSON</li>
+                        <li><strong>Email Enumeration Prevention</strong> &mdash; The password reset endpoint returns the same success message regardless of whether an email exists, preventing account discovery</li>
+                        <li><strong>Minimal Data Collection</strong> &mdash; Only essential data (username, email, passcode hash) is collected during registration; no tracking or analytics are implemented</li>
+                    </ul>
+
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1rem 1.25rem; margin-top:0.5rem;">
+                        <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.6; margin:0;">
+                            <strong style="color:var(--text-secondary);">Note:</strong> This platform implements technical controls aligned with SOC 2 Trust Service Criteria. A formal SOC 2 Type II audit requires third-party assessment by a licensed CPA firm. These controls provide the technical foundation for achieving certification.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 16. GLOSSARY -->
                 <div id="doc-glossary" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Glossary</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">16. Glossary</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Data Toyz Terminal uses intelligence/spy-themed terminology throughout the platform:
                     </p>
@@ -2363,7 +2440,7 @@ class TerminalApp {
                             <div style="background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius-sm); padding:0.75rem 1.25rem; display:flex; align-items:center; gap:0.75rem;">
                                 <span style="font-size:1.25rem; font-weight:800; color:${i === 0 ? '#fbbf24' : 'var(--text-muted)'};">#${i + 1}</span>
                                 <div>
-                                    <div style="font-weight:600;">${a.author}</div>
+                                    <div style="font-weight:600;">${escapeHTML(a.author)}</div>
                                     <div style="font-size:0.8rem; color:var(--text-muted);">${a.subs} report${a.subs != 1 ? 's' : ''}</div>
                                 </div>
                             </div>
@@ -2390,13 +2467,13 @@ class TerminalApp {
                             ${figures.map(f => `
                                 <tr style="border-top:1px solid var(--border-light);" id="figRow-${f.id}">
                                     <td style="padding:0.6rem 1rem; color:var(--text-muted);">${f.id}</td>
-                                    <td style="padding:0.6rem 1rem; font-weight:600;">${f.name}</td>
-                                    <td style="padding:0.6rem 1rem;">${f.brand}</td>
-                                    <td style="padding:0.6rem 1rem;"><span class="tier-badge ${f.classTie.toLowerCase()}" style="font-size:0.7rem;">${f.classTie}</span></td>
-                                    <td style="padding:0.6rem 1rem; color:var(--text-muted);">${f.line}</td>
+                                    <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(f.name)}</td>
+                                    <td style="padding:0.6rem 1rem;">${escapeHTML(f.brand)}</td>
+                                    <td style="padding:0.6rem 1rem;"><span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}" style="font-size:0.7rem;">${escapeHTML(f.classTie)}</span></td>
+                                    <td style="padding:0.6rem 1rem; color:var(--text-muted);">${escapeHTML(f.line)}</td>
                                     <td style="padding:0.6rem 1rem; text-align:right; white-space:nowrap;">
-                                        <button class="editFigBtn" data-id="${f.id}" data-name="${f.name}" data-brand="${f.brand}" data-class="${f.classTie}" data-line="${f.line}" style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">✏️ Edit</button>
-                                        <button class="delFigBtn" data-id="${f.id}" data-name="${f.name}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
+                                        <button class="editFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" data-brand="${escapeHTML(f.brand)}" data-class="${escapeHTML(f.classTie)}" data-line="${escapeHTML(f.line)}" style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">✏️ Edit</button>
+                                        <button class="delFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
                                     </td>
                                 </tr>
                             `).join('')}
@@ -2430,17 +2507,17 @@ class TerminalApp {
             return `
                                     <tr style="border-top:1px solid var(--border-light); ${isSuspended ? 'opacity:0.5;' : ''}">
                                         <td style="padding:0.6rem 1rem; color:var(--text-muted);">${u.id}</td>
-                                        <td style="padding:0.6rem 1rem; font-weight:600;">${u.username} ${isAdmin ? '<span style="color:#fbbf24; font-size:0.75rem;">★ ADMIN</span>' : ''}</td>
-                                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${u.email}</td>
-                                        <td style="padding:0.6rem 1rem;"><span style="color:${isAdmin ? '#fbbf24' : 'var(--accent)'}; font-size:0.8rem; font-weight:600; text-transform:uppercase;">${u.role || 'analyst'}</span></td>
+                                        <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(u.username)} ${isAdmin ? '<span style="color:#fbbf24; font-size:0.75rem;">★ ADMIN</span>' : ''}</td>
+                                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(u.email)}</td>
+                                        <td style="padding:0.6rem 1rem;"><span style="color:${isAdmin ? '#fbbf24' : 'var(--accent)'}; font-size:0.8rem; font-weight:600; text-transform:uppercase;">${escapeHTML(u.role || 'analyst')}</span></td>
                                         <td style="padding:0.6rem 1rem;"><span style="color:${isSuspended ? 'var(--danger)' : 'var(--success)'}; font-size:0.8rem; font-weight:600;">${isSuspended ? '⛔ SUSPENDED' : '✅ ACTIVE'}</span></td>
                                         <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${joined}</td>
                                         <td style="padding:0.6rem 1rem; text-align:right; white-space:nowrap;">
                                             ${u.username !== 'Prime Dynamixx' ? `
                                                 <button class="roleBtn" data-id="${u.id}" data-role="${u.role}" style="background:none; border:1px solid ${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isAdmin ? 'Demote' : 'Promote'}</button>
-                                                <button class="suspendBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid ${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isSuspended ? '✅ Reinstate' : '⚠️ Suspend'}</button>
-                                                <button class="resetPwBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid var(--accent); color:var(--accent); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">🔑 Reset PW</button>
-                                                <button class="delUserBtn" data-id="${u.id}" data-name="${u.username}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
+                                                <button class="suspendBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="background:none; border:1px solid ${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isSuspended ? '✅ Reinstate' : '⚠️ Suspend'}</button>
+                                                <button class="resetPwBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="background:none; border:1px solid var(--accent); color:var(--accent); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">🔑 Reset PW</button>
+                                                <button class="delUserBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
                                             ` : '<span style="font-size:0.8rem; color:var(--text-muted);">Protected</span>'}
                                         </td>
                                     </tr>
@@ -2633,11 +2710,11 @@ class TerminalApp {
                                         <div style="display:flex; align-items:center; gap:0.75rem;">
                                             <span style="color:var(--text-muted); font-weight:700; font-size:0.85rem; width:24px;">#${i + 1}</span>
                                             <div>
-                                                <div style="font-weight:600; font-size:0.9rem;">${f.name}</div>
-                                                <div style="font-size:0.75rem; color:var(--text-muted);">${f.brand} · ${f.submissions} report${f.submissions !== 1 ? 's' : ''}</div>
+                                                <div style="font-weight:600; font-size:0.9rem;">${escapeHTML(f.name)}</div>
+                                                <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(f.brand)} · ${f.submissions} report${f.submissions !== 1 ? 's' : ''}</div>
                                             </div>
                                         </div>
-                                        <div style="font-weight:800; color:var(--accent); font-size:1.1rem;">${f.avgGrade}</div>
+                                        <div style="font-weight:800; color:var(--accent); font-size:1.1rem;">${escapeHTML(f.avgGrade)}</div>
                                     </div>
                                 `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No rated targets yet.</div>'}
                             </div>
@@ -2651,8 +2728,8 @@ class TerminalApp {
                             <div style="max-height:400px; overflow-y:auto;">
                                 ${headlines.length > 0 ? headlines.map(h => `
                                     <div class="pulse-headline-item">
-                                        <div style="font-size:0.9rem; margin-bottom:0.25rem;">${h.headline}</div>
-                                        <div style="font-size:0.75rem; color:var(--text-muted);">${new Date(h.date).toLocaleDateString()} · ${h.brand}</div>
+                                        <div style="font-size:0.9rem; margin-bottom:0.25rem;">${escapeHTML(h.headline)}</div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted);">${new Date(h.date).toLocaleDateString()} · ${escapeHTML(h.brand)}</div>
                                     </div>
                                 `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No intel yet.</div>'}
                             </div>
@@ -2678,11 +2755,11 @@ class TerminalApp {
                                 <tbody>
                                     ${indexes.map(idx => `
                                         <tr>
-                                            <td style="font-weight:600;">${idx.brand}</td>
-                                            <td style="color:var(--text-secondary);">${idx.line}</td>
+                                            <td style="font-weight:600;">${escapeHTML(idx.brand)}</td>
+                                            <td style="color:var(--text-secondary);">${escapeHTML(idx.line)}</td>
                                             <td>${idx.targets}</td>
                                             <td>${idx.submissions}</td>
-                                            <td style="font-weight:700; color:${idx.avgGrade ? (parseFloat(idx.avgGrade) >= 70 ? 'var(--success)' : parseFloat(idx.avgGrade) >= 50 ? '#fbbf24' : 'var(--danger)') : 'var(--text-muted)'};">${idx.avgGrade || '—'}</td>
+                                            <td style="font-weight:700; color:${idx.avgGrade ? (parseFloat(idx.avgGrade) >= 70 ? 'var(--success)' : parseFloat(idx.avgGrade) >= 50 ? '#fbbf24' : 'var(--danger)') : 'var(--text-muted)'};">${escapeHTML(idx.avgGrade) || '—'}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -2729,11 +2806,11 @@ class TerminalApp {
                     <button onclick="history.back(); app.currentView='${this.currentView === 'user_profile' ? 'leaderboards' : 'feed'}'; app.renderApp();" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; margin-bottom:2rem; padding:0;">&larr; Back</button>
 
                     <div class="card" style="display:flex; align-items:center; gap:2rem; margin-bottom:2rem;">
-                        ${profile.avatar ? `<img src="${profile.avatar}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:80px; height:80px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${profile.username.charAt(0).toUpperCase()}</div>`}
+                        ${profile.avatar ? `<img src="${profile.avatar}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:80px; height:80px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${escapeHTML(profile.username).charAt(0).toUpperCase()}</div>`}
                         <div style="flex:1;">
-                            <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${profile.username}</h2>
+                            <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${escapeHTML(profile.username)}</h2>
                             <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-                                <span style="color:${titleColors[profile.title] || 'var(--text-muted)'}; font-weight:700; font-size:0.9rem; border:1px solid; padding:0.2rem 0.6rem; border-radius:4px;">${profile.title}</span>
+                                <span style="color:${titleColors[profile.title] || 'var(--text-muted)'}; font-weight:700; font-size:0.9rem; border:1px solid; padding:0.2rem 0.6rem; border-radius:4px;">${escapeHTML(profile.title)}</span>
                                 ${profile.role === 'admin' ? '<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">★ ADMIN</span>' : ''}
                                 <span style="color:var(--text-muted); font-size:0.85rem;">Joined ${new Date(profile.joinDate).toLocaleDateString()}</span>
                             </div>
@@ -2745,7 +2822,7 @@ class TerminalApp {
                     </div>
 
                     ${profile.username !== this.user.username ? `
-                    <button class="btn" onclick="app.startDM('${profile.username.replace(/'/g, "\\'")}')" style="width:100%; margin-bottom:2rem; padding:0.85rem; font-size:0.95rem;">
+                    <button class="btn" onclick="app.startDM('${escapeHTML(profile.username).replace(/'/g, "\\'")}')" style="width:100%; margin-bottom:2rem; padding:0.85rem; font-size:0.95rem;">
                         🔒 Open Secure Channel
                     </button>
                     ` : ''}
@@ -2764,8 +2841,8 @@ class TerminalApp {
                                     <tr style="cursor:pointer;" onclick="app.selectTarget(${s.targetId})">
                                         <td style="color:var(--text-muted);">${new Date(s.date).toLocaleDateString()}</td>
                                         <td>
-                                            <span class="tier-badge ${(s.targetTier || '').toLowerCase()}" style="font-size:0.65rem; margin-right:0.5rem;">${s.targetTier}</span>
-                                            ${s.targetName}
+                                            <span class="tier-badge ${escapeHTML(s.targetTier || '').toLowerCase()}" style="font-size:0.65rem; margin-right:0.5rem;">${escapeHTML(s.targetTier)}</span>
+                                            ${escapeHTML(s.targetName)}
                                         </td>
                                         <td style="font-weight:700; color:${parseFloat(grade) >= 70 ? 'var(--success)' : parseFloat(grade) >= 50 ? '#fbbf24' : 'var(--danger)'};">${grade}</td>
                                     </tr>`;
@@ -2827,7 +2904,7 @@ class TerminalApp {
                     <div class="notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}" data-link-type="${n.link_type}" data-link-id="${n.link_id}">
                         <span class="notif-icon">${icons[n.type] || '🔔'}</span>
                         <div>
-                            <div class="notif-text">${n.message}</div>
+                            <div class="notif-text">${escapeHTML(n.message)}</div>
                             <div class="notif-time">${timeAgo}</div>
                         </div>
                     </div>`;
@@ -2956,9 +3033,9 @@ class TerminalApp {
                         const avatar = room.type === 'dm'
                             ? (room.members.find(m => m.username !== self) || {}).avatar
                             : null;
-                        const initial = displayName.charAt(0).toUpperCase();
+                        const initial = escapeHTML(displayName).charAt(0).toUpperCase();
                         const lastMsg = room.lastMessage;
-                        const preview = lastMsg ? `${lastMsg.author === self ? 'You' : lastMsg.author}: ${lastMsg.content || '📸 Image'}` : 'No messages yet';
+                        const preview = lastMsg ? `${escapeHTML(lastMsg.author === self ? 'You' : lastMsg.author)}: ${escapeHTML(lastMsg.content) || '📸 Image'}` : 'No messages yet';
                         const time = lastMsg ? this.timeAgo(lastMsg.createdAt) : '';
                         return `
                         <div class="room-card animate-stagger ${room.unreadCount > 0 ? 'has-unread' : ''}" data-room-id="${room.id}" style="animation-delay:${i * 0.06}s;">
@@ -2966,7 +3043,7 @@ class TerminalApp {
                                 ${avatar ? `<img src="${avatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">` : initial}
                             </div>
                             <div class="room-info">
-                                <div class="room-name">${displayName}${room.type === 'group' ? ` <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;">(${room.members.length})</span>` : ''}</div>
+                                <div class="room-name">${escapeHTML(displayName)}${room.type === 'group' ? ` <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;">(${room.members.length})</span>` : ''}</div>
                                 <div class="room-preview">${preview.length > 60 ? preview.substring(0, 60) + '...' : preview}</div>
                             </div>
                             <div class="room-meta">
@@ -3048,9 +3125,9 @@ class TerminalApp {
                     if (available.length === 0) { resultsDiv.style.display = 'none'; return; }
                     resultsDiv.style.display = 'block';
                     resultsDiv.innerHTML = available.map(u => `
-                        <div class="user-search-item" data-username="${u.username}">
-                            ${u.avatar ? `<img src="${u.avatar}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">` : `<div style="width:32px; height:32px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:0.85rem;">${u.username.charAt(0).toUpperCase()}</div>`}
-                            <span>${u.username}</span>
+                        <div class="user-search-item" data-username="${escapeHTML(u.username)}">
+                            ${u.avatar ? `<img src="${u.avatar}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">` : `<div style="width:32px; height:32px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:0.85rem;">${escapeHTML(u.username).charAt(0).toUpperCase()}</div>`}
+                            <span>${escapeHTML(u.username)}</span>
                         </div>
                     `).join('');
 
@@ -3103,8 +3180,8 @@ class TerminalApp {
         if (!container) return;
         container.innerHTML = members.map(m => `
             <span class="member-pill">
-                ${m}
-                <span class="remove-member" data-username="${m}">&times;</span>
+                ${escapeHTML(m)}
+                <span class="remove-member" data-username="${escapeHTML(m)}">&times;</span>
             </span>
         `).join('');
         container.querySelectorAll('.remove-member').forEach(btn => {
@@ -3148,7 +3225,7 @@ class TerminalApp {
                     <div class="chat-header">
                         <button id="chatBackBtn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:1.2rem; padding:0.5rem;">&larr;</button>
                         <div style="flex:1;">
-                            <div style="font-weight:700; font-size:1.1rem;">${displayName}</div>
+                            <div style="font-weight:700; font-size:1.1rem;">${escapeHTML(displayName)}</div>
                             <div style="font-size:0.8rem; color:var(--text-muted);">${room.members.length} operative${room.members.length > 1 ? 's' : ''} in channel</div>
                         </div>
                         ${room.type === 'group' ? `
@@ -3278,7 +3355,7 @@ class TerminalApp {
 
     _renderMessage(m, self) {
         const isOwn = m.author === self;
-        const initial = m.author.charAt(0).toUpperCase();
+        const initial = escapeHTML(m.author).charAt(0).toUpperCase();
         const emojis = ['👍', '❤️', '😂', '😢'];
         const reactionCounts = {};
         (m.reactions || []).forEach(r => {
@@ -3292,9 +3369,9 @@ class TerminalApp {
             <div class="msg-row ${isOwn ? 'own' : ''}" data-msg-id="${m.id}">
                 <div class="msg-avatar">${initial}</div>
                 <div>
-                    ${!isOwn ? `<div class="msg-author">${m.author}</div>` : ''}
+                    ${!isOwn ? `<div class="msg-author">${escapeHTML(m.author)}</div>` : ''}
                     <div class="msg-bubble">
-                        ${m.content ? `<div class="msg-content">${m.content}</div>` : ''}
+                        ${m.content ? `<div class="msg-content">${escapeHTML(m.content)}</div>` : ''}
                         ${m.image ? `<img src="${m.image}" class="msg-image" alt="attachment">` : ''}
                     </div>
                     <div class="msg-reactions">
@@ -3367,12 +3444,12 @@ class TerminalApp {
                 <div style="max-height:300px; overflow-y:auto;">
                     ${room.members.map(m => `
                         <div style="display:flex; align-items:center; gap:1rem; padding:0.75rem 0; border-bottom:1px solid var(--border-light);">
-                            ${m.avatar ? `<img src="${m.avatar}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">` : `<div style="width:36px; height:36px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff;">${m.username.charAt(0).toUpperCase()}</div>`}
+                            ${m.avatar ? `<img src="${m.avatar}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">` : `<div style="width:36px; height:36px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff;">${escapeHTML(m.username).charAt(0).toUpperCase()}</div>`}
                             <div style="flex:1;">
-                                <span style="font-weight:600; ${m.username === self ? 'color:var(--accent);' : ''}">${m.username}</span>
+                                <span style="font-weight:600; ${m.username === self ? 'color:var(--accent);' : ''}">${escapeHTML(m.username)}</span>
                                 ${m.role === 'owner' ? '<span style="font-size:0.7rem; color:#fbbf24; margin-left:0.5rem;">★ COMMANDER</span>' : ''}
                             </div>
-                            ${iAmOwner && m.username !== self ? `<button class="remove-member-btn" data-username="${m.username}" style="background:none; border:1px solid var(--danger); color:var(--danger); padding:0.3rem 0.6rem; border-radius:var(--radius-sm); font-size:0.75rem; cursor:pointer;">Remove</button>` : ''}
+                            ${iAmOwner && m.username !== self ? `<button class="remove-member-btn" data-username="${escapeHTML(m.username)}" style="background:none; border:1px solid var(--danger); color:var(--danger); padding:0.3rem 0.6rem; border-radius:var(--radius-sm); font-size:0.75rem; cursor:pointer;">Remove</button>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -3435,8 +3512,8 @@ class TerminalApp {
                         if (available.length === 0) { results.style.display = 'none'; return; }
                         results.style.display = 'block';
                         results.innerHTML = available.map(u => `
-                            <div class="user-search-item" data-username="${u.username}">
-                                <span>${u.username}</span>
+                            <div class="user-search-item" data-username="${escapeHTML(u.username)}">
+                                <span>${escapeHTML(u.username)}</span>
                             </div>
                         `).join('');
                         results.querySelectorAll('.user-search-item').forEach(item => {
