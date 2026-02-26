@@ -808,7 +808,7 @@ class TerminalApp {
                         <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">Acquire Target</h2>
                         <p style="color:var(--text-secondary); font-size:1.1rem;">Search central database to initiate Trade Value Assessment.</p>
                     </div>
-                    <button class="btn" style="padding: 0.75rem 1.5rem;" onclick="app.currentView='add_target'; app.renderApp();">+ Add New Target</button>
+                    ${this.token ? `<button class="btn" style="padding: 0.75rem 1.5rem;" onclick="app.currentView='add_target'; app.renderApp();">+ Add New Target</button>` : ''}
                 </div>
 
                 <div class="search-bar">
