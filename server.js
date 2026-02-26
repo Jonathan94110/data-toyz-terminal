@@ -30,7 +30,12 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Prime Dynamixx';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Data Toyz Terminal <onboarding@resend.dev>';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+
+// Email throttle: 1-minute cooldown per recipient to prevent email storms
+const emailThrottle = new Map();
+const EMAIL_COOLDOWN_MS = 60 * 1000; // 1 minute
 
 // --- S-8: File Upload Limits — 5 MB, images only --- //
 const storage = multer.memoryStorage();
@@ -214,16 +219,26 @@ async function getNotificationPrefs(userId) {
     }
 }
 
-function buildNotificationEmail(recipientName, message, type) {
+function buildNotificationEmail(recipientName, message, type, linkType, linkId) {
     const icons = { comment: '\uD83D\uDCAC', reaction: '\u2764\uFE0F', co_reviewer: '\uD83D\uDCCB', new_figure: '\uD83C\uDFAF', hq_updates: '\uD83D\uDCE1', message: '\uD83D\uDD12' };
     const icon = icons[type] || '\uD83D\uDD14';
+    // Build direct link based on notification context
+    let actionUrl = APP_URL;
+    let actionLabel = 'OPEN TERMINAL';
+    if (linkType === 'post' && linkId) { actionUrl = APP_URL; actionLabel = 'VIEW POST'; }
+    else if (linkType === 'figure' && linkId) { actionUrl = `${APP_URL}?figure=${linkId}`; actionLabel = 'VIEW TARGET'; }
+    else if (linkType === 'room' && linkId) { actionUrl = APP_URL; actionLabel = 'OPEN ROOM'; }
     return `
-        <div style="font-family: monospace; background: #0f1729; color: #e2e8f0; padding: 2rem; border-radius: 8px;">
-            <h2 style="color: #f97316;">DATA TOYZ TERMINAL</h2>
-            <p>Agent <strong>${recipientName}</strong>,</p>
-            <p style="font-size: 1.1rem;">${icon} ${message}</p>
-            <a href="${APP_URL}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f97316, #ec4899); color: white; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 1rem 0;">OPEN TERMINAL</a>
-            <p style="color: #94a3b8; font-size: 0.85rem;">You can manage your notification preferences in Profile Settings.</p>
+        <div style="font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 560px; margin: 0 auto; background: #0f1729; color: #e2e8f0; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #ff2a5f, #ff8e3c); padding: 1.5rem 2rem;">
+                <h2 style="color: #fff; margin: 0; font-size: 1.25rem; letter-spacing: 0.05em;">DATA TOYZ TERMINAL</h2>
+            </div>
+            <div style="padding: 2rem;">
+                <p style="margin: 0 0 0.75rem;">Agent <strong style="color: #ff2a5f;">${recipientName}</strong>,</p>
+                <p style="font-size: 1.1rem; margin: 0 0 1.5rem; line-height: 1.5;">${icon} ${message}</p>
+                <a href="${actionUrl}" style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #ff2a5f, #ff8e3c); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 0.95rem; letter-spacing: 0.03em;">${actionLabel}</a>
+                <p style="color: #475569; font-size: 0.8rem; margin: 1.5rem 0 0; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1rem;">You can manage your notification preferences in Profile Settings.</p>
+            </div>
         </div>
     `;
 }
@@ -253,15 +268,23 @@ async function createNotification(recipient, type, message, linkType, linkId, se
         }
 
         if (sendEmail && resend && recipientUser.email) {
-            try {
-                await resend.emails.send({
-                    from: 'Data Toyz Terminal <onboarding@resend.dev>',
-                    to: [recipientUser.email],
-                    subject: `Notification — Data Toyz Terminal`,
-                    html: buildNotificationEmail(recipient, message, type)
-                });
-            } catch (emailErr) {
-                log.error('Failed to send notification email', { error: emailErr.message });
+            // Throttle: skip if email was sent to this recipient within cooldown period
+            const lastSent = emailThrottle.get(recipient);
+            const now = Date.now();
+            if (lastSent && (now - lastSent) < EMAIL_COOLDOWN_MS) {
+                log.debug('Email throttled for recipient', { recipient, cooldownRemaining: EMAIL_COOLDOWN_MS - (now - lastSent) });
+            } else {
+                try {
+                    await resend.emails.send({
+                        from: RESEND_FROM_EMAIL,
+                        to: [recipientUser.email],
+                        subject: `${message.slice(0, 80)} — Data Toyz Terminal`,
+                        html: buildNotificationEmail(recipient, message, type, linkType, linkId)
+                    });
+                    emailThrottle.set(recipient, now);
+                } catch (emailErr) {
+                    log.error('Failed to send notification email', { error: emailErr.message });
+                }
             }
         }
     } catch (e) {
@@ -423,7 +446,7 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
         }
 
         await resend.emails.send({
-            from: 'Data Toyz Terminal <onboarding@resend.dev>',
+            from: RESEND_FROM_EMAIL,
             to: [user.email],
             subject: '🔐 Passcode Reset — Data Toyz Terminal',
             html: `
@@ -973,6 +996,45 @@ app.get('/api/figures/ranked', async (req, res) => {
         // S-9: Error sanitization
         log.error('Ranked figures error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// --- FIGURE COMMENTS --- //
+
+// GET /api/figures/:id/comments — fetch comments for a figure
+app.get('/api/figures/:id/comments', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            `SELECT * FROM FigureComments WHERE figure_id = $1 ORDER BY created_at DESC LIMIT 50`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        log.error('Failed to fetch figure comments', { error: err.message });
+        res.status(500).json({ error: 'Failed to fetch comments' });
+    }
+});
+
+// POST /api/figures/:id/comments — post a comment on a figure (requires auth)
+app.post('/api/figures/:id/comments', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { content } = req.body;
+        if (!content || !content.trim()) {
+            return res.status(400).json({ error: 'Comment content required' });
+        }
+        if (content.length > 1000) {
+            return res.status(400).json({ error: 'Comment too long (max 1000 characters)' });
+        }
+        const result = await pool.query(
+            `INSERT INTO FigureComments (figure_id, author, content, created_at) VALUES ($1, $2, $3, $4) RETURNING *`,
+            [id, req.user.username, content.trim(), new Date().toISOString()]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        log.error('Failed to post figure comment', { error: err.message });
+        res.status(500).json({ error: 'Failed to post comment' });
     }
 });
 

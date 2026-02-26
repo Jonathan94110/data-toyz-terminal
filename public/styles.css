@@ -855,6 +855,58 @@ textarea:focus {
     box-shadow: 0 0 15px rgba(255, 15, 57, 0.3);
 }
 
+/* --- SKELETON LOADING STATES --- */
+.skeleton {
+    background: var(--bg-panel);
+    border-radius: var(--radius-sm);
+    position: relative;
+    overflow: hidden;
+}
+.skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
+    animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+@keyframes skeletonPulse {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+.skeleton-card {
+    height: 160px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+.skeleton-line {
+    height: 14px;
+    margin-bottom: 0.75rem;
+    border-radius: 4px;
+}
+.skeleton-line.short { width: 40%; }
+.skeleton-line.medium { width: 70%; }
+.skeleton-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+}
+.skeleton-stat {
+    height: 120px;
+    border-radius: var(--radius-md);
+}
+.skeleton-row {
+    height: 56px;
+    margin-bottom: 0.5rem;
+    border-radius: var(--radius-sm);
+}
+.skeleton-room {
+    height: 76px;
+    margin-bottom: 0.75rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
 /* --- LIGHT THEME --- */
 [data-theme="light"] {
     --bg-base: #f0f2f5;
@@ -1384,4 +1436,273 @@ textarea:focus {
 }
 [data-theme="light"] .room-modal {
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .skeleton {
+    background: #e2e8f0;
+}
+[data-theme="light"] .skeleton::after {
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+}
+
+/* ===== MOBILE RESPONSIVENESS ===== */
+
+/* --- Hamburger Button (hidden by default, shown via media queries) --- */
+.hamburger-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    margin-right: 0.75rem;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+.hamburger-btn:hover {
+    background: var(--bg-panel-hover);
+}
+
+/* --- Sidebar Overlay (for mobile slide-out) --- */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 49;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+.sidebar-overlay.active {
+    display: block;
+}
+
+/* ======================== MOBILE (max-width: 767px) ======================== */
+@media (max-width: 767px) {
+    /* Sidebar: slide-out from left */
+    .sidebar {
+        position: fixed;
+        left: -280px;
+        top: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 50;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: none;
+    }
+    .sidebar.open {
+        left: 0;
+        box-shadow: 8px 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Show hamburger */
+    .hamburger-btn {
+        display: flex !important;
+    }
+
+    /* Topbar adjustments */
+    .topbar {
+        height: 60px;
+        padding: 0 1rem !important;
+    }
+    .topbar .user-profile {
+        font-size: 0.85rem;
+    }
+
+    /* Main content: full width */
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    /* Content area padding */
+    .content-area {
+        padding: 1.5rem 1rem !important;
+    }
+
+    /* All grids collapse to single column */
+    .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Inline grid overrides (admin stats, docs TOC, etc) */
+    [style*="grid-template-columns: repeat(4"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    [style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Touch targets: min 44px */
+    .nav-item {
+        min-height: 44px;
+        padding: 0.75rem 1.5rem;
+    }
+    .room-card {
+        min-height: 44px;
+    }
+    .room-tab {
+        min-height: 44px;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Form inputs: 16px prevents iOS zoom */
+    .input-group input,
+    textarea,
+    select,
+    .search-bar input {
+        font-size: 16px !important;
+    }
+
+    /* Auth panel: tighter margins */
+    .auth-panel {
+        padding: 2rem 1.5rem;
+        margin: 1rem;
+        max-width: calc(100vw - 2rem);
+    }
+    .brand-header h1 {
+        font-size: 1.8rem;
+    }
+
+    /* Room modal: full-width */
+    .room-modal {
+        margin: 1rem;
+        padding: 1.5rem;
+        max-width: calc(100vw - 2rem);
+    }
+
+    /* Chat container: account for smaller topbar */
+    .chat-container {
+        height: calc(100vh - 60px - 4rem);
+    }
+    .chat-input-area {
+        padding: 0.75rem;
+    }
+
+    /* Notification dropdown: full-width */
+    .notif-dropdown {
+        position: fixed;
+        top: 60px;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-height: calc(100vh - 60px);
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+
+    /* Stat boxes: 2-col on mobile instead of 4 */
+    .stat-box {
+        min-width: 0;
+    }
+
+    /* Search filter buttons: wrap */
+    .segmented-control {
+        flex-wrap: wrap;
+    }
+
+    /* User avatar: slightly smaller */
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 0.8rem;
+    }
+
+    /* Fix grid-column spanning for responsive */
+    [style*="grid-column: span 2"],
+    [style*="grid-column:span 2"] {
+        grid-column: 1 / -1 !important;
+    }
+
+    /* Sidebar brand logo smaller on mobile */
+    .sidebar-brand img {
+        max-height: 80px !important;
+    }
+
+    /* Leaderboard/dashboard tables: horizontal scroll */
+    .card:has(table) {
+        overflow-x: auto;
+    }
+    table {
+        min-width: 500px;
+    }
+}
+
+/* ======================== TABLET (768px - 1023px) ======================== */
+@media (min-width: 768px) and (max-width: 1023px) {
+    /* Sidebar: same slide-out pattern */
+    .sidebar {
+        position: fixed;
+        left: -280px;
+        top: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 50;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: none;
+    }
+    .sidebar.open {
+        left: 0;
+        box-shadow: 8px 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Show hamburger */
+    .hamburger-btn {
+        display: flex !important;
+    }
+
+    /* Topbar adjustments */
+    .topbar {
+        height: 70px;
+        padding: 0 1.5rem !important;
+    }
+
+    /* Main content: full width */
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    /* Content area padding */
+    .content-area {
+        padding: 2rem 1.5rem !important;
+    }
+
+    /* Grid adjustments: 3/4 col → 2 col, 2 col stays */
+    .grid-3, .grid-4 {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Inline 4-col grids → 2-col */
+    [style*="grid-template-columns: repeat(4"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Touch targets */
+    .nav-item {
+        min-height: 44px;
+    }
+    .room-card {
+        min-height: 44px;
+    }
+
+    /* Chat container */
+    .chat-container {
+        height: calc(100vh - 70px - 4rem);
+    }
+
+    /* Room modal */
+    .room-modal {
+        max-width: 450px;
+    }
+
+    /* Fix grid-column spanning for responsive */
+    [style*="grid-column: span 2"],
+    [style*="grid-column:span 2"] {
+        grid-column: 1 / -1 !important;
+    }
 }

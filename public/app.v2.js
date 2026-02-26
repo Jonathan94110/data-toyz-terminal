@@ -3,6 +3,23 @@
 const API_URL = '/api';
 let MOCK_FIGURES = [];
 
+// PWA: Register service worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+}
+
+// PWA: Capture install prompt
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    // Show install button in sidebar if it exists
+    const installBtn = document.getElementById('pwaInstallBtn');
+    if (installBtn) installBtn.style.display = 'flex';
+});
+
 // S-6: XSS Prevention — escape HTML entities in user-generated content
 function escapeHTML(str) {
     if (!str) return '';
@@ -68,6 +85,18 @@ class TerminalApp {
             if (!res.ok) throw new Error('Session expired');
             this.user = await res.json();
             await this.loadFigures();
+
+            // Deep-link support: ?figure=ID
+            const figureParam = urlParams.get('figure');
+            if (figureParam) {
+                const fId = parseInt(figureParam);
+                const target = MOCK_FIGURES.find(f => f.id === fId);
+                if (target) {
+                    this.currentTarget = target;
+                    this.currentView = 'pulse';
+                }
+            }
+
             this.renderApp();
         } catch (e) {
             this.token = null;
@@ -104,6 +133,45 @@ class TerminalApp {
         } catch (e) {
             console.error("Failed to fetch figure catalog from backend", e);
         }
+    }
+
+    async compressImage(file, maxWidth = 1200, quality = 0.8) {
+        return new Promise((resolve) => {
+            if (!file || !file.type.startsWith('image/')) { resolve(file); return; }
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                let w = img.width, h = img.height;
+                if (w <= maxWidth) { resolve(file); return; }
+                const ratio = maxWidth / w;
+                w = maxWidth;
+                h = Math.round(h * ratio);
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                canvas.toBlob((blob) => {
+                    if (!blob || blob.size >= file.size) { resolve(file); return; }
+                    const compressed = new File([blob], file.name.replace(/\.\w+$/, '.webp'), { type: 'image/webp' });
+                    resolve(compressed);
+                }, 'image/webp', quality);
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+            img.src = url;
+        });
+    }
+
+    skeletonHTML(type, count = 4) {
+        const s = (cls, style = '') => `<div class="skeleton ${cls}" ${style ? `style="${style}"` : ''}></div>`;
+        if (type === 'cards') return `<div class="grid-2">${Array(count).fill(s('skeleton-card')).join('')}</div>`;
+        if (type === 'feed') return Array(count).fill(s('skeleton-card', 'height:200px')).join('');
+        if (type === 'rooms') return Array(count).fill(s('skeleton-room')).join('');
+        if (type === 'stats') return `<div class="grid-2">${Array(count).fill(s('skeleton-stat')).join('')}</div>`;
+        if (type === 'rows') return Array(count).fill(s('skeleton-row')).join('');
+        if (type === 'profile') return `<div style="max-width:600px; margin:0 auto;"><div class="skeleton skeleton-avatar" style="margin:0 auto 1rem;"></div><div class="skeleton skeleton-line medium" style="margin:0 auto 0.5rem;"></div><div class="skeleton skeleton-line short" style="margin:0 auto;"></div><div class="skeleton skeleton-card" style="margin-top:2rem;height:200px;"></div></div>`;
+        return s('skeleton-card');
     }
 
     renderResetPassword(resetToken) {
@@ -351,14 +419,19 @@ class TerminalApp {
                             ⚙️ Admin Panel
                         </div>
                         ` : ''}
-                        <div id="themeToggle" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
+                        <div id="pwaInstallBtn" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; display:${deferredInstallPrompt ? 'flex' : 'none'}; color:var(--accent);">
+                            📲 Install App
+                        </div>
+                        <div id="themeToggle" class="nav-item" style="${deferredInstallPrompt ? '' : 'margin-top:auto; '}border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
                             ${document.body.getAttribute('data-theme') === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
                         </div>
                     </nav>
                 </aside>
                 
+                <div class="sidebar-overlay" id="sidebarOverlay"></div>
                 <main class="main-content">
                     <header class="topbar">
+                        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle menu">☰</button>
                         <div class="user-profile">
                             <div id="notifBell" style="position:relative; cursor:pointer; margin-right:1rem; padding:0.5rem;">
                                 <span style="font-size:1.3rem;">🔔</span>
@@ -388,6 +461,20 @@ class TerminalApp {
 
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
 
+        // PWA Install button
+        const pwaBtn = document.getElementById('pwaInstallBtn');
+        if (pwaBtn) {
+            pwaBtn.addEventListener('click', async () => {
+                if (!deferredInstallPrompt) return;
+                deferredInstallPrompt.prompt();
+                const { outcome } = await deferredInstallPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    deferredInstallPrompt = null;
+                    pwaBtn.style.display = 'none';
+                }
+            });
+        }
+
         // Theme toggle
         document.getElementById('themeToggle').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -411,6 +498,29 @@ class TerminalApp {
             }
         });
         document.addEventListener('click', () => { dropdown.style.display = 'none'; }, { once: true });
+
+        // Mobile hamburger menu
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const sidebar = document.querySelector('.sidebar');
+        if (hamburgerBtn && sidebar) {
+            hamburgerBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('open');
+                sidebarOverlay.classList.toggle('active');
+            });
+            sidebarOverlay.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+                sidebarOverlay.classList.remove('active');
+            });
+        }
+        // Close sidebar on nav-item click (mobile)
+        document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+            item.addEventListener('click', () => {
+                if (sidebar) sidebar.classList.remove('open');
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+            });
+        });
 
         // Poll notifications
         if (this._notifInterval) clearInterval(this._notifInterval);
@@ -450,7 +560,7 @@ class TerminalApp {
     }
 
     async renderFeed(container) {
-        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Decrypting Global Comms Feed...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('feed', 3)}</div>`;
 
         let posts = [];
         try {
@@ -603,7 +713,8 @@ class TerminalApp {
             e.preventDefault();
             const content = document.getElementById('postContent').value.trim();
             const sentiment = document.querySelector('input[name="sentiment"]:checked').value;
-            const imageFile = document.getElementById('postImage').files[0];
+            let imageFile = document.getElementById('postImage').files[0];
+            if (imageFile) imageFile = await this.compressImage(imageFile, 1200, 0.8);
 
             const formData = new FormData();
             formData.append('content', content);
@@ -674,7 +785,7 @@ class TerminalApp {
 
 
     async renderSearch(container) {
-        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading target database...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('cards', 4)}</div>`;
 
         // Fetch ranked figures with submission counts + grades
         let rankedFigures = MOCK_FIGURES;
@@ -684,7 +795,11 @@ class TerminalApp {
         } catch (e) { /* fallback to MOCK_FIGURES */ }
 
         let currentSort = sessionStorage.getItem('searchSort') || 'name';
+        let currentTier = '';
+        let currentGradeMin = 0;
+        let currentBrand = '';
         const uniqueBrands = [...new Set(rankedFigures.map(f => f.brand))].sort();
+        const uniqueTiers = [...new Set(rankedFigures.map(f => f.classTie).filter(Boolean))].sort();
 
         container.innerHTML = `
             <div class="search-container animate-mount">
@@ -707,13 +822,33 @@ class TerminalApp {
                     ${uniqueBrands.map(b => `<span class="badge brandFilter" data-brand="${escapeHTML(b)}" style="cursor:pointer;">${escapeHTML(b)}</span>`).join('')}
                 </div>
 
-                <div style="margin-bottom:1.5rem; display:flex; gap:0.5rem; align-items:center;">
-                    <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Sort:</span>
-                    <span class="badge sortBtn ${currentSort === 'name' ? 'active' : ''}" data-sort="name" style="${currentSort === 'name' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Name</span>
-                    <span class="badge sortBtn ${currentSort === 'grade' ? 'active' : ''}" data-sort="grade" style="${currentSort === 'grade' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Grade</span>
-                    <span class="badge sortBtn ${currentSort === 'submissions' ? 'active' : ''}" data-sort="submissions" style="${currentSort === 'submissions' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Most Reviewed</span>
+                <div style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                    <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Class:</span>
+                    <span class="badge tierFilter" data-tier="" style="border-color:var(--accent); color:var(--accent); font-weight:700; cursor:pointer;">ALL</span>
+                    ${uniqueTiers.map(t => `<span class="badge tierFilter" data-tier="${escapeHTML(t)}" style="cursor:pointer;">${escapeHTML(t)}</span>`).join('')}
                 </div>
 
+                <div style="margin-bottom:1.5rem; display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Grade:</span>
+                        <select id="gradeFilter" style="background:var(--bg-panel); color:var(--text-primary); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:0.4rem 0.75rem; font-size:0.85rem; cursor:pointer;">
+                            <option value="0">Any Grade</option>
+                            <option value="50">50+</option>
+                            <option value="60">60+</option>
+                            <option value="70">70+</option>
+                            <option value="80">80+</option>
+                            <option value="90">90+</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <span style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-right:0.25rem;">Sort:</span>
+                        <span class="badge sortBtn ${currentSort === 'name' ? 'active' : ''}" data-sort="name" style="${currentSort === 'name' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Name</span>
+                        <span class="badge sortBtn ${currentSort === 'grade' ? 'active' : ''}" data-sort="grade" style="${currentSort === 'grade' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Grade</span>
+                        <span class="badge sortBtn ${currentSort === 'submissions' ? 'active' : ''}" data-sort="submissions" style="${currentSort === 'submissions' ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">Most Reviewed</span>
+                    </div>
+                </div>
+
+                <div id="searchResultCount" style="margin-bottom:1rem; font-size:0.9rem; color:var(--text-muted);"></div>
                 <div id="searchResults" class="grid-2"></div>
             </div>
         `;
@@ -728,12 +863,32 @@ class TerminalApp {
             let query = document.getElementById('searchInput').value.toLowerCase().trim();
             const expanded = brandAliases[query];
 
-            let results = rankedFigures.filter(f =>
-                f.name.toLowerCase().includes(query) ||
-                f.brand.toLowerCase().includes(query) ||
-                f.line.toLowerCase().includes(query) ||
-                (expanded && f.brand.toLowerCase().includes(expanded))
-            );
+            let results = rankedFigures;
+
+            // Text search
+            if (query) {
+                results = results.filter(f =>
+                    f.name.toLowerCase().includes(query) ||
+                    f.brand.toLowerCase().includes(query) ||
+                    f.line.toLowerCase().includes(query) ||
+                    (expanded && f.brand.toLowerCase().includes(expanded))
+                );
+            }
+
+            // Brand filter
+            if (currentBrand) {
+                results = results.filter(f => f.brand === currentBrand);
+            }
+
+            // Tier filter
+            if (currentTier) {
+                results = results.filter(f => f.classTie === currentTier);
+            }
+
+            // Grade filter
+            if (currentGradeMin > 0) {
+                results = results.filter(f => parseFloat(f.avgGrade) >= currentGradeMin);
+            }
 
             // Apply sort
             if (currentSort === 'grade') {
@@ -743,6 +898,9 @@ class TerminalApp {
             } else {
                 results.sort((a, b) => a.name.localeCompare(b.name));
             }
+
+            // Result count
+            document.getElementById('searchResultCount').textContent = `${results.length} target${results.length !== 1 ? 's' : ''} found`;
 
             const resultsHTML = results.map((f, index) => `
                 <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s;" onclick="app.selectTarget(${f.id})">
@@ -761,7 +919,7 @@ class TerminalApp {
                 </div>
             `).join('');
 
-            document.getElementById('searchResults').innerHTML = results.length ? resultsHTML : '<div class="card" style="grid-column: span 2; text-align:center; padding:3rem;"><p style="color:var(--text-muted); font-size:1.1rem;">No targets matching criteria.</p></div>';
+            document.getElementById('searchResults').innerHTML = results.length ? resultsHTML : '<div class="card" style="grid-column: 1 / -1; text-align:center; padding:3rem;"><p style="color:var(--text-muted); font-size:1.1rem;">No targets matching criteria.</p></div>';
         };
 
         document.getElementById('searchBtn').addEventListener('click', doSearch);
@@ -779,9 +937,29 @@ class TerminalApp {
                 tab.style.borderColor = 'var(--accent)';
                 tab.style.color = 'var(--accent)';
                 tab.style.fontWeight = '700';
-                document.getElementById('searchInput').value = tab.dataset.brand;
+                currentBrand = tab.dataset.brand;
                 doSearch();
             });
+        });
+
+        document.querySelectorAll('.tierFilter').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tierFilter').forEach(t => {
+                    t.style.borderColor = 'var(--border)';
+                    t.style.color = 'var(--text-secondary)';
+                    t.style.fontWeight = '400';
+                });
+                tab.style.borderColor = 'var(--accent)';
+                tab.style.color = 'var(--accent)';
+                tab.style.fontWeight = '700';
+                currentTier = tab.dataset.tier;
+                doSearch();
+            });
+        });
+
+        document.getElementById('gradeFilter').addEventListener('change', (e) => {
+            currentGradeMin = parseInt(e.target.value) || 0;
+            doSearch();
         });
 
         document.querySelectorAll('.sortBtn').forEach(btn => {
@@ -896,7 +1074,7 @@ class TerminalApp {
     }
 
     async renderPulse(container) {
-        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Initiating secure scan on the Market Pulse...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('stats', 4)}</div>`;
 
         let figureSubs = [];
         let overviewStats = {};
@@ -996,6 +1174,10 @@ class TerminalApp {
                             <div style="font-size:1.5rem; font-weight:900; color:var(--accent);">${figureSubs.length}</div>
                         </div>
                     </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem; display:flex; gap:0.75rem; align-items:center;">
+                    <button class="btn-outline" id="copyLinkBtn" style="font-size:0.85rem; padding:0.5rem 1rem;">📋 Copy Link</button>
                 </div>
 
                 ${isGuestimate ? `
@@ -1152,6 +1334,19 @@ class TerminalApp {
                     </div>
                 </div>
                 ` : ''}
+
+                <!-- SIMILAR FIGURES -->
+                <div id="similarFigures" style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light);"></div>
+
+                <!-- DISCUSSION -->
+                <div style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light);">
+                    <h3 style="margin-bottom: 1.5rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">💬 Discussion</h3>
+                    <form id="figureCommentForm" style="margin-bottom:1.5rem; display:flex; gap:0.75rem;">
+                        <input type="text" id="figureCommentInput" placeholder="Share your thoughts on this target..." style="flex:1; padding:0.75rem 1rem; background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); color:var(--text-primary); font-family:var(--font-body); font-size:0.9rem;">
+                        <button type="submit" class="btn" style="width:auto; padding:0.75rem 1.5rem; font-size:0.85rem;">Post</button>
+                    </form>
+                    <div id="figureComments" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
+                </div>
             </div>
         `;
 
@@ -1234,6 +1429,104 @@ class TerminalApp {
                 }
             }
         }, 100);
+
+        // Copy link button
+        const copyBtn = document.getElementById('copyLinkBtn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const url = `${window.location.origin}${window.location.pathname}?figure=${this.currentTarget.id}`;
+                navigator.clipboard.writeText(url).then(() => {
+                    copyBtn.textContent = '✓ Link Copied!';
+                    setTimeout(() => { copyBtn.textContent = '📋 Copy Link'; }, 2000);
+                }).catch(() => {
+                    copyBtn.textContent = '✗ Failed';
+                    setTimeout(() => { copyBtn.textContent = '📋 Copy Link'; }, 2000);
+                });
+            });
+        }
+
+        // Load similar figures
+        try {
+            const allRes = await fetch(`${API_URL}/figures/ranked`);
+            if (allRes.ok) {
+                const allFigures = await allRes.json();
+                const similar = allFigures.filter(f =>
+                    f.id !== this.currentTarget.id &&
+                    (f.brand === this.currentTarget.brand || f.line === this.currentTarget.line)
+                ).slice(0, 4);
+                const simEl = document.getElementById('similarFigures');
+                if (simEl && similar.length > 0) {
+                    simEl.innerHTML = `
+                        <h3 style="margin-bottom: 1.5rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">🔗 Similar Targets</h3>
+                        <div class="grid-2">
+                            ${similar.map(f => {
+                                const grade = f.avgGrade ? parseFloat(f.avgGrade) : null;
+                                const gradeColor = grade >= 70 ? 'var(--success)' : grade >= 45 ? '#fbbf24' : grade ? 'var(--danger)' : 'var(--text-muted)';
+                                return `
+                                    <div class="card" style="padding:1.25rem; cursor:pointer;" onclick="app.selectTarget(${f.id})">
+                                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                                            <div style="color:var(--text-muted); font-size:0.8rem; text-transform:uppercase;">${escapeHTML(f.brand)}</div>
+                                            <span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}">${escapeHTML(f.classTie)}</span>
+                                        </div>
+                                        <div style="font-weight:700; font-size:1rem; margin-bottom:0.5rem;">${escapeHTML(f.name)}</div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                                            <span style="font-size:0.8rem; color:var(--text-muted);">${f.submissions || 0} report${(f.submissions || 0) !== 1 ? 's' : ''}</span>
+                                            <span style="font-weight:800; color:${gradeColor};">${grade ? f.avgGrade : '—'}</span>
+                                        </div>
+                                    </div>`;
+                            }).join('')}
+                        </div>`;
+                }
+            }
+        } catch (e) { /* ignore */ }
+
+        // Load and render figure comments (discussion)
+        const loadComments = async () => {
+            try {
+                const res = await fetch(`${API_URL}/figures/${this.currentTarget.id}/comments`);
+                if (res.ok) {
+                    const comments = await res.json();
+                    const el = document.getElementById('figureComments');
+                    if (el) {
+                        el.innerHTML = comments.length ? comments.map(c => `
+                            <div class="card" style="padding:0.75rem 1rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                                    <span class="user-link" onclick="app.viewUserProfile('${escapeHTML(c.author).replace(/'/g, "\\'")}')" style="font-weight:700; font-size:0.9rem;">${escapeHTML(c.author)}</span>
+                                    <span style="font-size:0.75rem; color:var(--text-muted);">${new Date(c.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <p style="color:var(--text-primary); font-size:0.9rem; line-height:1.5; margin:0;">${escapeHTML(c.content)}</p>
+                            </div>
+                        `).join('') : '<p style="color:var(--text-muted); font-size:0.9rem;">No discussion yet. Be the first to share your thoughts!</p>';
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        };
+        loadComments();
+
+        const commentForm = document.getElementById('figureCommentForm');
+        if (commentForm) {
+            commentForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const input = document.getElementById('figureCommentInput');
+                const content = input.value.trim();
+                if (!content) return;
+                const btn = commentForm.querySelector('button');
+                btn.disabled = true;
+                btn.textContent = '...';
+                try {
+                    const res = await this.authFetch(`${API_URL}/figures/${this.currentTarget.id}/comments`, {
+                        method: 'POST',
+                        body: JSON.stringify({ content })
+                    });
+                    if (res.ok) {
+                        input.value = '';
+                        loadComments();
+                    }
+                } catch (err) { /* ignore */ }
+                btn.disabled = false;
+                btn.textContent = 'Post';
+            });
+        }
     }
 
     // --- INTEL SUBMISSION FORM --- //
@@ -1496,8 +1789,9 @@ class TerminalApp {
         data.overallGrade = overallGrade;
         formPayload.append('data', JSON.stringify(data));
 
-        const imageFile = document.getElementById('image_upload').files[0];
+        let imageFile = document.getElementById('image_upload').files[0];
         if (imageFile) {
+            imageFile = await this.compressImage(imageFile, 1200, 0.8);
             formPayload.append('image', imageFile);
         }
 
@@ -1518,7 +1812,7 @@ class TerminalApp {
 
 
     async renderDashboard(container) {
-        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Decrypting intelligence log from secure database...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('rows', 5)}</div>`;
 
         let userSubs = [];
         try {
@@ -1580,7 +1874,7 @@ class TerminalApp {
     }
 
     async renderLeaderboards(container) {
-        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Accessing Global Intelligence Network...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('rows', 5)}</div>`;
 
         let allSubs = [];
         try {
@@ -1801,7 +2095,8 @@ class TerminalApp {
             e.preventDefault();
             const username = document.getElementById('profUsername').value.trim();
             const email = document.getElementById('profEmail').value.trim();
-            const avatarFile = document.getElementById('profAvatar').files[0];
+            let avatarFile = document.getElementById('profAvatar').files[0];
+            if (avatarFile) avatarFile = await this.compressImage(avatarFile, 256, 0.8);
 
             const formData = new FormData();
             formData.append('username', username);
@@ -1944,7 +2239,7 @@ class TerminalApp {
                 <!-- TABLE OF CONTENTS -->
                 <div class="card" style="margin-bottom:2.5rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">Table of Contents</h3>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem 2rem;">
+                    <div class="grid-2" style="gap:0.5rem 2rem;">
                         ${sections.map((s, i) => `
                             <a href="#doc-${s.id}" onclick="event.preventDefault(); document.getElementById('doc-${s.id}').scrollIntoView({behavior:'smooth'});" style="color:var(--accent); text-decoration:none; font-size:0.95rem; padding:0.3rem 0; display:block;">
                                 <span style="color:var(--text-muted); margin-right:0.5rem;">${(i + 1).toString().padStart(2, '0')}.</span> ${s.title}
@@ -2699,7 +2994,7 @@ class TerminalApp {
     // --- MARKET PULSE DASHBOARD --- //
 
     async renderMarketPulse(container) {
-        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading Market Pulse...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('stats', 4)}</div>`;
 
         try {
             const [overviewRes, indexesRes, headlinesRes, topRatedRes] = await Promise.all([
@@ -2826,7 +3121,7 @@ class TerminalApp {
         const username = sessionStorage.getItem('profileUser');
         if (!username) { this.currentView = 'feed'; this.renderApp(); return; }
 
-        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Loading operative dossier...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('profile')}</div>`;
 
         try {
             const res = await fetch(`${API_URL}/users/${encodeURIComponent(username)}/profile`);
@@ -3026,7 +3321,7 @@ class TerminalApp {
     }
 
     async renderRoomsList(container) {
-        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Scanning secure channels...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('rooms', 5)}</div>`;
 
         let rooms = [];
         try {
@@ -3237,7 +3532,7 @@ class TerminalApp {
         const roomId = sessionStorage.getItem('activeRoomId');
         if (!roomId) { this.currentView = 'rooms'; this.renderCurrentView(); return; }
 
-        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Establishing encrypted channel...</div>`;
+        container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('rows', 8)}</div>`;
 
         try {
             // Fetch room details and messages in parallel
@@ -3313,8 +3608,9 @@ class TerminalApp {
                 const input = document.getElementById('chatInput');
                 const imageInput = document.getElementById('chatImageInput');
                 const content = input.value.trim();
-                const file = imageInput.files[0];
+                let file = imageInput.files[0];
                 if (!content && !file) return;
+                if (file) file = await this.compressImage(file, 800, 0.7);
 
                 const btn = document.getElementById('chatSendBtn');
                 btn.disabled = true;

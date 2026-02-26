@@ -226,6 +226,16 @@ async function initDB() {
             FOREIGN KEY(room_id) REFERENCES Rooms(id) ON DELETE CASCADE
         )`);
 
+        // Create FigureComments Table (Discussion on figure detail pages)
+        await pool.query(`CREATE TABLE IF NOT EXISTS FigureComments (
+            id SERIAL PRIMARY KEY,
+            figure_id INTEGER NOT NULL,
+            author TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(figure_id) REFERENCES Figures(id) ON DELETE CASCADE
+        )`);
+
         // Create AuditLog Table (S-10: Security audit trail)
         await pool.query(`CREATE TABLE IF NOT EXISTS AuditLog (
             id SERIAL PRIMARY KEY,
