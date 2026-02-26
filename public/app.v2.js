@@ -985,7 +985,7 @@ class TerminalApp {
 
     renderAddTarget(container) {
         container.innerHTML = `
-    < div style = "max-width: 600px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount" >
+    <div style="max-width: 600px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
                 <div style="display:flex; align-items:center; gap:1rem; margin-bottom: 2rem;">
                     <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();">&larr; Back to Search</button>
                     <div>
@@ -1035,7 +1035,7 @@ class TerminalApp {
                         <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem;">Register Target</button>
                     </form>
                 </div>
-            </div >
+            </div>
     `;
 
         document.getElementById('addTargetForm').addEventListener('submit', (e) => {
