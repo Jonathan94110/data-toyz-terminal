@@ -1930,7 +1930,7 @@ class TerminalApp {
             { id: 'notifications', title: 'Notifications' },
             { id: 'admin', title: 'Admin Panel' },
             { id: 'security', title: 'Security & Authentication' },
-            { id: 'soc2', title: 'SOC 2 Compliance' },
+            { id: 'soc2', title: 'SOC 2 Alignment' },
             { id: 'glossary', title: 'Glossary' }
         ];
 
@@ -2259,92 +2259,132 @@ class TerminalApp {
                     <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The primary admin account (Prime Dynamixx) is protected and cannot be demoted, suspended, or deleted.</p>
                 </div>
 
-                <!-- 14. SECURITY -->
+                <!-- 14. SECURITY & AUTHENTICATION -->
                 <div id="doc-security" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Security & Authentication</h3>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The terminal uses industry-standard security practices to protect all operative accounts and data:
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1.5rem;">
+                        Data Toyz Terminal implements layered, industry-standard security controls designed to protect user accounts, platform integrity, and stored data.
                     </p>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Authentication:</strong></p>
+
+                    <p style="color:var(--accent); font-weight:700; font-size:1rem; margin-bottom:0.75rem; text-transform:uppercase; letter-spacing:0.03em;">Authentication & Access Control</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>JWT-Based Authentication</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All authenticated requests use signed JSON Web Tokens (JWT) with 24-hour expiration. Tokens are signed using environment-managed secrets in production environments.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Password Security</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li><strong>JWT Tokens</strong> &mdash; All authenticated actions use signed JSON Web Tokens with 24-hour expiry</li>
-                        <li><strong>Password Hashing</strong> &mdash; Passcodes are hashed with bcrypt (10 salt rounds) before storage &mdash; never stored in plain text</li>
-                        <li><strong>Password Strength</strong> &mdash; All passcodes require minimum 8 characters, at least one uppercase letter, one lowercase letter, and one number</li>
-                        <li><strong>Session Invalidation</strong> &mdash; Changing your passcode immediately invalidates all existing sessions, requiring a fresh login</li>
-                        <li><strong>Ownership Verification</strong> &mdash; You can only edit your own profile and retract your own submissions</li>
-                        <li><strong>Server-Side Identity</strong> &mdash; Your username is extracted from your token on the server, not trusted from the browser</li>
+                        <li>Passcodes are hashed using bcrypt (10 salt rounds).</li>
+                        <li>Plaintext passwords are never stored.</li>
+                        <li>Minimum complexity requirements: 8 characters, at least one uppercase letter, one lowercase letter, and one number.</li>
                     </ul>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Password Reset:</strong></p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Session Management</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li><strong>Email Reset</strong> &mdash; Click "Forgot Passcode?" on the login screen, enter your email, and receive a reset link</li>
-                        <li><strong>Reset Link</strong> &mdash; The link contains a cryptographically secure token that expires after 1 hour</li>
-                        <li><strong>Change Passcode</strong> &mdash; Logged-in operatives can change their passcode from Profile Settings (requires current passcode)</li>
-                        <li><strong>Admin Backup</strong> &mdash; Admins can reset any user's passcode from the Admin Panel</li>
+                        <li>Password changes immediately invalidate all active sessions.</li>
+                        <li>Suspended accounts automatically have all tokens invalidated.</li>
+                        <li>Server extracts identity from verified JWT &mdash; usernames are never trusted from client input.</li>
                     </ul>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Data Protection:</strong></p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Ownership Enforcement</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">Users may only modify their own profiles and retract their own submissions. All authorization checks are enforced server-side.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Multi-Factor Authentication (Planned / Optional)</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1.5rem;">The platform architecture supports future implementation of TOTP-based MFA for elevated security environments.</p>
+
+                    <p style="color:var(--accent); font-weight:700; font-size:1rem; margin-bottom:0.75rem; text-transform:uppercase; letter-spacing:0.03em;">Password Reset & Account Recovery</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Secure Reset Flow</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li><strong>XSS Prevention</strong> &mdash; All user-generated content is HTML-escaped before rendering to prevent cross-site scripting attacks</li>
-                        <li><strong>Input Validation</strong> &mdash; All inputs are validated for type, length, and format before processing</li>
-                        <li><strong>SQL Injection</strong> &mdash; All database queries use parameterized statements &mdash; no raw string interpolation</li>
-                        <li><strong>File Uploads</strong> &mdash; Image uploads are restricted to 5 MB maximum, allowed formats: JPEG, PNG, GIF, WebP only</li>
-                        <li><strong>Error Handling</strong> &mdash; Internal errors are logged server-side; only generic error messages are returned to the client</li>
+                        <li>&ldquo;Forgot Passcode?&rdquo; initiates a cryptographically secure reset token.</li>
+                        <li>Reset tokens expire after 1 hour.</li>
+                        <li>Responses are standardized to prevent email enumeration.</li>
                     </ul>
-                    <p style="color:var(--text-muted); font-size:0.85rem;">Suspended accounts cannot log in or perform any actions. Session tokens are automatically invalidated when an account is suspended or a passcode is changed.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Admin-Initiated Reset</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1.5rem;">Admins may trigger a forced password reset flow but cannot view or set plaintext passwords.</p>
+
+                    <p style="color:var(--accent); font-weight:700; font-size:1rem; margin-bottom:0.75rem; text-transform:uppercase; letter-spacing:0.03em;">Data Protection Controls</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Encryption in Transit</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All production traffic is enforced over HTTPS with HSTS enabled.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Encryption at Rest</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">Production database volumes and storage infrastructure are encrypted at rest.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>XSS Prevention</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All user-generated content is HTML-escaped before rendering.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Input Validation</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All inputs are validated for type, length, and format prior to processing.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>SQL Injection Prevention</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All database interactions use parameterized queries. Raw string interpolation is prohibited.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>File Upload Controls</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Maximum size: 5 MB</li>
+                        <li>Allowed formats: JPEG, PNG, GIF, WebP</li>
+                        <li>MIME-type validation enforced</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Error Handling</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8;">Internal errors are logged server-side. Only sanitized, generic error responses are returned to clients.</p>
                 </div>
 
-                <!-- 15. SOC 2 COMPLIANCE -->
+                <!-- 15. SOC 2 ALIGNMENT -->
                 <div id="doc-soc2" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. SOC 2 Compliance</h3>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1.25rem;">
-                        Data Toyz Terminal implements controls aligned with the SOC 2 Trust Service Criteria across all five principles. The following measures are in effect:
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. SOC 2 Alignment</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;">
+                        Data Toyz Terminal implements technical and operational controls aligned with the SOC 2 Trust Services Criteria across all five principles.
                     </p>
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:0.75rem 1rem; margin-bottom:1.5rem;">
+                        <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.6; margin:0;">
+                            <strong style="color:var(--text-secondary);">Note:</strong> Formal SOC 2 Type II certification requires independent third-party audit.
+                        </p>
+                    </div>
 
                     <p style="color:var(--accent); font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128737; Security</p>
-                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
-                        <li><strong>Helmet Security Headers</strong> &mdash; Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy, and COOP/CORP headers enforced on all responses</li>
-                        <li><strong>Rate Limiting</strong> &mdash; Three-tier rate limiting: global (100 req/15 min), authentication (10 req/15 min), and messaging (30 req/min) per IP address</li>
-                        <li><strong>CORS Policy</strong> &mdash; Cross-origin requests restricted to a configured origin &mdash; no wildcard access</li>
-                        <li><strong>HTTPS Enforcement</strong> &mdash; HTTP requests are automatically redirected to HTTPS in production environments</li>
-                        <li><strong>Audit Logging</strong> &mdash; All security-relevant events (login, registration, password changes, admin actions, room management) are recorded in an audit trail with actor, target, IP address, and timestamp</li>
-                        <li><strong>JWT Secret Management</strong> &mdash; Signing keys loaded from environment variables; production deployments require explicit configuration (no fallback secrets)</li>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:0.75rem;">
+                        <li>Helmet-based security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, COOP/CORP)</li>
+                        <li>Configured CORS policy (no wildcard origins)</li>
+                        <li>Three-tier rate limiting (global, authentication, messaging)</li>
+                        <li>Audit logging of security-relevant events (login, password changes, admin actions, room management)</li>
+                        <li>Secrets managed via environment configuration (no hardcoded credentials)</li>
                     </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.6; margin-bottom:1.25rem; padding-left:1.5rem;">Audit logs retain security events for a defined operational period in accordance with platform policy.</p>
 
                     <p style="color:#10b981; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#9889; Availability</p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
-                        <li><strong>Health Check Endpoint</strong> &mdash; <code style="background:var(--bg-panel); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">GET /api/health</code> returns server status and uptime for monitoring and load balancer integration</li>
-                        <li><strong>Graceful Shutdown</strong> &mdash; SIGTERM/SIGINT signals trigger a clean server shutdown: in-flight requests complete, database connections are closed, and a 10-second forced exit safeguard is in place</li>
-                        <li><strong>Connection Pool Management</strong> &mdash; Database connections are pooled (max 20) with idle timeout (30s) and connection timeout (5s) to prevent resource exhaustion</li>
-                        <li><strong>24-Hour Token Expiry</strong> &mdash; JWT tokens expire after 24 hours to limit the blast radius of compromised credentials</li>
+                        <li>Health check endpoint for uptime monitoring</li>
+                        <li>Graceful shutdown handling for controlled termination</li>
+                        <li>Database connection pooling with timeout safeguards</li>
+                        <li>Database hosted on Neon Postgres with platform-managed backups and point-in-time recovery</li>
                     </ul>
 
                     <p style="color:#3b82f6; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128736; Processing Integrity</p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
-                        <li><strong>Input Validation</strong> &mdash; All user inputs validated for type and length: usernames (50 chars), emails (254 chars), content (5,000 chars), room names (100 chars)</li>
-                        <li><strong>Parameterized Queries</strong> &mdash; Every database operation uses parameterized SQL to prevent injection attacks</li>
-                        <li><strong>File Type Filtering</strong> &mdash; Uploaded files validated by MIME type (JPEG, PNG, GIF, WebP) and capped at 5 MB</li>
-                        <li><strong>Error Sanitization</strong> &mdash; Internal error details are never exposed to clients; generic messages are returned while full errors are logged server-side</li>
+                        <li>Strict server-side validation of all user input</li>
+                        <li>Parameterized SQL statements across all operations</li>
+                        <li>File-type and size validation on uploads</li>
+                        <li>Internal error sanitization to prevent information leakage</li>
                     </ul>
 
                     <p style="color:#f59e0b; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128274; Confidentiality</p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
-                        <li><strong>Session Invalidation</strong> &mdash; Password changes immediately invalidate all existing tokens by tracking <code style="background:var(--bg-panel); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">password_changed_at</code> against token issue time</li>
-                        <li><strong>Complete Data Deletion</strong> &mdash; User account deletion cascades across all tables: posts, comments, reactions, submissions, notifications, room memberships, messages, and message reactions</li>
-                        <li><strong>Data Retention Policy</strong> &mdash; Admin cleanup endpoint purges notifications older than 90 days and stale typing indicators</li>
-                        <li><strong>Configurable Admin Identity</strong> &mdash; Primary admin username loaded from environment variable instead of hardcoded values</li>
+                        <li>Immediate token invalidation on password change</li>
+                        <li>Cascading account deletion across all related records</li>
+                        <li>Minimal access control privileges enforced by role</li>
+                        <li>Configurable primary admin identity (environment-based)</li>
                     </ul>
 
                     <p style="color:#a78bfa; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128101; Privacy</p>
-                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li><strong>Data Export (Right of Access)</strong> &mdash; Any user can export their complete data via <code style="background:var(--bg-panel); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">GET /api/users/me/export</code> &mdash; returns profile, submissions, posts, comments, and notifications as JSON</li>
-                        <li><strong>Email Enumeration Prevention</strong> &mdash; The password reset endpoint returns the same success message regardless of whether an email exists, preventing account discovery</li>
-                        <li><strong>Minimal Data Collection</strong> &mdash; Only essential data (username, email, passcode hash) is collected during registration; no tracking or analytics are implemented</li>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:0;">
+                        <li>User data export endpoint (Right of Access)</li>
+                        <li>Complete account deletion support</li>
+                        <li>Email enumeration protection</li>
+                        <li>Minimal data collection (username, email, password hash only)</li>
+                        <li>No third-party tracking or analytics</li>
                     </ul>
-
-                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1rem 1.25rem; margin-top:0.5rem;">
-                        <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.6; margin:0;">
-                            <strong style="color:var(--text-secondary);">Note:</strong> This platform implements technical controls aligned with SOC 2 Trust Service Criteria. A formal SOC 2 Type II audit requires third-party assessment by a licensed CPA firm. These controls provide the technical foundation for achieving certification.
-                        </p>
-                    </div>
                 </div>
 
                 <!-- 16. GLOSSARY -->

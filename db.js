@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Pool } = require('pg');
+const log = require('./logger.js');
 
 // --- A-4: Configure connection pool limits --- //
 const pool = new Pool({
@@ -13,14 +14,14 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-    console.error('Unexpected database pool error:', err.message);
+    log.error('Unexpected database pool error', { error: err.message });
 });
 
 pool.connect((err, client, release) => {
     if (err) {
-        console.error('Error acquiring client', err.stack);
+        log.error('Error acquiring database client', { error: err.message });
     } else {
-        console.log('Connected to Vercel/Neon Postgres Database.');
+        log.info('Connected to Vercel/Neon Postgres Database');
         initDB();
         release();
     }
@@ -249,7 +250,7 @@ async function initDB() {
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {
-            console.log("Seeding Mock Figures...");
+            log.info('Seeding mock figures');
             const insertQuery = "INSERT INTO Figures (id, name, brand, classTie, line) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING";
             const figures = [
                 { id: 1, name: "FT-55 Recorder", brand: "Fans Toys", classTie: "Masterpiece", line: "3rd Party" },
@@ -268,7 +269,7 @@ async function initDB() {
         // Always sync the auto-increment sequence to prevent duplicate key errors
         await pool.query("SELECT setval(pg_get_serial_sequence('figures', 'id'), (SELECT COALESCE(MAX(id), 1) FROM Figures))");
     } catch (err) {
-        console.error('Failed to initialize postgres database tables:', err);
+        log.error('Failed to initialize postgres database tables', { error: err.message || err });
     }
 }
 

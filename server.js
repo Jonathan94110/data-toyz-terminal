@@ -3,9 +3,11 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');               // S-11: Security headers
 const rateLimit = require('express-rate-limit'); // S-3: Rate limiting
+const compression = require('compression');       // Performance: gzip responses
 const path = require('path');
 const multer = require('multer');
 const db = require('./db.js');
+const log = require('./logger.js');
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -20,7 +22,7 @@ if (process.env.JWT_SECRET) {
     throw new Error('FATAL: JWT_SECRET environment variable is required in production.');
 } else {
     JWT_SECRET = crypto.randomBytes(64).toString('hex');
-    console.warn('[WARN] JWT_SECRET not set — auto-generated a random secret for development. Sessions will not persist across restarts.');
+    log.warn('JWT_SECRET not set — auto-generated a random secret for development. Sessions will not persist across restarts.');
 }
 
 // --- PI-2: Configurable admin username --- //
@@ -78,6 +80,9 @@ app.use(helmet({
     }
 }));
 
+// Gzip/deflate compression for all responses
+app.use(compression());
+
 // Body parser with size limit
 app.use(express.json({ limit: '10mb' }));
 
@@ -85,7 +90,7 @@ app.use(express.json({ limit: '10mb' }));
 // Global rate limiter: 100 requests per 15 min per IP
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: process.env.NODE_ENV === 'production' ? 100 : 1000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests. Please try again later.' }
@@ -110,8 +115,12 @@ const messageLimiter = rateLimit({
     message: { error: 'Message rate limit exceeded. Please slow down.' }
 });
 
-// Serve static frontend files from 'public' directory (AFTER helmet/cors/rate-limit)
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static frontend files with cache headers (AFTER helmet/cors/rate-limit)
+app.use(express.static(path.join(__dirname, 'public'), {
+    maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+    etag: true,
+    lastModified: true
+}));
 
 // --- S-5: Password Validation Helper --- //
 function validatePassword(pw) {
@@ -130,7 +139,7 @@ async function auditLog(action, actor, target, details, ip) {
             [action, actor || null, target || null, details || null, ip || null, new Date().toISOString()]
         );
     } catch (e) {
-        console.error('Audit log write failed:', e.message);
+        log.error('Audit log write failed', { error: e.message });
     }
 }
 
@@ -252,11 +261,11 @@ async function createNotification(recipient, type, message, linkType, linkId, se
                     html: buildNotificationEmail(recipient, message, type)
                 });
             } catch (emailErr) {
-                console.error("Failed to send notification email:", emailErr.message);
+                log.error('Failed to send notification email', { error: emailErr.message });
             }
         }
     } catch (e) {
-        console.error("Failed to create notification:", e);
+        log.error('Failed to create notification', { error: e.message || e });
     }
 }
 
@@ -299,7 +308,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             if (e.message.includes("email")) return res.status(409).json({ error: "Email already active." });
         }
         // S-9: Error sanitization
-        console.error('Register error:', e);
+        log.error('Register error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -336,7 +345,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         res.json({ ...userData, token });
     } catch (e) {
         // S-9: Error sanitization
-        console.error('Login error:', e);
+        log.error('Login error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -352,7 +361,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
         res.json(result.rows[0]);
     } catch (e) {
         // S-9: Error sanitization
-        console.error('Get me error:', e);
+        log.error('Get me error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -384,7 +393,7 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
         res.json({ message: 'Passcode successfully updated.' });
     } catch (e) {
         // S-9: Error sanitization
-        console.error('Change password error:', e);
+        log.error('Change password error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -409,7 +418,7 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
         const resetUrl = `${APP_URL}?reset=${resetToken}`;
 
         if (!resend) {
-            if (process.env.NODE_ENV !== 'production') console.log(`[DEV] Password reset link for ${user.username}: ${resetUrl}`);
+            log.debug('Password reset link generated', { username: user.username, resetUrl });
             return res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
         }
 
@@ -430,7 +439,7 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
 
         res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
     } catch (e) {
-        console.error('Forgot password error:', e);
+        log.error('Forgot password error', { error: e.message || e });
         res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
     }
 });
@@ -463,7 +472,7 @@ app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
         res.json({ message: 'Passcode successfully reset. You may now log in.' });
     } catch (e) {
         // S-9: Error sanitization
-        console.error('Reset password error:', e);
+        log.error('Reset password error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -505,7 +514,7 @@ app.put('/api/users/:id', requireAuth, upload.single('avatar'), async (req, res)
         res.json({ ...updatedUser, token, message: "Profile successfully encrypted and updated." });
     } catch (e) {
         // S-9: Error sanitization
-        console.error('Update user error:', e);
+        log.error('Update user error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -530,7 +539,7 @@ app.get('/api/users/me/export', requireAuth, async (req, res) => {
             notifications: notifications.rows
         });
     } catch (e) {
-        console.error('Data export error:', e);
+        log.error('Data export error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -556,7 +565,7 @@ app.get('/api/posts', async (req, res) => {
         res.json(posts);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get posts error:', err);
+        log.error('Get posts error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -584,7 +593,7 @@ app.post('/api/posts/:postId/comments', requireAuth, async (req, res) => {
         res.status(201).json({ id: result.rows[0].id, message: "Reply transmitted." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Post comment error:', err);
+        log.error('Post comment error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -622,7 +631,7 @@ app.post('/api/posts/:postId/react', requireAuth, async (req, res) => {
         }
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Post react error:', err);
+        log.error('Post react error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -649,7 +658,7 @@ app.post('/api/posts', requireAuth, upload.single('image'), async (req, res) => 
         res.status(201).json({ id: result.rows[0].id, message: "Broadcast transmitted securely." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Create post error:', err);
+        log.error('Create post error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -663,7 +672,7 @@ app.get('/api/figures', async (req, res) => {
         res.json(normalizeRows(result.rows));
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get figures error:', err);
+        log.error('Get figures error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -691,12 +700,12 @@ app.post('/api/figures', requireAuth, async (req, res) => {
             for (const row of allUsers.rows) {
                 await createNotification(row.username, 'new_figure', `${req.user.username} added "${name}" to the catalog`, 'figure', result.rows[0].id, req.user.username);
             }
-        } catch (notifErr) { console.error("New figure notification error:", notifErr); }
+        } catch (notifErr) { log.error('New figure notification error', { error: notifErr.message || notifErr }); }
 
         res.status(201).json({ id: result.rows[0].id, message: "Target added successfully." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Create figure error:', err);
+        log.error('Create figure error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -712,7 +721,7 @@ app.get('/api/submissions/target/:targetId', async (req, res) => {
         res.json(rows);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get submissions by target error:', err);
+        log.error('Get submissions by target error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -728,7 +737,7 @@ app.get('/api/submissions/user/:username', async (req, res) => {
         res.json(rows);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get submissions by user error:', err);
+        log.error('Get submissions by user error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -740,7 +749,7 @@ app.get('/api/submissions', async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get all submissions error:', err);
+        log.error('Get all submissions error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -779,7 +788,7 @@ app.post('/api/submissions', requireAuth, upload.single('image'), async (req, re
         res.status(201).json({ id: result.rows[0].id, message: "Intelligence report successfully committed." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Submit intelligence error:', err);
+        log.error('Submit intelligence error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -796,7 +805,7 @@ app.delete('/api/submissions/:id', requireAuth, async (req, res) => {
         res.json({ message: "Intelligence retracted" });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Delete submission error:', err);
+        log.error('Delete submission error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -830,7 +839,7 @@ app.get('/api/stats/overview', async (req, res) => {
         });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Stats overview error:', err);
+        log.error('Stats overview error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -860,7 +869,7 @@ app.get('/api/stats/indexes', async (req, res) => {
         res.json(indexes);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Stats indexes error:', err);
+        log.error('Stats indexes error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -903,7 +912,7 @@ app.get('/api/stats/headlines', async (req, res) => {
         res.json(headlines);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Stats headlines error:', err);
+        log.error('Stats headlines error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -933,7 +942,7 @@ app.get('/api/figures/top-rated', async (req, res) => {
         })));
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Top rated figures error:', err);
+        log.error('Top rated figures error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -962,7 +971,7 @@ app.get('/api/figures/ranked', async (req, res) => {
         })));
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Ranked figures error:', err);
+        log.error('Ranked figures error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1010,7 +1019,7 @@ app.get('/api/users/:username/profile', async (req, res) => {
         });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('User profile error:', err);
+        log.error('User profile error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1025,7 +1034,7 @@ app.get('/api/notifications/preferences', requireAuth, async (req, res) => {
         res.json(prefs);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get notification prefs error:', err);
+        log.error('Get notification prefs error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1064,7 +1073,7 @@ app.put('/api/notifications/preferences', requireAuth, async (req, res) => {
         res.json(updated.rows[0]);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Update notification prefs error:', err);
+        log.error('Update notification prefs error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1079,7 +1088,7 @@ app.get('/api/notifications/:username', requireAuth, async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get notifications error:', err);
+        log.error('Get notifications error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1094,7 +1103,7 @@ app.get('/api/notifications/:username/count', requireAuth, async (req, res) => {
         res.json({ unread: parseInt(result.rows[0].count) });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Notification count error:', err);
+        log.error('Notification count error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1105,7 +1114,7 @@ app.put('/api/notifications/:id/read', requireAuth, async (req, res) => {
         res.json({ message: "Notification marked as read." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Mark notification read error:', err);
+        log.error('Mark notification read error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1116,7 +1125,7 @@ app.put('/api/notifications/read-all', requireAuth, async (req, res) => {
         res.json({ message: "All notifications marked as read." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Mark all notifications read error:', err);
+        log.error('Mark all notifications read error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1133,7 +1142,7 @@ async function requireRoomMember(req, res, next) {
         req.roomMember = result.rows[0];
         next();
     } catch (err) {
-        console.error('Room membership check failed:', err.message);
+        log.error('Room membership check failed', { error: err.message });
         res.status(500).json({ error: 'Failed to verify channel membership.' });
     }
 }
@@ -1150,7 +1159,7 @@ app.get('/api/users/search', requireAuth, async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('User search error:', err);
+        log.error('User search error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1220,7 +1229,7 @@ app.post('/api/rooms', requireAuth, async (req, res) => {
         res.status(201).json({ id: roomId, name: type === 'dm' ? null : name.trim(), type, createdBy: req.user.username, createdAt: now, members: allMembers.rows });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Create room error:', err);
+        log.error('Create room error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1296,7 +1305,7 @@ app.get('/api/rooms', requireAuth, async (req, res) => {
         res.json(result);
     } catch (err) {
         // S-9: Error sanitization
-        console.error('List rooms error:', err);
+        log.error('List rooms error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1323,7 +1332,7 @@ app.get('/api/rooms/unread-total', requireAuth, async (req, res) => {
         res.json({ unread: parseInt(result.rows[0].total) });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Unread total error:', err);
+        log.error('Unread total error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1345,7 +1354,7 @@ app.get('/api/rooms/:roomId', requireAuth, requireRoomMember, async (req, res) =
         res.json({ id: r.id, name: r.name, type: r.type, createdBy: r.created_by, members: members.rows });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get room error:', err);
+        log.error('Get room error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1362,7 +1371,7 @@ app.put('/api/rooms/:roomId', requireAuth, requireRoomMember, async (req, res) =
         res.json({ message: 'Channel name updated.', name: name.trim() });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Update room error:', err);
+        log.error('Update room error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1389,7 +1398,7 @@ app.post('/api/rooms/:roomId/members', requireAuth, requireRoomMember, async (re
         res.json({ message: `${username} added to channel.` });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Add room member error:', err);
+        log.error('Add room member error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1431,7 +1440,7 @@ app.delete('/api/rooms/:roomId/members/:username', requireAuth, requireRoomMembe
         res.json({ message: isLeavingSelf ? 'You have left the channel.' : `${targetUsername} removed from channel.` });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Remove room member error:', err);
+        log.error('Remove room member error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1483,7 +1492,7 @@ app.get('/api/rooms/:roomId/messages', requireAuth, requireRoomMember, async (re
         res.json(result.reverse());
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Get room messages error:', err);
+        log.error('Get room messages error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1527,7 +1536,7 @@ app.post('/api/rooms/:roomId/messages', requireAuth, requireRoomMember, messageL
         });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Send message error:', err);
+        log.error('Send message error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1558,7 +1567,7 @@ app.post('/api/rooms/:roomId/messages/:messageId/react', requireAuth, requireRoo
         }
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Message react error:', err);
+        log.error('Message react error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1575,7 +1584,7 @@ app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, requireRoomMem
         res.json({ message: 'Message redacted.' });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Delete message error:', err);
+        log.error('Delete message error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1621,7 +1630,7 @@ app.get('/api/rooms/:roomId/poll', requireAuth, requireRoomMember, async (req, r
         res.json({ messages: formattedMessages, typing: typing.rows.map(r => r.username) });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Room poll error:', err);
+        log.error('Room poll error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1637,7 +1646,7 @@ app.post('/api/rooms/:roomId/typing', requireAuth, requireRoomMember, messageLim
         res.json({ ok: true });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Typing indicator error:', err);
+        log.error('Typing indicator error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1678,7 +1687,7 @@ app.post('/api/admin/users/:id/reset-password', requireAuth, requireAdmin, async
         res.json({ message: 'Password reset successfully.' });
     } catch (e) {
         // S-9: Error sanitization
-        console.error('Admin reset password error:', e);
+        log.error('Admin reset password error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1690,7 +1699,7 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
         res.json(normalizeRows(result.rows));
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Admin get users error:', err);
+        log.error('Admin get users error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1723,7 +1732,7 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
             if (e.message.includes("email")) return res.status(409).json({ error: "Email already active." });
         }
         // S-9: Error sanitization
-        console.error('Admin create user error:', e);
+        log.error('Admin create user error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1745,7 +1754,7 @@ app.put('/api/admin/users/:id/role', requireAuth, requireAdmin, async (req, res)
         res.json({ message: `User role changed to ${newRole.toUpperCase()}.`, role: newRole });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Admin toggle role error:', err);
+        log.error('Admin toggle role error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1767,7 +1776,7 @@ app.put('/api/admin/users/:id/suspend', requireAuth, requireAdmin, async (req, r
         res.json({ message: `User ${newStatus ? 'suspended' : 'reinstated'} successfully.`, suspended: newStatus });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Admin suspend error:', err);
+        log.error('Admin suspend error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1800,7 +1809,7 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) =
         res.json({ message: "User purged from the system." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Admin delete user error:', err);
+        log.error('Admin delete user error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1813,7 +1822,7 @@ app.delete('/api/admin/figures/:id', requireAuth, requireAdmin, async (req, res)
         res.json({ message: "Target and all associated intel purged." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Admin delete figure error:', err);
+        log.error('Admin delete figure error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1827,7 +1836,7 @@ app.put('/api/admin/figures/:id', requireAuth, requireAdmin, async (req, res) =>
         res.json({ message: "Target updated successfully." });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Admin edit figure error:', err);
+        log.error('Admin edit figure error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1852,7 +1861,7 @@ app.get('/api/admin/analytics', requireAuth, requireAdmin, async (req, res) => {
         });
     } catch (err) {
         // S-9: Error sanitization
-        console.error('Admin analytics error:', err);
+        log.error('Admin analytics error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1874,7 +1883,7 @@ app.delete('/api/admin/cleanup', requireAuth, requireAdmin, async (req, res) => 
             deletedTypingIndicators: typingResult.rowCount
         });
     } catch (err) {
-        console.error('Admin cleanup error:', err);
+        log.error('Admin cleanup error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -1885,16 +1894,16 @@ let server;
 // Start Server
 if (require.main === module) {
     server = app.listen(PORT, () => {
-        console.log(`Data Toyz Terminal Server active on port ${PORT}`);
+        log.info(`Data Toyz Terminal Server active on port ${PORT}`);
     });
 
     const gracefulShutdown = (signal) => {
-        console.log(`\n${signal} received. Shutting down gracefully...`);
+        log.info(`${signal} received. Shutting down gracefully...`);
         if (server) {
             server.close(() => {
-                console.log('HTTP server closed.');
+                log.info('HTTP server closed.');
                 db.end(() => {
-                    console.log('Database pool closed.');
+                    log.info('Database pool closed.');
                     process.exit(0);
                 });
             });
@@ -1905,7 +1914,7 @@ if (require.main === module) {
         }
         // Force exit after 10 seconds if graceful shutdown stalls
         setTimeout(() => {
-            console.error('Forced shutdown after timeout.');
+            log.error('Forced shutdown after timeout.');
             process.exit(1);
         }, 10000);
     };
