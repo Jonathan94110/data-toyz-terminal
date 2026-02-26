@@ -1059,7 +1059,8 @@ class TerminalApp {
                 this.currentView = 'search';
                 this.renderApp();
             } else {
-                alert("Failed to create target. Check console.");
+                const err = await req.json().catch(() => ({}));
+                alert(err.error || "Failed to create target.");
             }
         } catch (e) {
             console.error(e);

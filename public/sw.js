@@ -1,7 +1,7 @@
 // Data Toyz Terminal — Service Worker
 // Precache app shell, network-first for API, cache-first for static assets
 
-const CACHE_NAME = 'datatoyz-v1';
+const CACHE_NAME = 'datatoyz-v2';
 const SHELL_ASSETS = [
     '/',
     '/index.html',
@@ -52,21 +52,19 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Static assets: cache-first, falling back to network
+    // Static assets: network-first, falling back to cache
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            if (cached) return cached;
-            return fetch(event.request).then((response) => {
-                // Cache successful responses for static assets
-                if (response.ok && !url.pathname.startsWith('/api/')) {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, clone);
-                    });
-                }
-                return response;
-            }).catch(() => {
-                // Fallback to cached index.html for navigation requests
+        fetch(event.request).then((response) => {
+            if (response.ok) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(event.request, clone);
+                });
+            }
+            return response;
+        }).catch(() => {
+            return caches.match(event.request).then((cached) => {
+                if (cached) return cached;
                 if (event.request.mode === 'navigate') {
                     return caches.match('/index.html');
                 }
