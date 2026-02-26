@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: data-toyz-terminal
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: POSTGRES_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: APP_URL
+        value: https://datatoyz.com
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
