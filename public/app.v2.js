@@ -3486,17 +3486,29 @@ class TerminalApp {
     }
 
     async editSubmission(submissionId, targetId) {
-        // Fetch the full submission data and target info, then navigate to form in edit mode
+        // Fetch the full submission data, then resolve target from figures list or submission metadata
         try {
-            const [subRes, figRes] = await Promise.all([
-                fetch(`${API_URL}/submissions/user/${this.user.username}`),
-                fetch(`${API_URL}/figures/${targetId}`)
-            ]);
-            if (!subRes.ok || !figRes.ok) { alert('Failed to load submission data.'); return; }
+            const subRes = await fetch(`${API_URL}/submissions/user/${this.user.username}`);
+            if (!subRes.ok) { alert('Failed to load submission data.'); return; }
             const allSubs = await subRes.json();
-            const figure = await figRes.json();
             const sub = allSubs.find(s => s.id === submissionId);
             if (!sub) { alert('Submission not found.'); return; }
+
+            // Resolve target: try MOCK_FIGURES first, then fetch full figures list
+            let figure = MOCK_FIGURES.find(f => f.id == targetId);
+            if (!figure) {
+                try {
+                    const figRes = await fetch(`${API_URL}/figures`);
+                    if (figRes.ok) {
+                        const allFigures = await figRes.json();
+                        figure = allFigures.find(f => f.id == targetId);
+                    }
+                } catch (e) { /* fallback below */ }
+            }
+            // Fallback: build target from submission metadata
+            if (!figure) {
+                figure = { id: sub.targetId, name: sub.targetName, classTie: sub.targetTier, brand: '', line: '' };
+            }
 
             this.editingSubmission = sub;
             this.currentTarget = figure;
