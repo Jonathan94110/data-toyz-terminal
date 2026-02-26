@@ -636,7 +636,7 @@ class TerminalApp {
                                 <span id="imgName" style="margin-left:0.5rem; font-size:0.8rem; color:var(--accent);"></span>
                             </div>
                             
-                            <div class="segmented-control" style="margin:0; min-width:300px;">
+                            <div class="segmented-control" style="margin:0; min-width:360px;">
                                 <label class="risk-bullish" style="padding:0.5rem;">
                                     <input type="radio" name="sentiment" value="fire" required>
                                     <span style="font-size:1.1rem; white-space:nowrap;">🔥 HOT</span>
