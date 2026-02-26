@@ -120,9 +120,10 @@ const messageLimiter = rateLimit({
     message: { error: 'Message rate limit exceeded. Please slow down.' }
 });
 
-// Serve static frontend files with cache headers (AFTER helmet/cors/rate-limit)
+// Serve static frontend files (AFTER helmet/cors/rate-limit)
+// Short cache so deploys take effect quickly; ETag handles revalidation
 app.use(express.static(path.join(__dirname, 'public'), {
-    maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+    maxAge: 0,
     etag: true,
     lastModified: true
 }));
