@@ -607,13 +607,16 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .segmented-control span {
-    display: block;
-    padding: 0.85rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 0.25rem;
     font-size: 0.95rem;
     font-weight: 600;
     color: var(--text-secondary);
     transition: all 0.2s;
     border-right: 1px solid var(--border);
+    white-space: nowrap;
 }
 
 .segmented-control label:last-child span {
