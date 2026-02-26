@@ -181,18 +181,18 @@ class TerminalApp {
                     <div class="brand-header">
                         <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 1rem; filter: drop-shadow(0 0 20px rgba(255, 42, 95, 0.4));">
                         <h1 class="glow-text">Data Toyz</h1>
-                        <p>Reset Your Passcode</p>
+                        <p>Reset Your Password</p>
                     </div>
                     <form id="resetPasswordForm">
                         <div class="input-group">
-                            <label for="newPassword">New Passcode</label>
-                            <input type="password" id="newPassword" placeholder="Enter new passcode (min 6 chars)..." required minlength="6">
+                            <label for="newPassword">New Password</label>
+                            <input type="password" id="newPassword" placeholder="Enter new password (min 6 chars)..." required minlength="6">
                         </div>
                         <div class="input-group">
-                            <label for="confirmPassword">Confirm Passcode</label>
-                            <input type="password" id="confirmPassword" placeholder="Confirm new passcode..." required minlength="6">
+                            <label for="confirmPassword">Confirm Password</label>
+                            <input type="password" id="confirmPassword" placeholder="Confirm new password..." required minlength="6">
                         </div>
-                        <button type="submit" class="btn">Reset Passcode</button>
+                        <button type="submit" class="btn">Reset Password</button>
                     </form>
                     <div id="resetMessage" style="margin-top:1rem; text-align:center;"></div>
                 </div>
@@ -203,7 +203,7 @@ class TerminalApp {
             e.preventDefault();
             const newPassword = document.getElementById('newPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
-            if (newPassword !== confirmPassword) { alert('Passcodes do not match.'); return; }
+            if (newPassword !== confirmPassword) { alert('Passwords do not match.'); return; }
 
             try {
                 const res = await fetch(`${API_URL}/auth/reset-password`, {
@@ -238,13 +238,13 @@ class TerminalApp {
                                 <input type="text" id="loginUsername" name="username" placeholder="Enter your username..." required autocomplete="username">
                             </div>
                             <div class="input-group">
-                                <label for="loginPassword">Passcode</label>
+                                <label for="loginPassword">Password</label>
                                 <input type="password" id="loginPassword" placeholder="••••••••" required>
                             </div>
                             <button type="submit" class="btn">Authenticate</button>
                             <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem; display:flex; flex-direction:column; gap:0.5rem;">
                                 <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Initialize New Operative ID</a>
-                                <a href="#" id="showForgotBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Passcode?</a>
+                                <a href="#" id="showForgotBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Password?</a>
                             </div>
                         </form>
                     </div>
@@ -260,7 +260,7 @@ class TerminalApp {
                                 <input type="email" id="regEmail" required autocomplete="email">
                             </div>
                             <div class="input-group">
-                                <label for="regPassword">Passcode</label>
+                                <label for="regPassword">Password</label>
                                 <input type="password" id="regPassword" placeholder="••••••••" required>
                             </div>
                             <button type="submit" class="btn" style="background:var(--success); color:#000;">Register Identity</button>
@@ -1978,21 +1978,21 @@ class TerminalApp {
                 </div>
 
                 <div class="card" style="padding: 2.5rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--text-secondary); margin-bottom:1.5rem;">🔐 Change Passcode</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--text-secondary); margin-bottom:1.5rem;">🔐 Change Password</h3>
                     <form id="changePasswordForm">
                         <div class="form-group">
-                            <label class="form-label">Current Passcode</label>
-                            <input type="password" id="cpOldPassword" required placeholder="Enter current passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                            <label class="form-label">Current Password</label>
+                            <input type="password" id="cpOldPassword" required placeholder="Enter current password" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">New Passcode</label>
-                            <input type="password" id="cpNewPassword" required placeholder="Enter new passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                            <label class="form-label">New Password</label>
+                            <input type="password" id="cpNewPassword" required placeholder="Enter new password" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
                         <div class="form-group" style="margin-bottom: 2rem;">
-                            <label class="form-label">Confirm New Passcode</label>
-                            <input type="password" id="cpConfirmPassword" required placeholder="Confirm new passcode" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
+                            <label class="form-label">Confirm New Password</label>
+                            <input type="password" id="cpConfirmPassword" required placeholder="Confirm new password" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                         </div>
-                        <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary);">Update Passcode</button>
+                        <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary);">Update Password</button>
                     </form>
                 </div>
 
@@ -2128,15 +2128,15 @@ class TerminalApp {
             }
         });
 
-        // Change passcode handler
+        // Change password handler
         document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const oldPassword = document.getElementById('cpOldPassword').value;
             const newPassword = document.getElementById('cpNewPassword').value;
             const confirmPassword = document.getElementById('cpConfirmPassword').value;
 
-            if (newPassword !== confirmPassword) { alert('New passcodes do not match.'); return; }
-            if (newPassword.length < 4) { alert('New passcode must be at least 4 characters.'); return; }
+            if (newPassword !== confirmPassword) { alert('New passwords do not match.'); return; }
+            if (newPassword.length < 4) { alert('New password must be at least 4 characters.'); return; }
 
             try {
                 const btn = e.target.querySelector('button');
@@ -2148,19 +2148,19 @@ class TerminalApp {
                     body: JSON.stringify({ oldPassword, newPassword })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed to change passcode.');
+                if (!res.ok) throw new Error(data.error || 'Failed to change password.');
 
-                alert(data.message || 'Passcode updated successfully.');
+                alert(data.message || 'Password updated successfully.');
                 document.getElementById('cpOldPassword').value = '';
                 document.getElementById('cpNewPassword').value = '';
                 document.getElementById('cpConfirmPassword').value = '';
                 btn.disabled = false;
-                btn.innerText = "Update Passcode";
+                btn.innerText = "Update Password";
             } catch (err) {
                 alert(err.message);
                 const btn = e.target.querySelector('button');
                 btn.disabled = false;
-                btn.innerText = "Update Passcode";
+                btn.innerText = "Update Password";
             }
         });
 
@@ -2282,7 +2282,7 @@ class TerminalApp {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target Search</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">My Intel History</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">View all your past intel report submissions</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Global Leaderboard</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Top operatives ranked by number of submissions</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Profile Settings</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Update your username, email, avatar, and passcode</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Profile Settings</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Update your username, email, avatar, and password</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Documentation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">This page &mdash; full platform reference</td></tr>
                             <tr><td style="padding:0.6rem 1rem; font-weight:600;">Admin Panel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Admin-only: manage users, figures, and view analytics</td></tr>
                         </tbody>
@@ -2489,7 +2489,7 @@ class TerminalApp {
                         <li><strong>Avatar</strong> &mdash; Upload a profile image (displayed across the platform)</li>
                         <li><strong>Username</strong> &mdash; Change your operative codename (updates all past submissions automatically)</li>
                         <li><strong>Email</strong> &mdash; Update your secure email address (used for password reset and email notifications)</li>
-                        <li><strong>Change Passcode</strong> &mdash; Requires your current passcode for verification, then set a new one</li>
+                        <li><strong>Change Password</strong> &mdash; Requires your current password for verification, then set a new one</li>
                         <li><strong>Notification Settings</strong> &mdash; Toggle grid to control which notifications you receive via in-app alerts and email (see section 12)</li>
                     </ul>
                 </div>
@@ -2548,7 +2548,7 @@ class TerminalApp {
                         <li>Add new users manually</li>
                         <li>Promote or demote users (Analyst / Admin)</li>
                         <li>Suspend or reinstate user accounts</li>
-                        <li>Reset a user's passcode (admin backup)</li>
+                        <li>Reset a user's password (admin backup)</li>
                         <li>Delete user accounts permanently</li>
                     </ul>
                     <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The primary admin account (Prime Dynamixx) is protected and cannot be demoted, suspended, or deleted.</p>
@@ -2568,7 +2568,7 @@ class TerminalApp {
 
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Password Security</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li>Passcodes are hashed using bcrypt (10 salt rounds).</li>
+                        <li>Passwords are hashed using bcrypt (10 salt rounds).</li>
                         <li>Plaintext passwords are never stored.</li>
                         <li>Minimum complexity requirements: 8 characters, at least one uppercase letter, one lowercase letter, and one number.</li>
                     </ul>
@@ -2590,7 +2590,7 @@ class TerminalApp {
 
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Secure Reset Flow</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li>&ldquo;Forgot Passcode?&rdquo; initiates a cryptographically secure reset token.</li>
+                        <li>&ldquo;Forgot Password?&rdquo; initiates a cryptographically secure reset token.</li>
                         <li>Reset tokens expire after 1 hour.</li>
                         <li>Responses are standardized to prevent email enumeration.</li>
                     </ul>
@@ -2708,7 +2708,7 @@ class TerminalApp {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The analytics dashboard showing market trends</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">MTS (Market Trading Score)</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The market sentiment portion of a grade (5&ndash;50)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Approval Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The physical quality percentage (0&ndash;100)</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Passcode</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Your account password</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Password</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Your account password</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Class Tier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Figure size class (Deluxe, Voyager, Leader, Commander, Masterpiece)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Field Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Photos uploaded with intel reports</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Dossier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A user's public profile page</td></tr>
@@ -2870,7 +2870,7 @@ class TerminalApp {
         document.getElementById('addAdminUserBtn').addEventListener('click', async () => {
             const username = prompt("Enter new username:");
             if (!username) return;
-            const password = prompt("Enter new passcode:");
+            const password = prompt("Enter new password:");
             if (!password) return;
             const email = username.toLowerCase().replace(/[^a-z0-9]/g, '') + '@datatoyz.net';
             const role = confirm("Should this user be an Admin? (OK for Admin, Cancel for Analyst)") ? 'admin' : 'analyst';
@@ -2967,14 +2967,14 @@ class TerminalApp {
         // Admin Reset Password
         document.querySelectorAll('.resetPwBtn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const newPw = prompt(`Enter new passcode for "${btn.dataset.name}":`);
-                if (!newPw || newPw.length < 4) { if (newPw !== null) alert('Passcode must be at least 4 characters.'); return; }
+                const newPw = prompt(`Enter new password for "${btn.dataset.name}":`);
+                if (!newPw || newPw.length < 4) { if (newPw !== null) alert('Password must be at least 4 characters.'); return; }
                 try {
                     const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/reset-password`, {
                         method: 'POST',
                         body: JSON.stringify({ newPassword: newPw })
                     });
-                    if (res.ok) { alert(`Passcode reset for "${btn.dataset.name}".`); }
+                    if (res.ok) { alert(`Password reset for "${btn.dataset.name}".`); }
                     else { const err = await res.json(); alert(err.error); }
                 } catch (e) { console.error(e); }
             });
