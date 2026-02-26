@@ -1888,9 +1888,9 @@ class TerminalApp {
             <div class="form-group">
                 <label class="form-label">${label}</label>
                 <div class="segmented-control">
-                    <label class="risk-bullish"><input type="radio" name="${id}" value="bullish" ${defaultVal === 'bullish' ? 'checked' : ''}><span>Bullish</span></label>
-                    <label class="risk-neutral"><input type="radio" name="${id}" value="neutral" ${defaultVal === 'neutral' ? 'checked' : ''}><span>Neutral</span></label>
-                    <label class="risk-bearish"><input type="radio" name="${id}" value="bearish" ${defaultVal === 'bearish' ? 'checked' : ''}><span>Bearish</span></label>
+                    <label class="risk-bullish" title="Expecting a rise in market price"><input type="radio" name="${id}" value="bullish" ${defaultVal === 'bullish' ? 'checked' : ''}><span>Bullish <span class="risk-info-icon">&#9432;</span></span></label>
+                    <label class="risk-neutral" title="Expecting stable or minimal price movement"><input type="radio" name="${id}" value="neutral" ${defaultVal === 'neutral' ? 'checked' : ''}><span>Neutral <span class="risk-info-icon">&#9432;</span></span></label>
+                    <label class="risk-bearish" title="Expecting a decline in market price"><input type="radio" name="${id}" value="bearish" ${defaultVal === 'bearish' ? 'checked' : ''}><span>Bearish <span class="risk-info-icon">&#9432;</span></span></label>
                 </div>
             </div>
         `;
@@ -1952,6 +1952,7 @@ class TerminalApp {
                         <div class="section-header">
                             <h3>1. Data Toyz Trading Score (DTS)</h3>
                             <p>Rate the following 5 Pillars (0-20 points each).</p>
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">Combined DTS Total (0&ndash;100) reflects overall market sentiment. Higher scores indicate stronger market positioning.</p>
                         </div>
                         <div class="grid-2">
                             ${this.createSlider('mts_community', 'Community Demand', 0, 20, isEdit && ed.mts_community != null ? ed.mts_community : 10, 'Hype & Desirability')}
@@ -1967,6 +1968,9 @@ class TerminalApp {
                         <div class="section-header">
                             <h3>2. Risk Forecasting</h3>
                             <p>Assign risk bias and timeframe.</p>
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">
+                                <strong>Bullish</strong> = price likely to rise &nbsp;|&nbsp; <strong>Neutral</strong> = stable/minimal movement &nbsp;|&nbsp; <strong>Bearish</strong> = price likely to decline
+                            </p>
                         </div>
                         
                         <div style="margin-bottom:1.5rem;">
@@ -2045,6 +2049,7 @@ class TerminalApp {
                         <div class="section-header">
                             <h3>5. Aftermarket Valuation</h3>
                             <p>What is the current true street value?</p>
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">Enter the average current selling price on secondary markets (eBay, Mercari, BST groups). This feeds the Market Intelligence pricing system.</p>
                         </div>
                         <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
                             <span style="font-size:1.5rem; color:var(--text-secondary);">$</span>
@@ -2143,6 +2148,29 @@ class TerminalApp {
 
     async submitIntel(form) {
         const isEdit = !!this.editingSubmission;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerText;
+
+        // Inline validation before submit
+        const recommendation = form.querySelector('input[name="recommendation"]:checked');
+        if (!recommendation) {
+            this.showFormError('Please select a Community Recommendation (Yes or No).');
+            form.querySelector('input[name="recommendation"]').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        const marketPrice = form.querySelector('input[name="market_price"]');
+        if (!marketPrice.value || parseFloat(marketPrice.value) <= 0) {
+            this.showFormError('Please enter an Aftermarket Valuation (market price).');
+            marketPrice.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            marketPrice.focus();
+            return;
+        }
+
+        // Loading state
+        submitBtn.disabled = true;
+        submitBtn.innerText = isEdit ? 'Updating Report...' : 'Committing Report...';
+        submitBtn.style.opacity = '0.7';
+
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
 
@@ -2178,17 +2206,51 @@ class TerminalApp {
             if (req.ok) {
                 this.editingSubmission = null;
                 if (isEdit) {
-                    alert(`Intelligence report on ${this.currentTarget.name} updated successfully.\nOverall Target Grade: ${overallGrade}/100`);
+                    this.showFormSuccess(`Intelligence report updated. Overall Grade: ${overallGrade}/100`);
                     this.currentView = 'dashboard';
                 } else {
-                    alert(`Intelligence on ${this.currentTarget.name} securely cataloged to Market Pulse.\nOverall Target Grade: ${overallGrade}/100`);
+                    this.showFormSuccess(`Intelligence on ${this.currentTarget.name} committed. Overall Grade: ${overallGrade}/100`);
                     this.currentView = 'pulse';
                 }
-                this.renderApp();
+                setTimeout(() => this.renderApp(), 1500);
+            } else {
+                const errData = await req.json().catch(() => ({}));
+                this.showFormError(errData.error || `Submission failed (${req.status}). Please try again.`);
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalBtnText;
+                submitBtn.style.opacity = '1';
             }
         } catch (e) {
-            alert("Connection error executing scan.");
+            this.showFormError('Connection error. Please check your network and try again.');
+            submitBtn.disabled = false;
+            submitBtn.innerText = originalBtnText;
+            submitBtn.style.opacity = '1';
         }
+    }
+
+    showFormSuccess(msg) {
+        this.dismissFormToast();
+        const toast = document.createElement('div');
+        toast.id = 'formToast';
+        toast.style.cssText = 'position:fixed; top:1.5rem; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:1rem 2rem; border-radius:var(--radius-sm); font-weight:700; z-index:9999; box-shadow:0 4px 20px rgba(0,0,0,0.3); font-size:1rem; text-align:center; max-width:90vw; animation:fadeIn 0.3s ease;';
+        toast.innerText = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    showFormError(msg) {
+        this.dismissFormToast();
+        const toast = document.createElement('div');
+        toast.id = 'formToast';
+        toast.style.cssText = 'position:fixed; top:1.5rem; left:50%; transform:translateX(-50%); background:var(--danger); color:#fff; padding:1rem 2rem; border-radius:var(--radius-sm); font-weight:700; z-index:9999; box-shadow:0 4px 20px rgba(0,0,0,0.3); font-size:1rem; text-align:center; max-width:90vw; animation:fadeIn 0.3s ease;';
+        toast.innerText = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+    }
+
+    dismissFormToast() {
+        const existing = document.getElementById('formToast');
+        if (existing) existing.remove();
     }
 
 
@@ -2802,8 +2864,8 @@ class TerminalApp {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">1</td><td style="padding:0.6rem 1rem; font-weight:600;">Data Toyz Trading Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">5 market sentiment metrics (Community, Buzz, Liquidity, Risk, Appeal) &mdash; each rated 1-10</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">2</td><td style="padding:0.6rem 1rem; font-weight:600;">4-Axis Forecasting</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Predict 6-month market direction: Bullish, Bearish, Neutral, or Volatile</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">1</td><td style="padding:0.6rem 1rem; font-weight:600;">Data Toyz Trading Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">5 market sentiment metrics (Community, Buzz, Liquidity, Risk, Appeal) &mdash; each rated 0&ndash;20</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">2</td><td style="padding:0.6rem 1rem; font-weight:600;">Risk Forecasting</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Predict market direction across 4 axes: Bullish, Neutral, or Bearish &mdash; with a selectable forecast horizon</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">3</td><td style="padding:0.6rem 1rem; font-weight:600;">Physical Quality Scales</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">9 physical attributes (Build, Paint, Articulation, Accuracy, Presence, Value, Packaging, Transformation Frustration & Satisfaction) &mdash; each rated 1-10</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">4</td><td style="padding:0.6rem 1rem; font-weight:600;">Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Upload a photo of the figure as field evidence (appears in the gallery)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">5</td><td style="padding:0.6rem 1rem; font-weight:600;">Aftermarket Valuation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Enter the current market price for the figure</td></tr>
@@ -2822,9 +2884,9 @@ class TerminalApp {
                     </p>
                     <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
                         <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
-                            <strong style="color:var(--accent);">MTS Total (Market Trading Score)</strong><br>
+                            <strong style="color:var(--accent);">DTS Total (Data Toyz Trading Score)</strong><br>
                             Sum of 5 market metrics (Community + Buzz + Liquidity + Risk + Appeal).<br>
-                            Each metric is rated 1&ndash;10, so MTS Total ranges from <strong>5 to 50</strong>.
+                            Each metric is rated 0&ndash;20, so DTS Total ranges from <strong>0 to 100</strong>.
                         </p>
                     </div>
                     <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
@@ -2838,8 +2900,8 @@ class TerminalApp {
                     <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
                         <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
                             <strong style="color:var(--accent);">Overall Grade</strong><br>
-                            The average of MTS Total and Approval Score.<br>
-                            Formula: <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(MTS Total + Approval Score) / 2</code>
+                            The average of DTS Total and Approval Score.<br>
+                            Formula: <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(DTS Total + Approval Score) / 2</code>
                         </p>
                     </div>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Grade Color Scale:</strong></p>
@@ -3153,7 +3215,7 @@ class TerminalApp {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Secure Channel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A direct message (DM) between two operatives</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Commander</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The owner/creator of a Breakout Room channel</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The analytics dashboard showing market trends</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">MTS (Market Trading Score)</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The market sentiment portion of a grade (5&ndash;50)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">DTS (Data Toyz Trading Score)</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The market sentiment portion of a grade (0&ndash;100)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Approval Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The physical quality percentage (0&ndash;100)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Password</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Your account password</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Class Tier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Figure size class (Deluxe, Voyager, Leader, Commander, Masterpiece)</td></tr>
@@ -3524,9 +3586,16 @@ class TerminalApp {
         if (!confirm("Are you sure you want to retract this intel from the Market Pulse?")) return;
         try {
             const res = await this.authFetch(`${API_URL}/submissions/${id}`, { method: 'DELETE' });
-            if (res.ok) { this.renderApp(); }
+            if (res.ok) {
+                this.showFormSuccess('Intelligence report retracted.');
+                this.renderApp();
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                this.showFormError(errData.error || 'Failed to retract submission.');
+            }
         } catch (e) {
             console.error(e);
+            this.showFormError('Connection error. Please try again.');
         }
     }
 
