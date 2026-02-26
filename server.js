@@ -59,7 +59,9 @@ const COL_MAP = {
     classtie: 'classTie', imagepath: 'imagePath', postid: 'postId',
     targetid: 'targetId', targetname: 'targetName', targettier: 'targetTier',
     mtstotal: 'mtsTotal', approvalscore: 'approvalScore', jsondata: 'jsonData',
-    password_hash: 'password_hash', created_at: 'created_at'
+    password_hash: 'password_hash', created_at: 'created_at',
+    room_id: 'roomId', message_id: 'messageId', created_by: 'createdBy',
+    joined_at: 'joinedAt', last_read_at: 'lastReadAt', updated_at: 'updatedAt'
 };
 function normalizeRow(row) {
     if (!row) return row;
@@ -86,7 +88,7 @@ async function getNotificationPrefs(userId) {
 }
 
 function buildNotificationEmail(recipientName, message, type) {
-    const icons = { comment: '\uD83D\uDCAC', reaction: '\u2764\uFE0F', co_reviewer: '\uD83D\uDCCB', new_figure: '\uD83C\uDFAF', hq_updates: '\uD83D\uDCE1' };
+    const icons = { comment: '\uD83D\uDCAC', reaction: '\u2764\uFE0F', co_reviewer: '\uD83D\uDCCB', new_figure: '\uD83C\uDFAF', hq_updates: '\uD83D\uDCE1', message: '\uD83D\uDD12' };
     const icon = icons[type] || '\uD83D\uDD14';
     return `
         <div style="font-family: monospace; background: #0f1729; color: #e2e8f0; padding: 2rem; border-radius: 8px;">
@@ -243,7 +245,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         const resetUrl = `${APP_URL}?reset=${resetToken}`;
 
         if (!resend) {
-            console.log(`[DEV] Password reset link for ${user.username}: ${resetUrl}`);
+            if (process.env.NODE_ENV !== 'production') console.log(`[DEV] Password reset link for ${user.username}: ${resetUrl}`);
             return res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
         }
 
@@ -789,7 +791,8 @@ app.put('/api/notifications/preferences', requireAuth, async (req, res) => {
         'reaction_inapp', 'reaction_email',
         'co_reviewer_inapp', 'co_reviewer_email',
         'new_figure_inapp', 'new_figure_email',
-        'hq_updates_inapp', 'hq_updates_email'
+        'hq_updates_inapp', 'hq_updates_email',
+        'message_inapp', 'message_email'
     ];
 
     try {
@@ -858,6 +861,485 @@ app.put('/api/notifications/read-all', requireAuth, async (req, res) => {
     try {
         await db.query("UPDATE Notifications SET read = true WHERE recipient = $1", [req.user.username]);
         res.json({ message: "All notifications marked as read." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- BREAKOUT ROOMS API --- //
+
+// Helper: check if user is a member of a room
+async function requireRoomMember(req, res, next) {
+    try {
+        const roomId = parseInt(req.params.roomId);
+        if (isNaN(roomId)) return res.status(400).json({ error: 'Invalid channel ID.' });
+        const result = await db.query("SELECT * FROM RoomMembers WHERE room_id = $1 AND username = $2", [roomId, req.user.username]);
+        if (!result.rows[0]) return res.status(403).json({ error: 'You are not a member of this secure channel.' });
+        req.roomMember = result.rows[0];
+        next();
+    } catch (err) {
+        console.error('Room membership check failed:', err.message);
+        res.status(500).json({ error: 'Failed to verify channel membership.' });
+    }
+}
+
+// User search (for inviting to rooms)
+app.get('/api/users/search', requireAuth, async (req, res) => {
+    const q = req.query.q;
+    if (!q || q.trim().length === 0) return res.json([]);
+    try {
+        const result = await db.query(
+            "SELECT id, username, avatar FROM Users WHERE LOWER(username) LIKE LOWER($1) AND username != $2 AND suspended = false LIMIT 10",
+            [`%${q.trim()}%`, req.user.username]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Create a new room (DM or group)
+app.post('/api/rooms', requireAuth, async (req, res) => {
+    const { name, type, members } = req.body;
+    if (!type || !['dm', 'group'].includes(type)) return res.status(400).json({ error: 'Invalid channel type.' });
+    if (!members || !Array.isArray(members) || members.length === 0) return res.status(400).json({ error: 'At least one member is required.' });
+
+    try {
+        if (type === 'dm') {
+            if (members.length !== 1) return res.status(400).json({ error: 'DM channels require exactly one other operative.' });
+            const otherUser = members[0];
+            // Check if DM already exists between these two users
+            const existing = await db.query(`
+                SELECT r.id FROM Rooms r
+                JOIN RoomMembers rm1 ON r.id = rm1.room_id AND rm1.username = $1
+                JOIN RoomMembers rm2 ON r.id = rm2.room_id AND rm2.username = $2
+                WHERE r.type = 'dm'
+            `, [req.user.username, otherUser]);
+            if (existing.rows[0]) {
+                // Return existing DM room
+                const roomId = existing.rows[0].id;
+                const membersResult = await db.query("SELECT username, role, joined_at, last_read_at FROM RoomMembers WHERE room_id = $1", [roomId]);
+                return res.json({ id: roomId, name: null, type: 'dm', members: membersResult.rows });
+            }
+        }
+
+        if (type === 'group' && (!name || !name.trim())) {
+            return res.status(400).json({ error: 'Group channels require a name.' });
+        }
+
+        const now = new Date().toISOString();
+        const roomResult = await db.query(
+            "INSERT INTO Rooms (name, type, created_by, created_at) VALUES ($1, $2, $3, $4) RETURNING id",
+            [type === 'dm' ? null : name.trim(), type, req.user.username, now]
+        );
+        const roomId = roomResult.rows[0].id;
+
+        // Add creator as owner
+        await db.query(
+            "INSERT INTO RoomMembers (room_id, username, role, joined_at, last_read_at) VALUES ($1, $2, 'owner', $3, $3)",
+            [roomId, req.user.username, now]
+        );
+
+        // Add invited members
+        for (const member of members) {
+            const userCheck = await db.query("SELECT id FROM Users WHERE username = $1", [member]);
+            if (userCheck.rows[0]) {
+                await db.query(
+                    "INSERT INTO RoomMembers (room_id, username, role, joined_at) VALUES ($1, $2, 'member', $3) ON CONFLICT (room_id, username) DO NOTHING",
+                    [roomId, member, now]
+                );
+                const roomDisplayName = type === 'dm' ? 'a secure channel' : `"${name.trim()}"`;
+                await createNotification(member, 'message', `${req.user.username} invited you to ${roomDisplayName}`, 'room', roomId, req.user.username);
+            }
+        }
+
+        const allMembers = await db.query("SELECT username, role, joined_at FROM RoomMembers WHERE room_id = $1", [roomId]);
+        res.status(201).json({ id: roomId, name: type === 'dm' ? null : name.trim(), type, createdBy: req.user.username, createdAt: now, members: allMembers.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// List all rooms for current user
+app.get('/api/rooms', requireAuth, async (req, res) => {
+    try {
+        const rooms = await db.query(`
+            SELECT r.id, r.name, r.type, r.created_by, r.created_at
+            FROM Rooms r
+            JOIN RoomMembers rm ON r.id = rm.room_id
+            WHERE rm.username = $1
+            ORDER BY r.id DESC
+        `, [req.user.username]);
+
+        const result = [];
+        for (const room of rooms.rows) {
+            // Get members with avatars
+            const members = await db.query(`
+                SELECT rm.username, rm.role, rm.joined_at, u.avatar
+                FROM RoomMembers rm
+                LEFT JOIN Users u ON rm.username = u.username
+                WHERE rm.room_id = $1
+            `, [room.id]);
+
+            // Get last message
+            const lastMsg = await db.query(
+                "SELECT author, content, created_at FROM Messages WHERE room_id = $1 ORDER BY id DESC LIMIT 1",
+                [room.id]
+            );
+
+            // Get unread count
+            const memberRow = await db.query(
+                "SELECT last_read_at FROM RoomMembers WHERE room_id = $1 AND username = $2",
+                [room.id, req.user.username]
+            );
+            let unreadCount = 0;
+            if (memberRow.rows[0]) {
+                const lastRead = memberRow.rows[0].last_read_at;
+                if (lastRead) {
+                    const unread = await db.query(
+                        "SELECT COUNT(*) as count FROM Messages WHERE room_id = $1 AND created_at > $2 AND author != $3",
+                        [room.id, lastRead, req.user.username]
+                    );
+                    unreadCount = parseInt(unread.rows[0].count);
+                } else {
+                    const unread = await db.query(
+                        "SELECT COUNT(*) as count FROM Messages WHERE room_id = $1 AND author != $2",
+                        [room.id, req.user.username]
+                    );
+                    unreadCount = parseInt(unread.rows[0].count);
+                }
+            }
+
+            result.push({
+                id: room.id,
+                name: room.name,
+                type: room.type,
+                createdBy: room.created_by,
+                members: members.rows,
+                lastMessage: lastMsg.rows[0] ? { author: lastMsg.rows[0].author, content: lastMsg.rows[0].content, createdAt: lastMsg.rows[0].created_at } : null,
+                unreadCount
+            });
+        }
+
+        // Sort by last message (most recent activity first)
+        result.sort((a, b) => {
+            const aTime = a.lastMessage ? a.lastMessage.createdAt : '0';
+            const bTime = b.lastMessage ? b.lastMessage.createdAt : '0';
+            return bTime.localeCompare(aTime);
+        });
+
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get total unread messages across all rooms (for nav badge)
+app.get('/api/rooms/unread-total', requireAuth, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT COALESCE(SUM(
+                CASE
+                    WHEN rm.last_read_at IS NOT NULL THEN (
+                        SELECT COUNT(*) FROM Messages m
+                        WHERE m.room_id = rm.room_id AND m.created_at > rm.last_read_at AND m.author != $1
+                    )
+                    ELSE (
+                        SELECT COUNT(*) FROM Messages m
+                        WHERE m.room_id = rm.room_id AND m.author != $1
+                    )
+                END
+            ), 0) as total
+            FROM RoomMembers rm
+            WHERE rm.username = $1
+        `, [req.user.username]);
+        res.json({ unread: parseInt(result.rows[0].total) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get room details
+app.get('/api/rooms/:roomId', requireAuth, requireRoomMember, async (req, res) => {
+    try {
+        const room = await db.query("SELECT * FROM Rooms WHERE id = $1", [req.params.roomId]);
+        if (!room.rows[0]) return res.status(404).json({ error: 'Channel not found.' });
+
+        const members = await db.query(`
+            SELECT rm.username, rm.role, rm.joined_at, u.avatar
+            FROM RoomMembers rm
+            LEFT JOIN Users u ON rm.username = u.username
+            WHERE rm.room_id = $1
+        `, [req.params.roomId]);
+
+        const r = room.rows[0];
+        res.json({ id: r.id, name: r.name, type: r.type, createdBy: r.created_by, members: members.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update room name (owner only)
+app.put('/api/rooms/:roomId', requireAuth, requireRoomMember, async (req, res) => {
+    if (req.roomMember.role !== 'owner') return res.status(403).json({ error: 'Only the channel commander can modify settings.' });
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Channel name is required.' });
+    try {
+        await db.query("UPDATE Rooms SET name = $1 WHERE id = $2", [name.trim(), req.params.roomId]);
+        res.json({ message: 'Channel name updated.', name: name.trim() });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Add member to room (owner only, groups only)
+app.post('/api/rooms/:roomId/members', requireAuth, requireRoomMember, async (req, res) => {
+    if (req.roomMember.role !== 'owner') return res.status(403).json({ error: 'Only the channel commander can add operatives.' });
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'Username required.' });
+
+    try {
+        const room = await db.query("SELECT type, name FROM Rooms WHERE id = $1", [req.params.roomId]);
+        if (room.rows[0].type === 'dm') return res.status(400).json({ error: 'Cannot add members to a DM channel.' });
+
+        const userCheck = await db.query("SELECT id FROM Users WHERE username = $1", [username]);
+        if (!userCheck.rows[0]) return res.status(404).json({ error: 'Operative not found.' });
+
+        const now = new Date().toISOString();
+        await db.query(
+            "INSERT INTO RoomMembers (room_id, username, role, joined_at) VALUES ($1, $2, 'member', $3) ON CONFLICT (room_id, username) DO NOTHING",
+            [req.params.roomId, username, now]
+        );
+        await createNotification(username, 'message', `${req.user.username} added you to "${room.rows[0].name}"`, 'room', parseInt(req.params.roomId), req.user.username);
+        res.json({ message: `${username} added to channel.` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Remove member or leave room
+app.delete('/api/rooms/:roomId/members/:username', requireAuth, requireRoomMember, async (req, res) => {
+    const targetUsername = req.params.username;
+    const isLeavingSelf = targetUsername === req.user.username;
+
+    try {
+        if (!isLeavingSelf && req.roomMember.role !== 'owner') {
+            return res.status(403).json({ error: 'Only the channel commander can remove operatives.' });
+        }
+
+        await db.query("DELETE FROM RoomMembers WHERE room_id = $1 AND username = $2", [req.params.roomId, targetUsername]);
+
+        // Check remaining members
+        const remaining = await db.query("SELECT * FROM RoomMembers WHERE room_id = $1 ORDER BY joined_at ASC", [req.params.roomId]);
+        if (remaining.rows.length === 0) {
+            // Delete room if no members left
+            await db.query("DELETE FROM Rooms WHERE id = $1", [req.params.roomId]);
+            return res.json({ message: 'Channel dissolved — all operatives have departed.' });
+        }
+
+        // Transfer ownership if owner left
+        if (isLeavingSelf && req.roomMember.role === 'owner') {
+            const newOwner = remaining.rows[0];
+            await db.query("UPDATE RoomMembers SET role = 'owner' WHERE room_id = $1 AND username = $2", [req.params.roomId, newOwner.username]);
+        }
+
+        if (!isLeavingSelf) {
+            await createNotification(targetUsername, 'message', `You were removed from a secure channel by ${req.user.username}`, 'room', parseInt(req.params.roomId), req.user.username);
+        }
+
+        res.json({ message: isLeavingSelf ? 'You have left the channel.' : `${targetUsername} removed from channel.` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get messages for a room (paginated)
+app.get('/api/rooms/:roomId/messages', requireAuth, requireRoomMember, async (req, res) => {
+    const before = req.query.before;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+
+    try {
+        let messagesQuery;
+        let params;
+        if (before) {
+            messagesQuery = "SELECT * FROM Messages WHERE room_id = $1 AND id < $2 ORDER BY id DESC LIMIT $3";
+            params = [req.params.roomId, before, limit];
+        } else {
+            messagesQuery = "SELECT * FROM Messages WHERE room_id = $1 ORDER BY id DESC LIMIT $2";
+            params = [req.params.roomId, limit];
+        }
+        const messages = await db.query(messagesQuery, params);
+
+        // Get reactions for these messages
+        const messageIds = messages.rows.map(m => m.id);
+        let reactions = [];
+        if (messageIds.length > 0) {
+            const reactResult = await db.query(
+                `SELECT * FROM MessageReactions WHERE message_id = ANY($1)`,
+                [messageIds]
+            );
+            reactions = reactResult.rows;
+        }
+
+        // Attach reactions to messages
+        const result = messages.rows.map(m => ({
+            id: m.id,
+            roomId: m.room_id,
+            author: m.author,
+            content: m.content,
+            image: m.image,
+            createdAt: m.created_at,
+            reactions: reactions.filter(r => r.message_id === m.id).map(r => ({ author: r.author, emoji: r.emoji }))
+        }));
+
+        // Update last_read_at
+        const now = new Date().toISOString();
+        await db.query("UPDATE RoomMembers SET last_read_at = $1 WHERE room_id = $2 AND username = $3", [now, req.params.roomId, req.user.username]);
+
+        // Return in chronological order (oldest first)
+        res.json(result.reverse());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Send a message
+app.post('/api/rooms/:roomId/messages', requireAuth, requireRoomMember, upload.single('image'), async (req, res) => {
+    const { content } = req.body;
+    const image = req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : null;
+
+    if (!content && !image) return res.status(400).json({ error: 'Message content or image required.' });
+
+    try {
+        const now = new Date().toISOString();
+        const result = await db.query(
+            "INSERT INTO Messages (room_id, author, content, image, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            [req.params.roomId, req.user.username, content || null, image, now]
+        );
+
+        // Update sender's last_read_at
+        await db.query("UPDATE RoomMembers SET last_read_at = $1 WHERE room_id = $2 AND username = $3", [now, req.params.roomId, req.user.username]);
+
+        // Clear typing indicator for sender
+        await db.query("DELETE FROM TypingIndicators WHERE room_id = $1 AND username = $2", [req.params.roomId, req.user.username]);
+
+        // Notify all other members
+        const room = await db.query("SELECT name, type FROM Rooms WHERE id = $1", [req.params.roomId]);
+        const members = await db.query("SELECT username FROM RoomMembers WHERE room_id = $1 AND username != $2", [req.params.roomId, req.user.username]);
+
+        const truncated = content ? (content.length > 50 ? content.substring(0, 50) + '...' : content) : '📸 Image';
+        const roomName = room.rows[0].type === 'dm' ? 'Secure Channel' : room.rows[0].name;
+
+        for (const row of members.rows) {
+            await createNotification(row.username, 'message', `${req.user.username} in ${roomName}: ${truncated}`, 'room', parseInt(req.params.roomId), req.user.username);
+        }
+
+        res.status(201).json({
+            id: result.rows[0].id, roomId: parseInt(req.params.roomId), author: req.user.username,
+            content: content || null, image, createdAt: now, reactions: []
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Toggle reaction on a message
+app.post('/api/rooms/:roomId/messages/:messageId/react', requireAuth, requireRoomMember, async (req, res) => {
+    const { emoji } = req.body;
+    if (!emoji) return res.status(400).json({ error: 'Emoji required.' });
+
+    try {
+        const existing = await db.query(
+            "SELECT * FROM MessageReactions WHERE message_id = $1 AND author = $2",
+            [req.params.messageId, req.user.username]
+        );
+
+        if (!existing.rows[0]) {
+            await db.query(
+                "INSERT INTO MessageReactions (message_id, author, emoji) VALUES ($1, $2, $3)",
+                [req.params.messageId, req.user.username, emoji]
+            );
+            res.json({ action: 'added' });
+        } else if (existing.rows[0].emoji === emoji) {
+            await db.query("DELETE FROM MessageReactions WHERE id = $1", [existing.rows[0].id]);
+            res.json({ action: 'removed' });
+        } else {
+            await db.query("UPDATE MessageReactions SET emoji = $1 WHERE id = $2", [emoji, existing.rows[0].id]);
+            res.json({ action: 'updated' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a message (author or room owner)
+app.delete('/api/rooms/:roomId/messages/:messageId', requireAuth, requireRoomMember, async (req, res) => {
+    try {
+        const msg = await db.query("SELECT * FROM Messages WHERE id = $1 AND room_id = $2", [req.params.messageId, req.params.roomId]);
+        if (!msg.rows[0]) return res.status(404).json({ error: 'Message not found.' });
+        if (msg.rows[0].author !== req.user.username && req.roomMember.role !== 'owner') {
+            return res.status(403).json({ error: 'Insufficient clearance to delete this message.' });
+        }
+        await db.query("DELETE FROM Messages WHERE id = $1", [req.params.messageId]);
+        res.json({ message: 'Message redacted.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Poll for new messages + typing indicators
+app.get('/api/rooms/:roomId/poll', requireAuth, requireRoomMember, async (req, res) => {
+    const after = parseInt(req.query.after) || 0;
+
+    try {
+        // Get new messages
+        const messages = await db.query(
+            "SELECT * FROM Messages WHERE room_id = $1 AND id > $2 ORDER BY id ASC",
+            [req.params.roomId, after]
+        );
+
+        // Get reactions for new messages
+        const messageIds = messages.rows.map(m => m.id);
+        let reactions = [];
+        if (messageIds.length > 0) {
+            const reactResult = await db.query("SELECT * FROM MessageReactions WHERE message_id = ANY($1)", [messageIds]);
+            reactions = reactResult.rows;
+        }
+
+        const formattedMessages = messages.rows.map(m => ({
+            id: m.id, roomId: m.room_id, author: m.author, content: m.content,
+            image: m.image, createdAt: m.created_at,
+            reactions: reactions.filter(r => r.message_id === m.id).map(r => ({ author: r.author, emoji: r.emoji }))
+        }));
+
+        // Get typing indicators (within last 5 seconds, excluding self)
+        const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
+        const typing = await db.query(
+            "SELECT username FROM TypingIndicators WHERE room_id = $1 AND username != $2 AND updated_at > $3",
+            [req.params.roomId, req.user.username, fiveSecondsAgo]
+        );
+
+        // Update last_read_at if new messages
+        if (formattedMessages.length > 0) {
+            const now = new Date().toISOString();
+            await db.query("UPDATE RoomMembers SET last_read_at = $1 WHERE room_id = $2 AND username = $3", [now, req.params.roomId, req.user.username]);
+        }
+
+        res.json({ messages: formattedMessages, typing: typing.rows.map(r => r.username) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Signal typing status
+app.post('/api/rooms/:roomId/typing', requireAuth, requireRoomMember, async (req, res) => {
+    try {
+        const now = new Date().toISOString();
+        await db.query(
+            "INSERT INTO TypingIndicators (room_id, username, updated_at) VALUES ($1, $2, $3) ON CONFLICT (room_id, username) DO UPDATE SET updated_at = $3",
+            [req.params.roomId, req.user.username, now]
+        );
+        res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

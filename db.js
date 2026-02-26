@@ -153,6 +153,70 @@ async function initDB() {
             FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE
         )`);
 
+        // --- BREAKOUT ROOMS TABLES --- //
+
+        // Create Rooms Table (Breakout Rooms - DMs & Group Chats)
+        await pool.query(`CREATE TABLE IF NOT EXISTS Rooms (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            type TEXT NOT NULL DEFAULT 'group',
+            created_by TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )`);
+
+        // Create RoomMembers Table (Room Participants)
+        await pool.query(`CREATE TABLE IF NOT EXISTS RoomMembers (
+            id SERIAL PRIMARY KEY,
+            room_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'member',
+            joined_at TEXT NOT NULL,
+            last_read_at TEXT,
+            UNIQUE(room_id, username),
+            FOREIGN KEY(room_id) REFERENCES Rooms(id) ON DELETE CASCADE
+        )`);
+
+        // Create Messages Table (Breakout Room Messages)
+        await pool.query(`CREATE TABLE IF NOT EXISTS Messages (
+            id SERIAL PRIMARY KEY,
+            room_id INTEGER NOT NULL,
+            author TEXT NOT NULL,
+            content TEXT,
+            image TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(room_id) REFERENCES Rooms(id) ON DELETE CASCADE
+        )`);
+
+        // Create MessageReactions Table (Reactions on Messages)
+        await pool.query(`CREATE TABLE IF NOT EXISTS MessageReactions (
+            id SERIAL PRIMARY KEY,
+            message_id INTEGER NOT NULL,
+            author TEXT NOT NULL,
+            emoji TEXT NOT NULL,
+            UNIQUE(message_id, author),
+            FOREIGN KEY(message_id) REFERENCES Messages(id) ON DELETE CASCADE
+        )`);
+
+        // Create TypingIndicators Table (Polling-based typing status)
+        await pool.query(`CREATE TABLE IF NOT EXISTS TypingIndicators (
+            id SERIAL PRIMARY KEY,
+            room_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(room_id, username),
+            FOREIGN KEY(room_id) REFERENCES Rooms(id) ON DELETE CASCADE
+        )`);
+
+        // Migration: add message notification preferences to NotificationPrefs
+        const msgInappCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'notificationprefs' AND column_name = 'message_inapp'
+        `);
+        if (msgInappCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN message_inapp BOOLEAN DEFAULT true`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN message_email BOOLEAN DEFAULT false`);
+        }
+
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {

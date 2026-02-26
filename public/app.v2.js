@@ -313,6 +313,10 @@ class TerminalApp {
                         <div class="nav-item ${this.currentView === 'feed' ? 'active' : ''}" data-view="feed">
                             Comms Feed
                         </div>
+                        <div class="nav-item ${this.currentView === 'rooms' || this.currentView === 'room_chat' ? 'active' : ''}" data-view="rooms" style="position:relative;">
+                            Breakout Rooms
+                            <span id="roomsBadge" style="display:none; position:absolute; right:1rem; top:50%; transform:translateY(-50%); background:var(--danger); color:#fff; font-size:0.6rem; font-weight:800; padding:1px 5px; border-radius:10px; min-width:16px; text-align:center;"></span>
+                        </div>
                         <div class="nav-item ${this.currentView === 'market_pulse' ? 'active' : ''}" data-view="market_pulse">
                             Market Pulse
                         </div>
@@ -402,12 +406,25 @@ class TerminalApp {
         this._notifInterval = setInterval(() => this.updateNotifBadge(), 30000);
         this.updateNotifBadge();
 
+        // Poll rooms unread badge
+        if (this._roomsPollInterval) clearInterval(this._roomsPollInterval);
+        this._roomsPollInterval = setInterval(() => this.updateRoomsBadge(), 15000);
+        this.updateRoomsBadge();
+
         this.renderCurrentView();
     }
 
     renderCurrentView() {
         const contentArea = document.getElementById('mainContent');
+        // Clear chat polling when leaving room_chat
+        if (this.currentView !== 'room_chat' && this._chatPollInterval) {
+            clearInterval(this._chatPollInterval);
+            this._chatPollInterval = null;
+        }
+
         if (this.currentView === 'feed') this.renderFeed(contentArea);
+        else if (this.currentView === 'rooms') this.renderRoomsList(contentArea);
+        else if (this.currentView === 'room_chat') this.renderRoomChat(contentArea);
         else if (this.currentView === 'market_pulse') this.renderMarketPulse(contentArea);
         else if (this.currentView === 'search') this.renderSearch(contentArea);
         else if (this.currentView === 'dashboard') this.renderDashboard(contentArea);
@@ -1196,7 +1213,7 @@ class TerminalApp {
                             <div style="display:flex; flex-direction:column; align-items:center; gap:0.4rem;">
                                 <img src="${s.data.imagePath}" style="width:auto; height:200px; object-fit:contain; background:var(--bg-panel); border-radius:8px; border:1px solid var(--border); box-shadow: 0 4px 6px var(--accent-glow); cursor:pointer;" title="${s.author}'s Evidence" onclick="this.style.maxHeight = this.style.maxHeight === 'none' ? '200px' : 'none'; this.style.height = this.style.height === 'auto' ? '200px' : 'auto';">
                                 <span style="font-size:0.75rem; color:var(--text-muted);">
-                                    by <span class="user-link" onclick="app.viewUserProfile('${s.author}')">${s.author}</span> · Grade: <span style="color:var(--accent); font-weight:600;">${grade}</span>
+                                    by <span class="user-link" onclick="app.viewUserProfile('${s.author.replace(/'/g, "\\'")}')">${s.author}</span> · Grade: <span style="color:var(--accent); font-weight:600;">${grade}</span>
                                 </span>
                             </div>`;
                     }
@@ -1738,7 +1755,7 @@ class TerminalApp {
                         </div>
 
                         <!-- Row: HQ Updates -->
-                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm); margin-bottom:0.5rem;">
                             <span style="color:var(--text-primary); font-size:0.9rem;">Notify me of important updates from Data Toyz HQ</span>
                             <div style="display:flex; gap:0; flex-shrink:0;">
                                 <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
@@ -1746,6 +1763,19 @@ class TerminalApp {
                                 </label>
                                 <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
                                     <input type="checkbox" class="notifPref notif-toggle" data-key="hq_updates_inapp">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Row: Breakout Room Messages -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me of new messages in Breakout Rooms</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="message_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="message_inapp">
                                 </label>
                             </div>
                         </div>
@@ -1878,6 +1908,7 @@ class TerminalApp {
             { id: 'overview', title: 'Platform Overview' },
             { id: 'navigation', title: 'Navigation Guide' },
             { id: 'comms-feed', title: 'Comms Feed' },
+            { id: 'breakout-rooms', title: 'Breakout Rooms' },
             { id: 'target-search', title: 'Target Search & Catalog' },
             { id: 'trade-scan', title: 'Trade Scan (Submissions)' },
             { id: 'grading', title: 'Grading System' },
@@ -1894,8 +1925,8 @@ class TerminalApp {
         container.innerHTML = `
             <div style="max-width:860px; margin:0 auto; padding-bottom:4rem;">
                 <div style="margin-bottom:2.5rem; text-align:center;">
-                    <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Terminal Documentation</h2>
-                    <p style="color:var(--text-secondary); font-size:1.1rem;">Comprehensive field manual for all Data Toyz Terminal operations.</p>
+                    <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Data Toyz Documentation</h2>
+                    <p style="color:var(--text-secondary); font-size:1.1rem;">Comprehensive field manual for all Data Toyz operations.</p>
                 </div>
 
                 <!-- TABLE OF CONTENTS -->
@@ -1939,6 +1970,7 @@ class TerminalApp {
                         </thead>
                         <tbody>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Comms Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Social timeline for posting updates, comments, and reactions</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Rooms</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Private encrypted channels for 1-on-1 DMs and group chats</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Dashboard with market statistics, brand indexes, and top-rated figures</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target Search</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">My Intel History</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">View all your past intel report submissions</td></tr>
@@ -1968,9 +2000,46 @@ class TerminalApp {
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
                 </div>
 
-                <!-- 04. TARGET SEARCH -->
+                <!-- 04. BREAKOUT ROOMS -->
+                <div id="doc-breakout-rooms" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. Breakout Rooms</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Breakout Rooms are encrypted private channels within Global Comms. Unlike the public Comms Feed, Breakout Rooms allow operatives to communicate in private &mdash; either one-on-one or in small groups.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Room Types:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Direct Messages (DMs)</strong> &mdash; Private 1-on-1 channels between two operatives. Auto-deduplicated: opening a DM with someone you already have a channel with will reopen the existing conversation.</li>
+                        <li><strong>Group Channels</strong> &mdash; Named rooms with multiple members. Created via the "+ New Room" button with a custom name and invited operatives.</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Messaging Features:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Text Messages</strong> &mdash; Send real-time text transmissions to channel members</li>
+                        <li><strong>Image Attachments</strong> &mdash; Upload images via the camera icon in the input bar</li>
+                        <li><strong>Emoji Reactions</strong> &mdash; React to any message with one of four emojis (\u{1F44D} \u{2764}\u{FE0F} \u{1F602} \u{1F622}). Reactions toggle on/off.</li>
+                        <li><strong>Typing Indicators</strong> &mdash; See when another operative is composing a message in real time</li>
+                        <li><strong>Read Receipts</strong> &mdash; Unread message counts appear on room cards and the nav badge</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Room Management:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Members Panel</strong> &mdash; Click "Members" in any channel header to view all operatives. The room creator is labeled Commander.</li>
+                        <li><strong>Add Members</strong> &mdash; Commanders can invite additional operatives to group channels by searching usernames</li>
+                        <li><strong>Remove Members</strong> &mdash; Commanders can remove members from group channels</li>
+                        <li><strong>Leave Channel</strong> &mdash; Any member can leave a channel at any time. Ownership auto-transfers if the Commander leaves.</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Starting a DM:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        You can open a direct channel with any operative by clicking the <strong>"Open Secure Channel"</strong> button on their profile dossier. This is accessible from any username link across the platform (Comms Feed, Leaderboard, etc.).
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Filter Tabs:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The room list supports three filter views: <strong>All</strong> (every channel), <strong>DMs</strong> (1-on-1 only), and <strong>Groups</strong> (multi-member channels only). Rooms are sorted by most recent activity.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Messages poll for updates every 3 seconds while you are inside a channel. The nav badge polls every 15 seconds for total unread messages across all rooms.</p>
+                </div>
+
+                <!-- 05. TARGET SEARCH -->
                 <div id="doc-target-search" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. Target Search & Catalog</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Target Search & Catalog</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Target Search page is the central figure catalog. Every Transformers figure in the database is listed here with real-time search and filtering.
                     </p>
@@ -1986,9 +2055,9 @@ class TerminalApp {
                     </p>
                 </div>
 
-                <!-- 05. TRADE SCAN -->
+                <!-- 06. TRADE SCAN -->
                 <div id="doc-trade-scan" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Trade Scan (Submissions)</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Trade Scan (Submissions)</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Trade Scan is the core evaluation form. When you select a figure from Target Search, you can "Execute Trade Scan" to submit a detailed intel report grading the figure across multiple dimensions.
                     </p>
@@ -2014,9 +2083,9 @@ class TerminalApp {
                     <p style="color:var(--text-muted); font-size:0.85rem;">Each submission is permanently recorded and visible to the entire community. You can retract your own submissions from My Intel History.</p>
                 </div>
 
-                <!-- 06. GRADING SYSTEM -->
+                <!-- 07. GRADING SYSTEM -->
                 <div id="doc-grading" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Grading System</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">07. Grading System</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         Every intel report generates three scores that combine into an Overall Grade:
                     </p>
@@ -2050,9 +2119,9 @@ class TerminalApp {
                     </div>
                 </div>
 
-                <!-- 07. MARKET PULSE -->
+                <!-- 08. MARKET PULSE -->
                 <div id="doc-market-pulse" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">07. Market Pulse Dashboard</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">08. Market Pulse Dashboard</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Market Pulse is a high-level analytics dashboard showing the state of the collectible market across all tracked figures.
                     </p>
@@ -2068,9 +2137,9 @@ class TerminalApp {
                     </p>
                 </div>
 
-                <!-- 08. MY INTEL HISTORY -->
+                <!-- 09. MY INTEL HISTORY -->
                 <div id="doc-intel-history" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">08. My Intel History</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">09. My Intel History</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         View all intel reports you have submitted. Each entry shows the target name, class tier, date, and your grade. You can click any entry to navigate to that figure's full intel page.
                     </p>
@@ -2079,9 +2148,9 @@ class TerminalApp {
                     </p>
                 </div>
 
-                <!-- 09. LEADERBOARDS -->
+                <!-- 10. LEADERBOARDS -->
                 <div id="doc-leaderboards" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">09. Global Leaderboard & Ranks</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">10. Global Leaderboard & Ranks</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         Operatives are ranked by total number of intel submissions. The leaderboard shows the top contributors with clickable profiles.
                     </p>
@@ -2103,9 +2172,9 @@ class TerminalApp {
                     </table>
                 </div>
 
-                <!-- 10. PROFILE SETTINGS -->
+                <!-- 11. PROFILE SETTINGS -->
                 <div id="doc-profile" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">10. Profile Settings</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">11. Profile Settings</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         Manage your operative identity from the Profile Settings page:
                     </p>
@@ -2114,13 +2183,13 @@ class TerminalApp {
                         <li><strong>Username</strong> &mdash; Change your operative codename (updates all past submissions automatically)</li>
                         <li><strong>Email</strong> &mdash; Update your secure email address (used for password reset and email notifications)</li>
                         <li><strong>Change Passcode</strong> &mdash; Requires your current passcode for verification, then set a new one</li>
-                        <li><strong>Notification Settings</strong> &mdash; Toggle grid to control which notifications you receive via in-app alerts and email (see section 11)</li>
+                        <li><strong>Notification Settings</strong> &mdash; Toggle grid to control which notifications you receive via in-app alerts and email (see section 12)</li>
                     </ul>
                 </div>
 
-                <!-- 11. NOTIFICATIONS -->
+                <!-- 12. NOTIFICATIONS -->
                 <div id="doc-notifications" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">11. Notifications</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">12. Notifications</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The notification bell in the top-right corner alerts you to activity on your content. Click a notification to navigate directly to the relevant post or figure. Use "Mark all read" to clear unread badges. Notifications poll for updates every 30 seconds.
                     </p>
@@ -2132,6 +2201,7 @@ class TerminalApp {
                         <li><strong>Co-reviewer on same figure</strong> &mdash; When another operative submits an intel report on a figure you also reviewed</li>
                         <li><strong>New figure added to catalog</strong> &mdash; When an admin adds a new figure to the database</li>
                         <li><strong>Important updates from HQ</strong> &mdash; System-wide announcements from Terminal administrators</li>
+                        <li><strong>Breakout Room Messages</strong> &mdash; When a new message is sent in a Breakout Room you are a member of</li>
                     </ul>
 
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Channels:</strong></p>
@@ -2150,9 +2220,9 @@ class TerminalApp {
                     <p style="color:var(--text-muted); font-size:0.85rem;">Tip: If you want to be notified by email when new figures are added to the catalog, toggle the "Email" switch for "New figure added to catalog" on your profile page.</p>
                 </div>
 
-                <!-- 12. ADMIN PANEL -->
+                <!-- 13. ADMIN PANEL -->
                 <div id="doc-admin" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">12. Admin Panel</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. Admin Panel</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Admin Panel is only visible to operatives with the <strong>admin</strong> role. It provides full control over the platform:
                     </p>
@@ -2177,9 +2247,9 @@ class TerminalApp {
                     <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The primary admin account (Prime Dynamixx) is protected and cannot be demoted, suspended, or deleted.</p>
                 </div>
 
-                <!-- 13. SECURITY -->
+                <!-- 14. SECURITY -->
                 <div id="doc-security" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. Security & Authentication</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Security & Authentication</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The terminal uses industry-standard security practices to protect all operative accounts:
                     </p>
@@ -2200,9 +2270,9 @@ class TerminalApp {
                     <p style="color:var(--text-muted); font-size:0.85rem;">Suspended accounts cannot log in or perform any actions. Session tokens are automatically invalidated when an account is suspended.</p>
                 </div>
 
-                <!-- 14. GLOSSARY -->
+                <!-- 15. GLOSSARY -->
                 <div id="doc-glossary" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Glossary</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Glossary</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Data Toyz Terminal uses intelligence/spy-themed terminology throughout the platform:
                     </p>
@@ -2220,6 +2290,9 @@ class TerminalApp {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Trade Scan</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The evaluation form for grading a figure</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Comms Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The social timeline / news feed</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Broadcast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A post on the Comms Feed</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Room</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A private encrypted channel (DM or group chat)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Secure Channel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A direct message (DM) between two operatives</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Commander</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The owner/creator of a Breakout Room channel</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The analytics dashboard showing market trends</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">MTS (Market Trading Score)</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The market sentiment portion of a grade (5&ndash;50)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Approval Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The physical quality percentage (0&ndash;100)</td></tr>
@@ -2671,6 +2744,12 @@ class TerminalApp {
                         </div>
                     </div>
 
+                    ${profile.username !== this.user.username ? `
+                    <button class="btn" onclick="app.startDM('${profile.username.replace(/'/g, "\\'")}')" style="width:100%; margin-bottom:2rem; padding:0.85rem; font-size:0.95rem;">
+                        🔒 Open Secure Channel
+                    </button>
+                    ` : ''}
+
                     ${profile.recentSubmissions.length > 0 ? `
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">Recent Intel Reports</h3>
                     <div class="card" style="padding:0; overflow:hidden;">
@@ -2735,7 +2814,7 @@ class TerminalApp {
                 return;
             }
 
-            const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋' };
+            const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', message: '🔒' };
 
             dropdown.innerHTML = `
                 <div style="padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center;">
@@ -2763,6 +2842,7 @@ class TerminalApp {
                     await this.authFetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
                     if (linkType === 'post') { this.currentView = 'feed'; this.renderApp(); }
                     else if (linkType === 'figure') { this.selectTarget(parseInt(linkId)); }
+                    else if (linkType === 'room') { sessionStorage.setItem('activeRoomId', linkId); this.currentView = 'room_chat'; this.renderApp(); }
                     dropdown.style.display = 'none';
                 });
             });
@@ -2802,8 +2882,596 @@ class TerminalApp {
         localStorage.removeItem('terminal_user');
         sessionStorage.removeItem('terminalView');
         sessionStorage.removeItem('terminalTarget');
+        sessionStorage.removeItem('activeRoomId');
         if (this._notifInterval) clearInterval(this._notifInterval);
+        if (this._roomsPollInterval) clearInterval(this._roomsPollInterval);
+        if (this._chatPollInterval) clearInterval(this._chatPollInterval);
         this.renderLogin();
+    }
+
+    // --- BREAKOUT ROOMS --- //
+
+    async updateRoomsBadge() {
+        try {
+            const res = await this.authFetch(`${API_URL}/rooms/unread-total`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const badge = document.getElementById('roomsBadge');
+            if (badge) {
+                if (data.unread > 0) {
+                    badge.textContent = data.unread > 99 ? '99+' : data.unread;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async renderRoomsList(container) {
+        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Scanning secure channels...</div>`;
+
+        let rooms = [];
+        try {
+            const res = await this.authFetch(`${API_URL}/rooms`);
+            if (res.ok) rooms = await res.json();
+        } catch (e) {
+            console.error("Failed fetching rooms", e);
+        }
+
+        const self = this.user.username;
+        this._roomsFilter = this._roomsFilter || 'all';
+
+        const filtered = rooms.filter(r => {
+            if (this._roomsFilter === 'dm') return r.type === 'dm';
+            if (this._roomsFilter === 'group') return r.type === 'group';
+            return true;
+        });
+
+        container.innerHTML = `
+            <div class="rooms-container" style="max-width:700px; margin:0 auto; padding-bottom:3rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+                    <div>
+                        <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Breakout Rooms</h2>
+                        <p style="color:var(--text-secondary); font-size:1.1rem;">Encrypted private channels for covert comms.</p>
+                    </div>
+                    <button id="newRoomBtn" class="btn" style="white-space:nowrap;">+ New Room</button>
+                </div>
+
+                <div class="room-tabs" style="display:flex; gap:0.5rem; margin-bottom:1.5rem;">
+                    <div class="room-tab ${this._roomsFilter === 'all' ? 'active' : ''}" data-filter="all">All</div>
+                    <div class="room-tab ${this._roomsFilter === 'dm' ? 'active' : ''}" data-filter="dm">DMs</div>
+                    <div class="room-tab ${this._roomsFilter === 'group' ? 'active' : ''}" data-filter="group">Groups</div>
+                </div>
+
+                <div id="roomsList">
+                    ${filtered.length === 0 ? `
+                        <div class="card animate-mount" style="text-align:center; padding:3rem; color:var(--text-muted);">
+                            No secure channels detected. Create one to begin encrypted comms.
+                        </div>
+                    ` : filtered.map((room, i) => {
+                        const displayName = room.type === 'dm'
+                            ? (room.members.find(m => m.username !== self) || {}).username || 'Unknown'
+                            : room.name || 'Unnamed Channel';
+                        const avatar = room.type === 'dm'
+                            ? (room.members.find(m => m.username !== self) || {}).avatar
+                            : null;
+                        const initial = displayName.charAt(0).toUpperCase();
+                        const lastMsg = room.lastMessage;
+                        const preview = lastMsg ? `${lastMsg.author === self ? 'You' : lastMsg.author}: ${lastMsg.content || '📸 Image'}` : 'No messages yet';
+                        const time = lastMsg ? this.timeAgo(lastMsg.createdAt) : '';
+                        return `
+                        <div class="room-card animate-stagger ${room.unreadCount > 0 ? 'has-unread' : ''}" data-room-id="${room.id}" style="animation-delay:${i * 0.06}s;">
+                            <div class="room-avatar">
+                                ${avatar ? `<img src="${avatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">` : initial}
+                            </div>
+                            <div class="room-info">
+                                <div class="room-name">${displayName}${room.type === 'group' ? ` <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;">(${room.members.length})</span>` : ''}</div>
+                                <div class="room-preview">${preview.length > 60 ? preview.substring(0, 60) + '...' : preview}</div>
+                            </div>
+                            <div class="room-meta">
+                                <div class="room-time">${time}</div>
+                                ${room.unreadCount > 0 ? `<div class="room-unread">${room.unreadCount > 99 ? '99+' : room.unreadCount}</div>` : ''}
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        // Tab filtering
+        container.querySelectorAll('.room-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this._roomsFilter = tab.dataset.filter;
+                this.renderRoomsList(container);
+            });
+        });
+
+        // Room card click → open chat
+        container.querySelectorAll('.room-card').forEach(card => {
+            card.addEventListener('click', () => {
+                sessionStorage.setItem('activeRoomId', card.dataset.roomId);
+                this.currentView = 'room_chat';
+                this.renderCurrentView();
+            });
+        });
+
+        // New Room button
+        document.getElementById('newRoomBtn').addEventListener('click', () => this.showNewRoomModal());
+    }
+
+    showNewRoomModal() {
+        // Remove existing modal if any
+        const existing = document.querySelector('.room-modal-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'room-modal-overlay';
+        overlay.innerHTML = `
+            <div class="room-modal">
+                <h3 style="font-size:1.3rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1.5rem;">Create Secure Channel</h3>
+                <label style="font-size:0.85rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">Channel Name</label>
+                <input type="text" id="roomNameInput" placeholder="e.g., Strike Team Alpha" style="width:100%; padding:0.75rem 1rem; background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.95rem; margin:0.5rem 0 1.25rem;">
+
+                <label style="font-size:0.85rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">Add Operatives</label>
+                <input type="text" id="memberSearchInput" placeholder="Search by username..." style="width:100%; padding:0.75rem 1rem; background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.95rem; margin:0.5rem 0 0.25rem;">
+                <div id="memberSearchResults" class="user-search-results" style="display:none;"></div>
+                <div id="selectedMembers" style="display:flex; flex-wrap:wrap; gap:0.25rem; margin:0.75rem 0 1.5rem; min-height:2rem;"></div>
+
+                <div style="display:flex; gap:1rem; justify-content:flex-end;">
+                    <button id="cancelRoomBtn" class="btn" style="background:transparent; border:1px solid var(--border-light); color:var(--text-secondary);">Cancel</button>
+                    <button id="createRoomBtn" class="btn">Create Channel</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const selectedMembers = [];
+        let searchTimeout = null;
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        document.getElementById('cancelRoomBtn').addEventListener('click', () => overlay.remove());
+
+        // Search users
+        const searchInput = document.getElementById('memberSearchInput');
+        const resultsDiv = document.getElementById('memberSearchResults');
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            const q = searchInput.value.trim();
+            if (q.length < 1) { resultsDiv.style.display = 'none'; return; }
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await this.authFetch(`${API_URL}/users/search?q=${encodeURIComponent(q)}`);
+                    const users = await res.json();
+                    const available = users.filter(u => !selectedMembers.includes(u.username));
+                    if (available.length === 0) { resultsDiv.style.display = 'none'; return; }
+                    resultsDiv.style.display = 'block';
+                    resultsDiv.innerHTML = available.map(u => `
+                        <div class="user-search-item" data-username="${u.username}">
+                            ${u.avatar ? `<img src="${u.avatar}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">` : `<div style="width:32px; height:32px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:0.85rem;">${u.username.charAt(0).toUpperCase()}</div>`}
+                            <span>${u.username}</span>
+                        </div>
+                    `).join('');
+
+                    resultsDiv.querySelectorAll('.user-search-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            const uname = item.dataset.username;
+                            if (!selectedMembers.includes(uname)) {
+                                selectedMembers.push(uname);
+                                this._renderSelectedMembers(selectedMembers);
+                            }
+                            searchInput.value = '';
+                            resultsDiv.style.display = 'none';
+                        });
+                    });
+                } catch (e) { resultsDiv.style.display = 'none'; }
+            }, 300);
+        });
+
+        // Create room
+        document.getElementById('createRoomBtn').addEventListener('click', async () => {
+            const name = document.getElementById('roomNameInput').value.trim();
+            if (!name) return alert('Channel name is required.');
+            if (selectedMembers.length === 0) return alert('Add at least one operative.');
+
+            const btn = document.getElementById('createRoomBtn');
+            btn.textContent = 'Creating...';
+            btn.disabled = true;
+
+            try {
+                const res = await this.authFetch(`${API_URL}/rooms`, {
+                    method: 'POST',
+                    body: JSON.stringify({ name, type: 'group', members: selectedMembers })
+                });
+                if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+                const room = await res.json();
+                overlay.remove();
+                sessionStorage.setItem('activeRoomId', room.id);
+                this.currentView = 'room_chat';
+                this.renderCurrentView();
+            } catch (e) {
+                alert(e.message || 'Failed to create channel.');
+                btn.textContent = 'Create Channel';
+                btn.disabled = false;
+            }
+        });
+    }
+
+    _renderSelectedMembers(members) {
+        const container = document.getElementById('selectedMembers');
+        if (!container) return;
+        container.innerHTML = members.map(m => `
+            <span class="member-pill">
+                ${m}
+                <span class="remove-member" data-username="${m}">&times;</span>
+            </span>
+        `).join('');
+        container.querySelectorAll('.remove-member').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = members.indexOf(btn.dataset.username);
+                if (idx > -1) members.splice(idx, 1);
+                this._renderSelectedMembers(members);
+            });
+        });
+    }
+
+    async renderRoomChat(container) {
+        const roomId = sessionStorage.getItem('activeRoomId');
+        if (!roomId) { this.currentView = 'rooms'; this.renderCurrentView(); return; }
+
+        container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--text-secondary);">Establishing encrypted channel...</div>`;
+
+        try {
+            // Fetch room details and messages in parallel
+            const [roomRes, msgsRes] = await Promise.all([
+                this.authFetch(`${API_URL}/rooms/${roomId}`),
+                this.authFetch(`${API_URL}/rooms/${roomId}/messages`)
+            ]);
+
+            if (!roomRes.ok) { this.currentView = 'rooms'; this.renderCurrentView(); return; }
+
+            const room = await roomRes.json();
+            const messages = msgsRes.ok ? await msgsRes.json() : [];
+            this._lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : 0;
+            this._currentRoomId = roomId;
+
+            const self = this.user.username;
+            const displayName = room.type === 'dm'
+                ? (room.members.find(m => m.username !== self) || {}).username || 'Secure Channel'
+                : room.name || 'Unnamed Channel';
+
+            const iAmOwner = room.members.find(m => m.username === self && m.role === 'owner');
+
+            container.innerHTML = `
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <button id="chatBackBtn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:1.2rem; padding:0.5rem;">&larr;</button>
+                        <div style="flex:1;">
+                            <div style="font-weight:700; font-size:1.1rem;">${displayName}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">${room.members.length} operative${room.members.length > 1 ? 's' : ''} in channel</div>
+                        </div>
+                        ${room.type === 'group' ? `
+                        <button id="roomMembersBtn" style="background:none; border:1px solid var(--border-light); color:var(--text-secondary); cursor:pointer; padding:0.4rem 0.8rem; border-radius:var(--radius-sm); font-size:0.85rem;">👥 Members</button>
+                        ` : ''}
+                    </div>
+
+                    <div class="chat-messages" id="chatMessages">
+                        ${messages.length === 0 ? `
+                            <div style="text-align:center; color:var(--text-muted); padding:3rem;">
+                                Channel established. Begin secure transmission.
+                            </div>
+                        ` : messages.map(m => this._renderMessage(m, self)).join('')}
+                    </div>
+
+                    <div id="typingIndicator" class="typing-indicator"></div>
+
+                    <div class="chat-input-bar">
+                        <label for="chatImageInput" style="cursor:pointer; padding:0.6rem; border:1px solid var(--border-light); border-radius:50%; font-size:1.1rem; transition:all 0.2s; flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-light)'">📸</label>
+                        <input type="file" id="chatImageInput" accept="image/*" style="display:none;">
+                        <textarea id="chatInput" placeholder="Transmit message..." rows="1" style="flex:1; resize:none; min-height:44px; max-height:120px; padding:0.75rem 1rem; font-size:0.95rem; border-radius:22px; background:var(--bg-surface); border:1px solid var(--border-light); color:var(--text-primary); font-family:var(--font-body);"></textarea>
+                        <button id="chatSendBtn" class="btn" style="padding:0.6rem 1.25rem; border-radius:22px; flex-shrink:0;">Send ➤</button>
+                    </div>
+                </div>
+            `;
+
+            // Scroll to bottom
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // Back button
+            document.getElementById('chatBackBtn').addEventListener('click', () => {
+                this.currentView = 'rooms';
+                this.renderCurrentView();
+            });
+
+            // Members panel
+            const membersBtn = document.getElementById('roomMembersBtn');
+            if (membersBtn) {
+                membersBtn.addEventListener('click', () => this._showMembersPanel(room, iAmOwner));
+            }
+
+            // Send message
+            const sendMessage = async () => {
+                const input = document.getElementById('chatInput');
+                const imageInput = document.getElementById('chatImageInput');
+                const content = input.value.trim();
+                const file = imageInput.files[0];
+                if (!content && !file) return;
+
+                const btn = document.getElementById('chatSendBtn');
+                btn.disabled = true;
+                btn.textContent = '...';
+
+                try {
+                    const formData = new FormData();
+                    if (content) formData.append('content', content);
+                    if (file) formData.append('image', file);
+
+                    const res = await fetch(`${API_URL}/rooms/${roomId}/messages`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${this.token}` },
+                        body: formData
+                    });
+
+                    if (res.ok) {
+                        const msg = await res.json();
+                        input.value = '';
+                        imageInput.value = '';
+                        this._appendMessage(msg, self);
+                        this._lastMessageId = msg.id;
+                    }
+                } catch (e) {
+                    console.error('Failed to send message', e);
+                }
+                btn.disabled = false;
+                btn.textContent = 'Send ➤';
+            };
+
+            document.getElementById('chatSendBtn').addEventListener('click', sendMessage);
+            document.getElementById('chatInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+            });
+
+            // Auto-resize textarea
+            const chatInput = document.getElementById('chatInput');
+            chatInput.addEventListener('input', () => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+            });
+
+            // Typing indicator (debounced)
+            let typingTimeout = null;
+            chatInput.addEventListener('input', () => {
+                if (!typingTimeout) {
+                    this.authFetch(`${API_URL}/rooms/${roomId}/typing`, { method: 'POST' }).catch(() => {});
+                }
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => { typingTimeout = null; }, 2000);
+            });
+
+            // Start polling for new messages
+            if (this._chatPollInterval) clearInterval(this._chatPollInterval);
+            this._chatPollInterval = setInterval(() => this._pollRoomMessages(roomId, self), 3000);
+
+            // Reaction click delegation
+            chatMessages.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.msg-react-btn');
+                if (!btn) return;
+                const msgId = btn.dataset.messageId;
+                const emoji = btn.dataset.emoji;
+                try {
+                    await this.authFetch(`${API_URL}/rooms/${roomId}/messages/${msgId}/react`, {
+                        method: 'POST',
+                        body: JSON.stringify({ emoji })
+                    });
+                    // Re-poll immediately to update reactions
+                    this._pollRoomMessages(roomId, self);
+                } catch (e) { console.error('Reaction failed', e); }
+            });
+
+        } catch (e) {
+            container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load channel.</div>`;
+            console.error(e);
+        }
+    }
+
+    _renderMessage(m, self) {
+        const isOwn = m.author === self;
+        const initial = m.author.charAt(0).toUpperCase();
+        const emojis = ['👍', '❤️', '😂', '😢'];
+        const reactionCounts = {};
+        (m.reactions || []).forEach(r => {
+            if (!reactionCounts[r.emoji]) reactionCounts[r.emoji] = { count: 0, users: [], active: false };
+            reactionCounts[r.emoji].count++;
+            reactionCounts[r.emoji].users.push(r.author);
+            if (r.author === self) reactionCounts[r.emoji].active = true;
+        });
+
+        return `
+            <div class="msg-row ${isOwn ? 'own' : ''}" data-msg-id="${m.id}">
+                <div class="msg-avatar">${initial}</div>
+                <div>
+                    ${!isOwn ? `<div class="msg-author">${m.author}</div>` : ''}
+                    <div class="msg-bubble">
+                        ${m.content ? `<div class="msg-content">${m.content}</div>` : ''}
+                        ${m.image ? `<img src="${m.image}" class="msg-image" alt="attachment">` : ''}
+                    </div>
+                    <div class="msg-reactions">
+                        ${emojis.map(e => {
+                            const r = reactionCounts[e];
+                            return `<button class="msg-react-btn ${r && r.active ? 'active' : ''}" data-message-id="${m.id}" data-emoji="${e}">${e}${r ? ` ${r.count}` : ''}</button>`;
+                        }).join('')}
+                    </div>
+                    <div class="msg-time">${this.timeAgo(m.createdAt)}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    _appendMessage(msg, self) {
+        const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) return;
+        // Remove empty state if present
+        const emptyState = chatMessages.querySelector('[style*="text-align:center"]');
+        if (emptyState && chatMessages.children.length === 1) emptyState.remove();
+
+        const div = document.createElement('div');
+        div.innerHTML = this._renderMessage(msg, self);
+        chatMessages.appendChild(div.firstElementChild);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async _pollRoomMessages(roomId, self) {
+        if (this.currentView !== 'room_chat' || sessionStorage.getItem('activeRoomId') !== roomId) return;
+        try {
+            const res = await this.authFetch(`${API_URL}/rooms/${roomId}/poll?after=${this._lastMessageId || 0}`);
+            if (!res.ok) return;
+            const data = await res.json();
+
+            // Append new messages
+            if (data.messages && data.messages.length > 0) {
+                for (const msg of data.messages) {
+                    // Check if message already exists in DOM
+                    const existing = document.querySelector(`[data-msg-id="${msg.id}"]`);
+                    if (!existing) {
+                        this._appendMessage(msg, self);
+                    }
+                    this._lastMessageId = Math.max(this._lastMessageId || 0, msg.id);
+                }
+            }
+
+            // Update typing indicator
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                if (data.typing && data.typing.length > 0) {
+                    const names = data.typing.join(' and ');
+                    indicator.textContent = `${names} ${data.typing.length > 1 ? 'are' : 'is'} typing...`;
+                } else {
+                    indicator.textContent = '';
+                }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    _showMembersPanel(room, iAmOwner) {
+        const existing = document.querySelector('.room-modal-overlay');
+        if (existing) existing.remove();
+
+        const self = this.user.username;
+        const overlay = document.createElement('div');
+        overlay.className = 'room-modal-overlay';
+        overlay.innerHTML = `
+            <div class="room-modal">
+                <h3 style="font-size:1.3rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1.5rem;">Channel Operatives</h3>
+                <div style="max-height:300px; overflow-y:auto;">
+                    ${room.members.map(m => `
+                        <div style="display:flex; align-items:center; gap:1rem; padding:0.75rem 0; border-bottom:1px solid var(--border-light);">
+                            ${m.avatar ? `<img src="${m.avatar}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">` : `<div style="width:36px; height:36px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff;">${m.username.charAt(0).toUpperCase()}</div>`}
+                            <div style="flex:1;">
+                                <span style="font-weight:600; ${m.username === self ? 'color:var(--accent);' : ''}">${m.username}</span>
+                                ${m.role === 'owner' ? '<span style="font-size:0.7rem; color:#fbbf24; margin-left:0.5rem;">★ COMMANDER</span>' : ''}
+                            </div>
+                            ${iAmOwner && m.username !== self ? `<button class="remove-member-btn" data-username="${m.username}" style="background:none; border:1px solid var(--danger); color:var(--danger); padding:0.3rem 0.6rem; border-radius:var(--radius-sm); font-size:0.75rem; cursor:pointer;">Remove</button>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+                ${iAmOwner ? `
+                <div style="margin-top:1.25rem;">
+                    <input type="text" id="addMemberSearch" placeholder="Add operative..." style="width:100%; padding:0.6rem 1rem; background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.9rem;">
+                    <div id="addMemberResults" class="user-search-results" style="display:none;"></div>
+                </div>` : ''}
+                <div style="display:flex; gap:1rem; justify-content:space-between; margin-top:1.5rem;">
+                    <button id="leaveRoomBtn" style="background:none; border:1px solid var(--danger); color:var(--danger); padding:0.5rem 1rem; border-radius:var(--radius-sm); cursor:pointer; font-size:0.85rem;">Leave Channel</button>
+                    <button id="closeMembersBtn" class="btn" style="padding:0.5rem 1rem;">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        document.getElementById('closeMembersBtn').addEventListener('click', () => overlay.remove());
+
+        // Leave room
+        document.getElementById('leaveRoomBtn').addEventListener('click', async () => {
+            if (!confirm('Leave this channel? You will no longer receive messages.')) return;
+            try {
+                await this.authFetch(`${API_URL}/rooms/${room.id}/members/${encodeURIComponent(self)}`, { method: 'DELETE' });
+                overlay.remove();
+                this.currentView = 'rooms';
+                this.renderCurrentView();
+            } catch (e) { alert('Failed to leave channel.'); }
+        });
+
+        // Remove member
+        overlay.querySelectorAll('.remove-member-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const uname = btn.dataset.username;
+                if (!confirm(`Remove ${uname} from this channel?`)) return;
+                try {
+                    await this.authFetch(`${API_URL}/rooms/${room.id}/members/${encodeURIComponent(uname)}`, { method: 'DELETE' });
+                    overlay.remove();
+                    // Refresh chat to reflect changes
+                    this.renderRoomChat(document.getElementById('mainContent'));
+                } catch (e) { alert('Failed to remove operative.'); }
+            });
+        });
+
+        // Add member search
+        const addSearch = document.getElementById('addMemberSearch');
+        if (addSearch) {
+            let timeout = null;
+            addSearch.addEventListener('input', () => {
+                clearTimeout(timeout);
+                const q = addSearch.value.trim();
+                const results = document.getElementById('addMemberResults');
+                if (q.length < 1) { results.style.display = 'none'; return; }
+                timeout = setTimeout(async () => {
+                    try {
+                        const res = await this.authFetch(`${API_URL}/users/search?q=${encodeURIComponent(q)}`);
+                        const users = await res.json();
+                        const existingMembers = room.members.map(m => m.username);
+                        const available = users.filter(u => !existingMembers.includes(u.username));
+                        if (available.length === 0) { results.style.display = 'none'; return; }
+                        results.style.display = 'block';
+                        results.innerHTML = available.map(u => `
+                            <div class="user-search-item" data-username="${u.username}">
+                                <span>${u.username}</span>
+                            </div>
+                        `).join('');
+                        results.querySelectorAll('.user-search-item').forEach(item => {
+                            item.addEventListener('click', async () => {
+                                try {
+                                    await this.authFetch(`${API_URL}/rooms/${room.id}/members`, {
+                                        method: 'POST',
+                                        body: JSON.stringify({ username: item.dataset.username })
+                                    });
+                                    overlay.remove();
+                                    this.renderRoomChat(document.getElementById('mainContent'));
+                                } catch (e) { alert('Failed to add operative.'); }
+                            });
+                        });
+                    } catch (e) { /* silent */ }
+                }, 300);
+            });
+        }
+    }
+
+    async startDM(username) {
+        try {
+            const res = await this.authFetch(`${API_URL}/rooms`, {
+                method: 'POST',
+                body: JSON.stringify({ type: 'dm', members: [username] })
+            });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+            const room = await res.json();
+            sessionStorage.setItem('activeRoomId', room.id);
+            this.currentView = 'room_chat';
+            this.renderApp();
+        } catch (e) {
+            alert('Failed to open secure channel.');
+            console.error(e);
+        }
     }
 }
 
