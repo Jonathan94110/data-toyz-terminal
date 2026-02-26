@@ -1007,7 +1007,7 @@ app.get('/api/figures/ranked', async (req, res) => {
 app.get('/api/figures/:id/comments', async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await pool.query(
+        const result = await db.query(
             `SELECT * FROM FigureComments WHERE figure_id = $1 ORDER BY created_at DESC LIMIT 50`,
             [id]
         );
@@ -1029,7 +1029,7 @@ app.post('/api/figures/:id/comments', requireAuth, async (req, res) => {
         if (content.length > 1000) {
             return res.status(400).json({ error: 'Comment too long (max 1000 characters)' });
         }
-        const result = await pool.query(
+        const result = await db.query(
             `INSERT INTO FigureComments (figure_id, author, content, created_at) VALUES ($1, $2, $3, $4) RETURNING *`,
             [id, req.user.username, content.trim(), new Date().toISOString()]
         );
