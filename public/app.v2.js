@@ -58,6 +58,7 @@ class TerminalApp {
 
         this.token = localStorage.getItem('terminal_token') || null;
         this.user = null;
+        this.previousView = null;
 
         // Clean up old storage format
         localStorage.removeItem('terminal_user');
@@ -331,6 +332,16 @@ class TerminalApp {
                 this.user = data;
                 localStorage.setItem('terminal_token', data.token);
                 await this.loadFigures();
+
+                // Preserve deep-link from URL (e.g. email notification click-through)
+                const urlParams = new URLSearchParams(window.location.search);
+                const figureParam = urlParams.get('figure');
+                if (figureParam) {
+                    const fId = parseInt(figureParam);
+                    const target = MOCK_FIGURES.find(f => f.id == fId);
+                    if (target) { this.currentTarget = target; this.currentView = 'pulse'; }
+                }
+
                 this.renderApp();
             } catch (err) {
                 alert(err.message);
@@ -763,7 +774,7 @@ class TerminalApp {
             });
         });
 
-        // Emoji Reaction Handlers
+        // Emoji Reaction Handlers — in-place update (no full re-render)
         document.querySelectorAll('.reactBtn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const postId = btn.dataset.postid;
@@ -775,7 +786,43 @@ class TerminalApp {
                         body: JSON.stringify({ emoji })
                     });
                     if (!res.ok) throw new Error("Reaction failed.");
-                    this.renderFeed(container); // Refresh to grab updated arrays
+                    const result = await res.json();
+
+                    // Find all reaction buttons for this post
+                    const postBtns = document.querySelectorAll(`.reactBtn[data-postid="${postId}"]`);
+                    const emojiMap = { like: '👍', heart: '❤️', lmao: '😂', sad: '😢' };
+
+                    postBtns.forEach(b => {
+                        const bEmoji = b.dataset.emoji;
+                        const currentText = b.textContent.trim();
+                        const currentCount = parseInt(currentText.replace(/[^\d]/g, '')) || 0;
+                        const wasActive = b.style.borderColor.includes('accent') || b.style.color.includes('accent') ||
+                                          b.style.cssText.includes('var(--accent)');
+
+                        if (bEmoji === emoji) {
+                            if (result.action === 'removed') {
+                                // User un-reacted this emoji
+                                b.textContent = `${emojiMap[bEmoji]} ${Math.max(0, currentCount - 1)}`;
+                                b.style.background = 'transparent';
+                                b.style.borderColor = 'var(--border-light)';
+                                b.style.color = 'var(--text-secondary)';
+                            } else {
+                                // User added or switched TO this emoji
+                                const newCount = result.action === 'added' ? currentCount + 1 : currentCount + 1;
+                                b.textContent = `${emojiMap[bEmoji]} ${newCount}`;
+                                b.style.background = 'var(--bg-panel)';
+                                b.style.borderColor = 'var(--accent)';
+                                b.style.color = 'var(--accent)';
+                            }
+                        } else if (result.action === 'updated' && wasActive) {
+                            // User switched FROM this emoji to another
+                            b.textContent = `${emojiMap[bEmoji]} ${Math.max(0, currentCount - 1)}`;
+                            b.style.background = 'transparent';
+                            b.style.borderColor = 'var(--border-light)';
+                            b.style.color = 'var(--text-secondary)';
+                        }
+                        b.style.opacity = '1';
+                    });
                 } catch (err) {
                     console.error(err);
                     btn.style.opacity = '1';
@@ -1079,6 +1126,8 @@ class TerminalApp {
     }
 
     selectTarget(id) {
+        // Track where user came from for back navigation
+        this.previousView = this.currentView;
         // Try MOCK_FIGURES first (loose equality handles string/number mismatch)
         this.currentTarget = MOCK_FIGURES.find(f => f.id == id);
         if (this.currentTarget) {
@@ -1202,7 +1251,7 @@ class TerminalApp {
         container.innerHTML = `
             <div style="max-width: 900px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
                 <div style="margin-bottom: 2rem;">
-                    <button class="btn-outline" onclick="app.currentView='search'; app.renderApp();" style="margin-bottom:1.5rem;">&larr; Back to Search</button>
+                    <button class="btn-outline" onclick="app.currentView='${this.previousView || 'search'}'; app.renderApp();" style="margin-bottom:1.5rem;">&larr; Back</button>
                     <div class="card" style="display:flex; align-items:center; gap:1.5rem;">
                         <div style="flex:1;">
                             <h2 style="margin:0 0 0.5rem; font-size:1.75rem;">${escapeHTML(this.currentTarget.name)}</h2>
@@ -3263,6 +3312,7 @@ class TerminalApp {
 
     viewUserProfile(username) {
         sessionStorage.setItem('profileUser', username);
+        this.previousView = this.currentView;
         this.currentView = 'user_profile';
         this.renderApp();
     }
@@ -3288,7 +3338,7 @@ class TerminalApp {
 
             container.innerHTML = `
                 <div style="max-width:800px; margin:0 auto;">
-                    <button onclick="history.back(); app.currentView='${this.currentView === 'user_profile' ? 'leaderboards' : 'feed'}'; app.renderApp();" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; margin-bottom:2rem; padding:0;">&larr; Back</button>
+                    <button onclick="app.currentView='${this.previousView || 'feed'}'; app.renderApp();" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; margin-bottom:2rem; padding:0;">&larr; Back</button>
 
                     <div class="card" style="display:flex; align-items:center; gap:2rem; margin-bottom:2rem;">
                         ${profile.avatar ? `<img src="${profile.avatar}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:80px; height:80px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${escapeHTML(profile.username).charAt(0).toUpperCase()}</div>`}
