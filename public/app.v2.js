@@ -244,7 +244,7 @@ class TerminalApp {
                             </div>
                             <button type="submit" class="btn">Authenticate</button>
                             <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem; display:flex; flex-direction:column; gap:0.5rem;">
-                                <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Initialize New Operative ID</a>
+                                <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Register Account</a>
                                 <a href="#" id="showForgotBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Password?</a>
                             </div>
                         </form>
