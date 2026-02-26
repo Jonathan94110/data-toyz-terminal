@@ -904,7 +904,7 @@ class TerminalApp {
             document.getElementById('searchResultCount').textContent = `${results.length} target${results.length !== 1 ? 's' : ''} found`;
 
             const resultsHTML = results.map((f, index) => `
-                <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s;" onclick="app.selectTarget(${f.id})">
+                <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s; cursor:pointer;" data-figure-id="${f.id}">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 0.5rem;">
                         <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${escapeHTML(f.brand)} &bull; ${escapeHTML(f.line)}</div>
                         <span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}">${escapeHTML(f.classTie)}</span>
@@ -977,6 +977,15 @@ class TerminalApp {
                 sessionStorage.setItem('searchSort', currentSort);
                 doSearch();
             });
+        });
+
+        // Event delegation for target card clicks
+        document.getElementById('searchResults').addEventListener('click', (e) => {
+            const card = e.target.closest('.target-card[data-figure-id]');
+            if (card) {
+                const figId = parseInt(card.dataset.figureId);
+                if (figId) app.selectTarget(figId);
+            }
         });
 
         setTimeout(doSearch, 50);
@@ -1069,26 +1078,34 @@ class TerminalApp {
         }
     }
 
-    async selectTarget(id) {
+    selectTarget(id) {
         // Try MOCK_FIGURES first (loose equality handles string/number mismatch)
         this.currentTarget = MOCK_FIGURES.find(f => f.id == id);
-        // If not found locally, fetch from API
-        if (!this.currentTarget) {
-            try {
-                const res = await fetch(`${API_URL}/figures`);
-                if (res.ok) {
-                    MOCK_FIGURES = await res.json();
-                    this.currentTarget = MOCK_FIGURES.find(f => f.id == id);
-                }
-            } catch (e) { console.error('Failed to fetch figures', e); }
-        }
-        if (!this.currentTarget) {
-            alert('Target not found. It may have been removed.');
-            this.currentView = 'search';
-        } else {
+        if (this.currentTarget) {
             this.currentView = 'pulse';
+            this.renderApp();
+            return;
         }
-        this.renderApp();
+        // Not found locally — try fetching from API
+        fetch(`${API_URL}/figures`).then(res => {
+            if (res.ok) return res.json();
+            throw new Error('Failed to fetch');
+        }).then(figures => {
+            MOCK_FIGURES = figures;
+            this.currentTarget = MOCK_FIGURES.find(f => f.id == id);
+            if (this.currentTarget) {
+                this.currentView = 'pulse';
+            } else {
+                alert('Target not found. It may have been removed.');
+                this.currentView = 'search';
+            }
+            this.renderApp();
+        }).catch(e => {
+            console.error('Failed to fetch figures', e);
+            alert('Target not found.');
+            this.currentView = 'search';
+            this.renderApp();
+        });
     }
 
     async renderPulse(container) {
