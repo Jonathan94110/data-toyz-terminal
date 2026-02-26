@@ -636,18 +636,18 @@ class TerminalApp {
                                 <span id="imgName" style="margin-left:0.5rem; font-size:0.8rem; color:var(--accent);"></span>
                             </div>
                             
-                            <div class="segmented-control" style="margin:0; min-width:280px;">
+                            <div class="segmented-control" style="margin:0; min-width:300px;">
                                 <label class="risk-bullish" style="padding:0.5rem;">
                                     <input type="radio" name="sentiment" value="fire" required>
-                                    <span style="font-size:1.2rem;">🔥 HOT</span>
+                                    <span style="font-size:1.1rem; white-space:nowrap;">🔥 HOT</span>
                                 </label>
                                 <label class="risk-neutral" style="padding:0.5rem;">
                                     <input type="radio" name="sentiment" value="fence" required>
-                                    <span style="font-size:1.2rem;">🤷 FENCE</span>
+                                    <span style="font-size:1.1rem; white-space:nowrap;">🤷 FENCE</span>
                                 </label>
                                 <label class="risk-bearish" style="padding:0.5rem;">
                                     <input type="radio" name="sentiment" value="ice" required>
-                                    <span style="font-size:1.2rem;">🧊 NOT</span>
+                                    <span style="font-size:1.1rem; white-space:nowrap;">🧊 NOT</span>
                                 </label>
                             </div>
                         </div>
