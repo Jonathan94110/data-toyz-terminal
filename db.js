@@ -236,6 +236,21 @@ async function initDB() {
             FOREIGN KEY(figure_id) REFERENCES Figures(id) ON DELETE CASCADE
         )`);
 
+        // Create MarketTransactions Table (Secondary market price history)
+        await pool.query(`CREATE TABLE IF NOT EXISTS MarketTransactions (
+            id SERIAL PRIMARY KEY,
+            figure_id INTEGER NOT NULL,
+            price_high REAL,
+            price_avg REAL NOT NULL,
+            price_low REAL,
+            source TEXT NOT NULL DEFAULT 'user_entry',
+            submitted_by TEXT,
+            submission_id INTEGER,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(figure_id) REFERENCES Figures(id) ON DELETE CASCADE,
+            FOREIGN KEY(submission_id) REFERENCES Submissions(id) ON DELETE SET NULL
+        )`);
+
         // Create AuditLog Table (S-10: Security audit trail)
         await pool.query(`CREATE TABLE IF NOT EXISTS AuditLog (
             id SERIAL PRIMARY KEY,
@@ -257,6 +272,34 @@ async function initDB() {
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN message_email BOOLEAN DEFAULT false`);
         }
 
+        // Migration: add msrp column to Figures
+        const msrpCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'figures' AND column_name = 'msrp'
+        `);
+        if (msrpCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Figures ADD COLUMN msrp REAL`);
+        }
+
+        // Migration: add market_signal columns to Figures (Phase 2 prep)
+        const sigCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'figures' AND column_name = 'market_signal'
+        `);
+        if (sigCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Figures ADD COLUMN market_signal TEXT`);
+            await pool.query(`ALTER TABLE Figures ADD COLUMN market_signal_updated_at TEXT`);
+        }
+
+        // Migration: add cost_basis column to Submissions
+        const costCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'submissions' AND column_name = 'cost_basis'
+        `);
+        if (costCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Submissions ADD COLUMN cost_basis REAL`);
+        }
+
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {
@@ -276,10 +319,43 @@ async function initDB() {
             }
         }
 
-        // Always sync the auto-increment sequence to prevent duplicate key errors
+        // Always sync the auto-increment sequences to prevent duplicate key errors
         await pool.query("SELECT setval(pg_get_serial_sequence('figures', 'id'), (SELECT COALESCE(MAX(id), 1) FROM Figures))");
+        await pool.query("SELECT setval(pg_get_serial_sequence('markettransactions', 'id'), (SELECT COALESCE(MAX(id), 1) FROM MarketTransactions))");
+
+        // One-time data migration: extract market_price from jsonData into MarketTransactions
+        await migrateMarketPrices();
+
     } catch (err) {
         log.error('Failed to initialize postgres database tables', { error: err.message || err });
+    }
+}
+
+async function migrateMarketPrices() {
+    try {
+        const migCheck = await pool.query(
+            "SELECT COUNT(*) as count FROM MarketTransactions WHERE source = 'migration'"
+        );
+        if (parseInt(migCheck.rows[0].count) > 0) return; // Already migrated
+
+        const allSubs = await pool.query("SELECT id, targetid, author, jsondata, date FROM Submissions");
+        let migrated = 0;
+        for (const row of allSubs.rows) {
+            try {
+                const data = JSON.parse(row.jsondata || '{}');
+                if (data.market_price && parseFloat(data.market_price) > 0) {
+                    await pool.query(
+                        `INSERT INTO MarketTransactions (figure_id, price_avg, source, submitted_by, submission_id, created_at)
+                         VALUES ($1, $2, 'migration', $3, $4, $5)`,
+                        [row.targetid, parseFloat(data.market_price), row.author, row.id, row.date]
+                    );
+                    migrated++;
+                }
+            } catch (e) { /* skip unparseable */ }
+        }
+        if (migrated > 0) log.info(`Migrated ${migrated} market prices from jsonData to MarketTransactions`);
+    } catch (e) {
+        log.error('Market price migration error', { error: e.message });
     }
 }
 

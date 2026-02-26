@@ -1116,12 +1116,17 @@ class TerminalApp {
         container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('stats', 4)}</div>`;
 
         let figureSubs = [];
+        let marketIntel = null;
         let overviewStats = {};
         let indexes = [];
         let headlines = [];
         try {
-            const res = await fetch(`${API_URL}/submissions/target/${this.currentTarget.id}`);
-            if (res.ok) figureSubs = await res.json();
+            const [subRes, miRes] = await Promise.all([
+                fetch(`${API_URL}/submissions/target/${this.currentTarget.id}`),
+                fetch(`${API_URL}/figures/${this.currentTarget.id}/market-intel`)
+            ]);
+            if (subRes.ok) figureSubs = await subRes.json();
+            if (miRes.ok) marketIntel = await miRes.json();
         } catch (e) {
             console.error("Failed retrieving pulse data", e);
         }
@@ -1252,10 +1257,60 @@ class TerminalApp {
                     </div>
                 </div>
 
+                ${marketIntel && marketIntel.transactions.total > 0 ? `
+                <div class="card" style="margin-bottom: 2.5rem; padding: 2rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+                        <h3 style="margin:0; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">💰 Market Intelligence</h3>
+                        <span style="font-size:0.75rem; padding:0.25rem 0.75rem; border-radius:12px; font-weight:700; ${marketIntel.transactions.confidence === 'high' ? 'background:rgba(16,185,129,0.15); color:#10b981;' : marketIntel.transactions.confidence === 'medium' ? 'background:rgba(251,191,36,0.15); color:#fbbf24;' : 'background:rgba(239,68,68,0.15); color:#ef4444;'}">${marketIntel.transactions.confidence.toUpperCase()} CONFIDENCE</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:1rem;">
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem; color:#10b981;">${marketIntel.transactions.rolling30.avg != null ? '$' + marketIntel.transactions.rolling30.avg.toFixed(2) : '—'}</div>
+                            <div class="stat-label">30-Day Avg</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem; color:#10b981;">${marketIntel.transactions.rolling90.avg != null ? '$' + marketIntel.transactions.rolling90.avg.toFixed(2) : '—'}</div>
+                            <div class="stat-label">90-Day Avg</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem; color:#10b981;">${marketIntel.transactions.lifetime.avg != null ? '$' + marketIntel.transactions.lifetime.avg.toFixed(2) : '—'}</div>
+                            <div class="stat-label">Lifetime Avg</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem; ${marketIntel.transactions.pctOverMsrp != null ? (marketIntel.transactions.pctOverMsrp >= 0 ? 'color:var(--danger);' : 'color:var(--success);') : 'color:var(--text-muted);'}">${marketIntel.transactions.pctOverMsrp != null ? (marketIntel.transactions.pctOverMsrp >= 0 ? '+' : '') + marketIntel.transactions.pctOverMsrp + '%' : '—'}</div>
+                            <div class="stat-label">vs MSRP ${marketIntel.msrp ? '($' + parseFloat(marketIntel.msrp).toFixed(2) + ')' : '(Not Set)'}</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem; color:#f59e0b;">${marketIntel.transactions.volatility != null ? '$' + marketIntel.transactions.volatility.toFixed(2) : '—'}</div>
+                            <div class="stat-label">Volatility (H − L)</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem; color:var(--accent);">${marketIntel.transactions.total}</div>
+                            <div class="stat-label">Price Reports</div>
+                        </div>
+                    </div>
+                </div>
+                ` : marketIntel ? `
+                <div class="card" style="margin-bottom: 2.5rem; padding: 2rem; text-align:center;">
+                    <h3 style="margin:0 0 0.5rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">💰 Market Intelligence</h3>
+                    <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">Insufficient pricing data. Submit intel reports with aftermarket valuations to populate market trends.</p>
+                </div>
+                ` : ''}
+
                 ${!isGuestimate && figureSubs.length > 0 ? `
                 <div class="card" style="margin-bottom: 2.5rem; padding: 2rem;">
-                    <h3 style="margin-bottom: 1rem;">Community Projections Trend</h3>
-                    <div style="height: 250px; width: 100%;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom: 1rem;">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <h3 style="margin:0;">Community Projections Trend</h3>
+                            ${marketIntel ? `<span style="font-size:0.7rem; padding:0.2rem 0.5rem; border-radius:8px; font-weight:700; ${marketIntel.transactions.confidence === 'high' ? 'background:rgba(16,185,129,0.15); color:#10b981;' : marketIntel.transactions.confidence === 'medium' ? 'background:rgba(251,191,36,0.15); color:#fbbf24;' : 'background:rgba(239,68,68,0.15); color:#ef4444;'}">${marketIntel.transactions.total} data pt${marketIntel.transactions.total !== 1 ? 's' : ''}</span>` : ''}
+                        </div>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                            <button type="button" class="chartToggle" data-idx="0" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #ff0f39; background:rgba(255,15,57,0.15); color:#ff0f39; cursor:pointer; font-weight:600;">Community Score</button>
+                            <button type="button" class="chartToggle" data-idx="1" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #10b981; background:rgba(16,185,129,0.15); color:#10b981; cursor:pointer; font-weight:600;">Market Pricing</button>
+                            ${marketIntel && marketIntel.msrp ? `<button type="button" class="chartToggle" data-idx="2" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #f59e0b; background:rgba(245,158,11,0.15); color:#f59e0b; cursor:pointer; font-weight:600;">MSRP Baseline</button>` : ''}
+                        </div>
+                    </div>
+                    <div style="height: 280px; width: 100%;">
                         <canvas id="projectionsChart"></canvas>
                     </div>
                     <h3 style="margin-top:2rem; font-family:var(--font-heading); font-size:1rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">📸 Field Evidence Gallery</h3>
@@ -1391,39 +1446,71 @@ class TerminalApp {
 
         setTimeout(() => {
             if (!isGuestimate && figureSubs.length > 0) {
+                // Build unified timeline from submissions (grades) + market intel (prices)
+                const timePoints = {};
                 const sortedSubs = [...figureSubs].sort((a, b) => new Date(a.date) - new Date(b.date));
-                const labels = sortedSubs.map(s => new Date(s.date).toLocaleDateString());
-                const gradePoints = sortedSubs.map(s => ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1));
-                const pricePoints = sortedSubs.map(s => s.data && s.data.market_price ? parseFloat(s.data.market_price) : null);
+                sortedSubs.forEach(s => {
+                    const d = new Date(s.date);
+                    const key = d.toISOString().split('T')[0];
+                    if (!timePoints[key]) timePoints[key] = { ts: d.getTime(), grade: null, price: null };
+                    const g = (parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2;
+                    timePoints[key].grade = parseFloat(g.toFixed(1));
+                });
+                if (marketIntel && marketIntel.timeline) {
+                    marketIntel.timeline.forEach(t => {
+                        const d = new Date(t.createdAt);
+                        const key = d.toISOString().split('T')[0];
+                        if (!timePoints[key]) timePoints[key] = { ts: d.getTime(), grade: null, price: null };
+                        timePoints[key].price = t.priceAvg;
+                    });
+                }
+                const sortedTimeline = Object.entries(timePoints).sort((a, b) => a[1].ts - b[1].ts);
+                const labels = sortedTimeline.map(e => new Date(e[1].ts).toLocaleDateString());
+                const gradePoints = sortedTimeline.map(e => e[1].grade);
+                const pricePoints = sortedTimeline.map(e => e[1].price);
+
+                const chartDatasets = [
+                    {
+                        label: 'Overall Target Grade',
+                        data: gradePoints,
+                        borderColor: '#ff0f39',
+                        backgroundColor: 'rgba(255, 15, 57, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        yAxisID: 'y',
+                        spanGaps: true
+                    },
+                    {
+                        label: 'Market Price (USD)',
+                        data: pricePoints,
+                        borderColor: '#10b981',
+                        backgroundColor: 'transparent',
+                        borderDash: [5, 5],
+                        tension: 0.3,
+                        yAxisID: 'y1',
+                        spanGaps: true
+                    }
+                ];
+                if (marketIntel && marketIntel.msrp) {
+                    chartDatasets.push({
+                        label: 'MSRP Baseline',
+                        data: labels.map(() => marketIntel.msrp),
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'transparent',
+                        borderDash: [10, 5],
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0,
+                        yAxisID: 'y1',
+                        spanGaps: true
+                    });
+                }
 
                 const ctx = document.getElementById('projectionsChart');
                 if (ctx) {
-                    new Chart(ctx.getContext('2d'), {
+                    const pulseChart = new Chart(ctx.getContext('2d'), {
                         type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [
-                                {
-                                    label: 'Overall Target Grade',
-                                    data: gradePoints,
-                                    borderColor: '#ff0f39',
-                                    backgroundColor: 'rgba(255, 15, 57, 0.1)',
-                                    tension: 0.3,
-                                    fill: true,
-                                    yAxisID: 'y'
-                                },
-                                {
-                                    label: 'Aftermarket Price (USD)',
-                                    data: pricePoints,
-                                    borderColor: '#10b981', // Neon green for monetary value
-                                    backgroundColor: 'transparent',
-                                    borderDash: [5, 5],
-                                    tension: 0.3,
-                                    yAxisID: 'y1',
-                                    spanGaps: true // Connects the line over null data points
-                                }
-                            ]
-                        },
+                        data: { labels, datasets: chartDatasets },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
@@ -1443,10 +1530,22 @@ class TerminalApp {
                                     display: true,
                                     position: 'right',
                                     title: { display: true, text: 'Street Value (USD)', color: '#10b981', font: { size: 10 } },
-                                    grid: { drawOnChartArea: false } // Prevent gridlines from overlapping
+                                    grid: { drawOnChartArea: false }
                                 }
                             }
                         }
+                    });
+                    // Wire chart toggle buttons
+                    document.querySelectorAll('.chartToggle').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const idx = parseInt(btn.dataset.idx);
+                            if (idx < pulseChart.data.datasets.length) {
+                                const ds = pulseChart.data.datasets[idx];
+                                ds.hidden = !ds.hidden;
+                                btn.style.opacity = ds.hidden ? '0.4' : '1';
+                                pulseChart.update();
+                            }
+                        });
                     });
                 }
 
@@ -1736,6 +1835,13 @@ class TerminalApp {
                         <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
                             <span style="font-size:1.5rem; color:var(--text-secondary);">$</span>
                             <input type="number" name="market_price" step="0.01" min="0" required placeholder="120.00" style="width:100%; max-width:200px; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.25rem;">
+                        </div>
+                        <div class="form-group" style="margin-top:1.5rem;">
+                            <label class="form-label">Your Cost Basis <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">&#128274; Only visible to you (optional)</span></label>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
+                                <input type="number" name="cost_basis" step="0.01" min="0" placeholder="99.99" style="width:100%; max-width:200px; padding:0.65rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
+                            </div>
                         </div>
                     </div>
 
@@ -2834,6 +2940,7 @@ class TerminalApp {
                                 <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Brand</th>
                                 <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Class</th>
                                 <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Line</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">MSRP</th>
                                 <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Actions</th>
                             </tr>
                         </thead>
@@ -2845,8 +2952,9 @@ class TerminalApp {
                                     <td style="padding:0.6rem 1rem;">${escapeHTML(f.brand)}</td>
                                     <td style="padding:0.6rem 1rem;"><span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}" style="font-size:0.7rem;">${escapeHTML(f.classTie)}</span></td>
                                     <td style="padding:0.6rem 1rem; color:var(--text-muted);">${escapeHTML(f.line)}</td>
+                                    <td style="padding:0.6rem 1rem; color:#10b981; font-weight:600;">${f.msrp ? '$' + parseFloat(f.msrp).toFixed(2) : '<span style="color:var(--text-muted); font-weight:400;">—</span>'}</td>
                                     <td style="padding:0.6rem 1rem; text-align:right; white-space:nowrap;">
-                                        <button class="editFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" data-brand="${escapeHTML(f.brand)}" data-class="${escapeHTML(f.classTie)}" data-line="${escapeHTML(f.line)}" style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">✏️ Edit</button>
+                                        <button class="editFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" data-brand="${escapeHTML(f.brand)}" data-class="${escapeHTML(f.classTie)}" data-line="${escapeHTML(f.line)}" data-msrp="${f.msrp || ''}" style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">✏️ Edit</button>
                                         <button class="delFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete</button>
                                     </td>
                                 </tr>
@@ -2965,15 +3073,18 @@ class TerminalApp {
                 if (!newClass) return;
                 const newLine = prompt('Product Line:', btn.dataset.line);
                 if (!newLine) return;
+                const msrpStr = prompt('MSRP (leave blank to clear):', btn.dataset.msrp || '');
+                if (msrpStr === null) return;
+                const newMsrp = msrpStr.trim() !== '' ? parseFloat(msrpStr) : null;
 
                 try {
                     const res = await this.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
                         method: 'PUT',
-                        body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine })
+                        body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine, msrp: newMsrp })
                     });
                     if (res.ok) {
                         const fig = MOCK_FIGURES.find(f => f.id == btn.dataset.id);
-                        if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; }
+                        if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; fig.msrp = newMsrp; }
                         this.renderAdmin(container);
                     }
                 } catch (e) { console.error(e); }

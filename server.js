@@ -195,7 +195,11 @@ const COL_MAP = {
     mtstotal: 'mtsTotal', approvalscore: 'approvalScore', jsondata: 'jsonData',
     password_hash: 'password_hash', created_at: 'created_at',
     room_id: 'roomId', message_id: 'messageId', created_by: 'createdBy',
-    joined_at: 'joinedAt', last_read_at: 'lastReadAt', updated_at: 'updatedAt'
+    joined_at: 'joinedAt', last_read_at: 'lastReadAt', updated_at: 'updatedAt',
+    figure_id: 'figureId', price_high: 'priceHigh', price_avg: 'priceAvg',
+    price_low: 'priceLow', submitted_by: 'submittedBy', submission_id: 'submissionId',
+    cost_basis: 'costBasis', market_signal: 'marketSignal',
+    market_signal_updated_at: 'marketSignalUpdatedAt'
 };
 function normalizeRow(row) {
     if (!row) return row;
@@ -737,11 +741,23 @@ app.post('/api/figures', requireAuth, async (req, res) => {
 
 // 2. Get submissions across all users for a specific physical figure to formulate the pulse
 app.get('/api/submissions/target/:targetId', async (req, res) => {
+    // Optionally extract user from token for cost_basis privacy (no 401 if missing)
+    let currentUser = null;
+    try {
+        const authHeader = req.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+            currentUser = decoded.username;
+        }
+    } catch (e) { /* unauthenticated is fine */ }
+
     try {
         const result = await db.query("SELECT * FROM Submissions WHERE targetId = $1", [req.params.targetId]);
         const rows = normalizeRows(result.rows);
         rows.forEach(r => {
             try { r.data = JSON.parse(r.jsonData); } catch (e) { r.data = {}; }
+            // Privacy: only show cost_basis to the submitter
+            if (r.author !== currentUser) r.costBasis = null;
         });
         res.json(rows);
     } catch (err) {
@@ -801,6 +817,27 @@ app.post('/api/submissions', requireAuth, upload.single('image'), async (req, re
                 parseFloat(req.body.mtsTotal), parseFloat(req.body.approvalScore), JSON.stringify(submissionData), req.body.date
             ]
         );
+        const submissionId = result.rows[0].id;
+
+        // Auto-insert market transaction if market_price was provided
+        if (submissionData.market_price && parseFloat(submissionData.market_price) > 0) {
+            try {
+                await db.query(
+                    `INSERT INTO MarketTransactions (figure_id, price_avg, source, submitted_by, submission_id, created_at)
+                     VALUES ($1, $2, 'user_entry', $3, $4, $5)`,
+                    [req.body.targetId, parseFloat(submissionData.market_price), req.user.username, submissionId, req.body.date]
+                );
+            } catch (e) { log.error('Auto-insert market transaction failed', { error: e.message }); }
+        }
+
+        // Save cost_basis if provided
+        if (submissionData.cost_basis && parseFloat(submissionData.cost_basis) > 0) {
+            try {
+                await db.query("UPDATE Submissions SET cost_basis = $1 WHERE id = $2",
+                    [parseFloat(submissionData.cost_basis), submissionId]);
+            } catch (e) { log.error('Save cost_basis failed', { error: e.message }); }
+        }
+
         // Notify co-reviewers
         const coReviewers = await db.query(
             "SELECT DISTINCT author FROM Submissions WHERE targetId = $1 AND author != $2",
@@ -810,7 +847,7 @@ app.post('/api/submissions', requireAuth, upload.single('image'), async (req, re
             await createNotification(row.author, 'co_reviewer', `${req.user.username} also reviewed ${req.body.targetName}`, 'figure', parseInt(req.body.targetId), req.user.username);
         }
 
-        res.status(201).json({ id: result.rows[0].id, message: "Intelligence report successfully committed." });
+        res.status(201).json({ id: submissionId, message: "Intelligence report successfully committed." });
     } catch (err) {
         // S-9: Error sanitization
         log.error('Submit intelligence error', { error: err.message || err });
@@ -1037,6 +1074,147 @@ app.post('/api/figures/:id/comments', requireAuth, async (req, res) => {
     } catch (err) {
         log.error('Failed to post figure comment', { error: err.message });
         res.status(500).json({ error: 'Failed to post comment' });
+    }
+});
+
+// --- MARKET INTELLIGENCE API --- //
+
+// GET /api/figures/:id/market-intel — full market intelligence for a figure
+app.get('/api/figures/:id/market-intel', async (req, res) => {
+    try {
+        const figureId = req.params.id;
+
+        // Get figure with MSRP
+        const figRes = await db.query("SELECT msrp, market_signal FROM Figures WHERE id = $1", [figureId]);
+        if (figRes.rows.length === 0) return res.status(404).json({ error: 'Figure not found' });
+        const msrp = figRes.rows[0].msrp;
+        const marketSignal = figRes.rows[0].market_signal;
+
+        // Get all transactions for timeline
+        const timelineRes = await db.query(
+            `SELECT id, price_high, price_avg, price_low, source, submitted_by, created_at
+             FROM MarketTransactions WHERE figure_id = $1 ORDER BY created_at ASC`, [figureId]
+        );
+        const timeline = normalizeRows(timelineRes.rows);
+
+        // Rolling 30-day aggregates
+        const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const r30 = await db.query(
+            `SELECT AVG(price_avg) as avg, MAX(COALESCE(price_high, price_avg)) as high,
+                    MIN(COALESCE(price_low, price_avg)) as low, COUNT(*) as count
+             FROM MarketTransactions WHERE figure_id = $1 AND created_at >= $2`, [figureId, d30]
+        );
+
+        // Rolling 90-day aggregates
+        const d90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+        const r90 = await db.query(
+            `SELECT AVG(price_avg) as avg, MAX(COALESCE(price_high, price_avg)) as high,
+                    MIN(COALESCE(price_low, price_avg)) as low, COUNT(*) as count
+             FROM MarketTransactions WHERE figure_id = $1 AND created_at >= $2`, [figureId, d90]
+        );
+
+        // Lifetime aggregates
+        const rAll = await db.query(
+            `SELECT AVG(price_avg) as avg, MAX(COALESCE(price_high, price_avg)) as high,
+                    MIN(COALESCE(price_low, price_avg)) as low, COUNT(*) as count
+             FROM MarketTransactions WHERE figure_id = $1`, [figureId]
+        );
+
+        const fmt = (row) => ({
+            avg: row.avg ? parseFloat(parseFloat(row.avg).toFixed(2)) : null,
+            high: row.high ? parseFloat(parseFloat(row.high).toFixed(2)) : null,
+            low: row.low ? parseFloat(parseFloat(row.low).toFixed(2)) : null,
+            count: parseInt(row.count) || 0
+        });
+
+        const lifetime = fmt(rAll.rows[0]);
+        const totalCount = lifetime.count;
+        const pctOverMsrp = (msrp && lifetime.avg) ? parseFloat((((lifetime.avg - msrp) / msrp) * 100).toFixed(1)) : null;
+        const volatility = (lifetime.high != null && lifetime.low != null) ? parseFloat((lifetime.high - lifetime.low).toFixed(2)) : null;
+        const confidence = totalCount >= 10 ? 'high' : totalCount >= 3 ? 'medium' : 'low';
+
+        res.json({
+            figureId: parseInt(figureId),
+            msrp,
+            transactions: {
+                total: totalCount,
+                rolling30: fmt(r30.rows[0]),
+                rolling90: fmt(r90.rows[0]),
+                lifetime,
+                pctOverMsrp,
+                volatility,
+                confidence
+            },
+            timeline,
+            marketSignal
+        });
+    } catch (err) {
+        log.error('Market intel error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// POST /api/figures/:id/market-transactions — submit a standalone market price data point
+app.post('/api/figures/:id/market-transactions', requireAuth, async (req, res) => {
+    try {
+        const figureId = req.params.id;
+        const { priceAvg, priceHigh, priceLow, source, date } = req.body;
+
+        if (!priceAvg || parseFloat(priceAvg) <= 0) {
+            return res.status(400).json({ error: 'priceAvg is required and must be > 0' });
+        }
+        const avg = parseFloat(priceAvg);
+        const high = priceHigh ? parseFloat(priceHigh) : null;
+        const low = priceLow ? parseFloat(priceLow) : null;
+        if (high !== null && high < avg) return res.status(400).json({ error: 'priceHigh must be >= priceAvg' });
+        if (low !== null && low > avg) return res.status(400).json({ error: 'priceLow must be <= priceAvg' });
+
+        const validSources = ['user_entry', 'ebay', 'manual_import'];
+        const txSource = validSources.includes(source) ? source : 'user_entry';
+        const txDate = date || new Date().toISOString();
+
+        const result = await db.query(
+            `INSERT INTO MarketTransactions (figure_id, price_high, price_avg, price_low, source, submitted_by, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+            [figureId, high, avg, low, txSource, req.user.username, txDate]
+        );
+        res.status(201).json({ id: result.rows[0].id, message: 'Market transaction recorded.' });
+    } catch (err) {
+        log.error('Market transaction error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// GET /api/figures/:id/market-intel/user-cost — private cost basis for authenticated user
+app.get('/api/figures/:id/market-intel/user-cost', requireAuth, async (req, res) => {
+    try {
+        const figureId = req.params.id;
+        const username = req.user.username;
+
+        // Get user's most recent cost_basis for this figure
+        const cbRes = await db.query(
+            `SELECT cost_basis FROM Submissions WHERE targetId = $1 AND author = $2 AND cost_basis IS NOT NULL ORDER BY date DESC LIMIT 1`,
+            [figureId, username]
+        );
+        const costBasis = cbRes.rows.length ? parseFloat(cbRes.rows[0].cost_basis) : null;
+
+        // Get 30-day rolling average for comparison
+        const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const avgRes = await db.query(
+            `SELECT AVG(price_avg) as avg FROM MarketTransactions WHERE figure_id = $1 AND created_at >= $2`, [figureId, d30]
+        );
+        const currentMarketAvg = avgRes.rows[0].avg ? parseFloat(parseFloat(avgRes.rows[0].avg).toFixed(2)) : null;
+
+        let gainLoss = null, gainLossPct = null;
+        if (costBasis && currentMarketAvg) {
+            gainLoss = parseFloat((currentMarketAvg - costBasis).toFixed(2));
+            gainLossPct = parseFloat(((gainLoss / costBasis) * 100).toFixed(1));
+        }
+
+        res.json({ costBasis, currentMarketAvg, gainLoss, gainLossPct });
+    } catch (err) {
+        log.error('User cost basis error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
 
@@ -1893,10 +2071,10 @@ app.delete('/api/admin/figures/:id', requireAuth, requireAdmin, async (req, res)
 
 // 13. Admin: Edit figure
 app.put('/api/admin/figures/:id', requireAuth, requireAdmin, async (req, res) => {
-    const { name, brand, classTie, line } = req.body;
+    const { name, brand, classTie, line, msrp } = req.body;
     try {
-        await db.query("UPDATE Figures SET name = $1, brand = $2, classTie = $3, line = $4 WHERE id = $5",
-            [name, brand, classTie, line, req.params.id]);
+        await db.query("UPDATE Figures SET name = $1, brand = $2, classTie = $3, line = $4, msrp = $5 WHERE id = $6",
+            [name, brand, classTie, line, msrp !== undefined && msrp !== '' ? parseFloat(msrp) : null, req.params.id]);
         res.json({ message: "Target updated successfully." });
     } catch (err) {
         // S-9: Error sanitization
