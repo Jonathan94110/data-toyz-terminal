@@ -1458,7 +1458,7 @@ class TerminalApp {
                 });
                 if (marketIntel && marketIntel.timeline) {
                     marketIntel.timeline.forEach(t => {
-                        const d = new Date(t.createdAt);
+                        const d = new Date(t.created_at);
                         const key = d.toISOString().split('T')[0];
                         if (!timePoints[key]) timePoints[key] = { ts: d.getTime(), grade: null, price: null };
                         timePoints[key].price = t.priceAvg;
