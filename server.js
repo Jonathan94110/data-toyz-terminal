@@ -92,15 +92,15 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 
 // --- S-3: Rate Limiting --- //
-// Global rate limiter: 100 requests per 15 min per IP
-const globalLimiter = rateLimit({
+// API rate limiter: 300 requests per 15 min per IP (API routes only)
+const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: process.env.NODE_ENV === 'production' ? 100 : 1000,
+    max: process.env.NODE_ENV === 'production' ? 300 : 1000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests. Please try again later.' }
 });
-app.use(globalLimiter);
+app.use('/api/', apiLimiter);
 
 // Auth rate limiter: 10 requests per 15 min per IP
 const authLimiter = rateLimit({
