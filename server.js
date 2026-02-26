@@ -1037,6 +1037,73 @@ app.delete('/api/submissions/:id', requireAuth, async (req, res) => {
     }
 });
 
+// 5b. Edit intelligence report (author only)
+app.put('/api/submissions/:id', requireAuth, upload.single('image'), async (req, res) => {
+    let submissionData = {};
+    if (typeof req.body.data === 'string') {
+        try { submissionData = JSON.parse(req.body.data); } catch (e) { }
+    } else if (req.body.data) {
+        submissionData = req.body.data;
+    }
+
+    try {
+        const sub = await db.query("SELECT * FROM Submissions WHERE id = $1", [req.params.id]);
+        if (!sub.rows[0]) return res.status(404).json({ error: 'Submission not found.' });
+        if (sub.rows[0].author !== req.user.username) {
+            return res.status(403).json({ error: 'You can only edit your own intelligence reports.' });
+        }
+
+        // If new image uploaded, use it; otherwise keep existing from jsonData
+        if (req.file) {
+            submissionData.imagePath = 'data:' + req.file.mimetype + ';base64,' + req.file.buffer.toString('base64');
+        } else {
+            // Preserve existing image if not replaced
+            try {
+                const existingData = JSON.parse(sub.rows[0].jsondata || '{}');
+                if (existingData.imagePath && !submissionData.imagePath) {
+                    submissionData.imagePath = existingData.imagePath;
+                }
+            } catch (e) { }
+        }
+
+        const now = new Date().toISOString();
+        const mtsTotal = parseFloat(req.body.mtsTotal);
+        const approvalScore = parseFloat(req.body.approvalScore);
+        const costBasis = submissionData.cost_basis && parseFloat(submissionData.cost_basis) > 0
+            ? parseFloat(submissionData.cost_basis) : null;
+
+        await db.query(
+            `UPDATE Submissions SET mtsTotal = $1, approvalScore = $2, jsonData = $3, edited_at = $4, cost_basis = $5 WHERE id = $6`,
+            [mtsTotal, approvalScore, JSON.stringify(submissionData), now, costBasis, req.params.id]
+        );
+
+        // Sync MarketTransactions
+        const newPrice = submissionData.market_price ? parseFloat(submissionData.market_price) : 0;
+        const existingTx = await db.query("SELECT id FROM MarketTransactions WHERE submission_id = $1", [req.params.id]);
+
+        if (existingTx.rows[0]) {
+            if (newPrice > 0) {
+                await db.query("UPDATE MarketTransactions SET price_avg = $1 WHERE id = $2", [newPrice, existingTx.rows[0].id]);
+            } else {
+                await db.query("DELETE FROM MarketTransactions WHERE id = $1", [existingTx.rows[0].id]);
+            }
+        } else if (newPrice > 0) {
+            await db.query(
+                `INSERT INTO MarketTransactions (figure_id, price_avg, source, submitted_by, submission_id, created_at)
+                 VALUES ($1, $2, 'user_entry', $3, $4, $5)`,
+                [sub.rows[0].targetid, newPrice, req.user.username, req.params.id, now]
+            );
+        }
+
+        await auditLog('SUBMISSION_EDIT', req.user.username, `submission_id:${req.params.id}`, 'User edited their intelligence report', req.ip);
+
+        res.json({ message: "Intelligence report updated.", editedAt: now });
+    } catch (err) {
+        log.error('Edit submission error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // --- MARKET STATS API --- //
 
 // 6. Global Market Overview stats
