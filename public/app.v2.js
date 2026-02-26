@@ -2708,6 +2708,7 @@ class TerminalApp {
             { id: 'leaderboards', title: 'Global Leaderboard & Ranks' },
             { id: 'profile', title: 'Profile Settings' },
             { id: 'notifications', title: 'Notifications' },
+            { id: 'profiles-following', title: 'User Profiles & Following' },
             { id: 'flagging', title: 'Flagging a Post' },
             { id: 'admin', title: 'Admin Panel' },
             { id: 'security', title: 'Security & Authentication' },
@@ -2787,9 +2788,18 @@ class TerminalApp {
                         <li><strong>Post Broadcasts</strong> &mdash; Share text updates with optional image attachments</li>
                         <li><strong>Sentiment Tags</strong> &mdash; Each post is tagged with a sentiment: Bullish (positive), Bearish (negative), or Neutral</li>
                         <li><strong>Comments</strong> &mdash; Reply to any broadcast to start a discussion thread</li>
-                        <li><strong>Emoji Reactions</strong> &mdash; React to posts with a single emoji toggle per post (one reaction per user per post)</li>
+                        <li><strong>Emoji Reactions</strong> &mdash; React to posts with one of four emojis: \u{1F44D} \u{2764}\u{FE0F} \u{1F602} \u{1F610} (one reaction per user per post, toggles on/off)</li>
+                        <li><strong>@-Mentions</strong> &mdash; Tag other operatives with <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@username</code> in posts or comments. The mentioned operative receives an in-app notification and the mention appears as a clickable profile link.</li>
                         <li><strong>User Profiles</strong> &mdash; Click any username to view their operative dossier</li>
                     </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Post Management:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
+                        <li><strong>Delete Post</strong> &mdash; Authors can delete their own broadcasts via the \u{1F5D1}\u{FE0F} button. Admins can delete any broadcast.</li>
+                        <li><strong>Share Post</strong> &mdash; Click \u{1F4CB} to copy a direct link to any broadcast. Shared links work as deep links &mdash; recipients are taken straight to that post after login.</li>
+                    </ul>
+
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
                 </div>
 
@@ -2808,7 +2818,7 @@ class TerminalApp {
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li><strong>Text Messages</strong> &mdash; Send real-time text transmissions to channel members</li>
                         <li><strong>Image Attachments</strong> &mdash; Upload images via the camera icon in the input bar</li>
-                        <li><strong>Emoji Reactions</strong> &mdash; React to any message with one of four emojis (\u{1F44D} \u{2764}\u{FE0F} \u{1F602} \u{1F622}). Reactions toggle on/off.</li>
+                        <li><strong>Emoji Reactions</strong> &mdash; React to any message with one of five emojis (\u{1F44D} \u{2764}\u{FE0F} \u{1F602} \u{1F622} \u{1F610}). Reactions toggle on/off.</li>
                         <li><strong>Typing Indicators</strong> &mdash; See when another operative is composing a message in real time</li>
                         <li><strong>Read Receipts</strong> &mdash; Unread message counts appear on room cards and the nav badge</li>
                     </ul>
@@ -2873,7 +2883,11 @@ class TerminalApp {
                             <tr><td style="padding:0.6rem 1rem; color:var(--text-muted);">7</td><td style="padding:0.6rem 1rem; font-weight:600;">Trade Value Star Rating</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Overall 1-5 star rating for the figure</td></tr>
                         </tbody>
                     </table>
-                    <p style="color:var(--text-muted); font-size:0.85rem;">Each submission is permanently recorded and visible to the entire community. You can retract your own submissions from My Intel History.</p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Editing Reports:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        After submitting, you can edit any of your own reports from <strong>My Intel History</strong>. Click \u{270F}\u{FE0F} Edit &mdash; the form reopens pre-populated with your original data. Update any fields (DTS scores, risk forecasting, physical quality, evidence image, market price, recommendation, star rating) and save. Edited reports display an <em>(edited)</em> indicator next to the submission date.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Each submission is recorded and visible to the entire community. You can edit or retract your own submissions from My Intel History.</p>
                 </div>
 
                 <!-- 07. GRADING SYSTEM -->
@@ -2936,9 +2950,12 @@ class TerminalApp {
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         View all intel reports you have submitted. Each entry shows the target name, class tier, date, and your grade. You can click any entry to navigate to that figure's full intel page.
                     </p>
-                    <p style="color:var(--text-primary); line-height:1.8;">
-                        <strong>Retracting Intel:</strong> You can delete your own submissions from this page. Admins can also retract any submission. Deleted submissions are permanently removed.
-                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Actions:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>\u{270F}\u{FE0F} Edit Report</strong> &mdash; Click Edit next to any of your submissions to modify it. The Trade Scan form reopens with all original data pre-loaded. Update any fields and save.</li>
+                        <li><strong>Retract Intel</strong> &mdash; Permanently delete your own submission. Admins can also retract any submission.</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Submissions you have edited display an <em>(edited)</em> indicator next to the date. Click any entry to navigate to that figure's full intel page.</p>
                 </div>
 
                 <!-- 10. LEADERBOARDS -->
@@ -2995,6 +3012,9 @@ class TerminalApp {
                         <li><strong>New figure added to catalog</strong> &mdash; When an admin adds a new figure to the database</li>
                         <li><strong>Important updates from HQ</strong> &mdash; System-wide announcements from Terminal administrators</li>
                         <li><strong>Breakout Room Messages</strong> &mdash; When a new message is sent in a Breakout Room you are a member of</li>
+                        <li><strong>@-Mention</strong> &mdash; When someone tags you with <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@yourusername</code> in a broadcast or comment</li>
+                        <li><strong>New Follower</strong> &mdash; When another operative starts following you</li>
+                        <li><strong>Flagged Post (Admin)</strong> &mdash; When a broadcast you manage is flagged for review (admin-only)</li>
                     </ul>
 
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Channels:</strong></p>
@@ -3010,12 +3030,38 @@ class TerminalApp {
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         Manage your preferences from the <strong>Notification Settings</strong> card on your Profile page. A toggle grid lets you independently enable or disable each notification type for each channel. Changes auto-save immediately &mdash; no submit button required. Default preferences are created automatically the first time you visit the settings.
                     </p>
-                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: If you want to be notified by email when new figures are added to the catalog, toggle the "Email" switch for "New figure added to catalog" on your profile page.</p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: All notification types &mdash; including mentions, follows, and flag alerts &mdash; can be independently toggled for in-app and email delivery from your profile page.</p>
                 </div>
 
-                <!-- 13. FLAGGING A POST -->
+                <!-- 13. USER PROFILES & FOLLOWING -->
+                <div id="doc-profiles-following" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. User Profiles & Following</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Every operative has a public profile (dossier) that showcases their activity and standing in the community. You can view any operative's profile by clicking their username anywhere on the platform.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Operative Dossiers:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Avatar &amp; Identity</strong> &mdash; Profile image, username, and operative rank title</li>
+                        <li><strong>Join Date</strong> &mdash; When the operative first registered</li>
+                        <li><strong>Submission Count</strong> &mdash; Total number of intel reports filed</li>
+                        <li><strong>Recent Intel</strong> &mdash; A list of their most recent submissions with grades</li>
+                        <li><strong>Follower / Following Counts</strong> &mdash; See how many operatives follow them and how many they follow</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Following:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Follow</strong> &mdash; Click the "Follow" button on any operative's dossier to follow them. You will be notified when they post new intel.</li>
+                        <li><strong>Unfollow</strong> &mdash; Click "Unfollow" to stop receiving notifications about their activity.</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Your Profile:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        Your own dossier is accessible from Profile Settings or by clicking your username. Other operatives can see your public stats, submission history, and follower counts.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: Click "Open Secure Channel" on any operative's profile to start a private Breakout Room DM with them.</p>
+                </div>
+
+                <!-- 14. FLAGGING A POST -->
                 <div id="doc-flagging" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. Flagging a Post</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Flagging a Post</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         If you encounter a broadcast that violates community guidelines or contains inappropriate content, you can flag it for admin review. Flagging is anonymous to the post author &mdash; they will not be notified that their post was flagged.
                     </p>
@@ -3036,9 +3082,9 @@ class TerminalApp {
                     <p style="color:var(--text-muted); font-size:0.85rem;">Please flag responsibly. Flagging is meant for content that genuinely violates community standards.</p>
                 </div>
 
-                <!-- 14. ADMIN PANEL -->
+                <!-- 15. ADMIN PANEL -->
                 <div id="doc-admin" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Admin Panel</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Admin Panel</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Admin Panel is only visible to operatives with the <strong>admin</strong> role. It provides full control over the platform:
                     </p>
@@ -3053,19 +3099,26 @@ class TerminalApp {
                         <li>Delete figures and all associated intel reports</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>User Management:</strong></p>
-                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem;">
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li>Add new users manually</li>
                         <li>Promote or demote users (Analyst / Admin)</li>
                         <li>Suspend or reinstate user accounts</li>
                         <li>Reset a user's password (admin backup)</li>
                         <li>Delete user accounts permanently</li>
                     </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Flagged Posts Queue:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem;">
+                        <li>Review broadcasts reported by the community</li>
+                        <li>View the post content, flag count, and reporter reasons</li>
+                        <li>Dismiss flags if the content is acceptable</li>
+                        <li>Delete the flagged broadcast if it violates community guidelines</li>
+                    </ul>
                     <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The primary admin account (Prime Dynamixx) is protected and cannot be demoted, suspended, or deleted.</p>
                 </div>
 
-                <!-- 14. SECURITY & AUTHENTICATION -->
+                <!-- 16. SECURITY & AUTHENTICATION -->
                 <div id="doc-security" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Security & Authentication</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">16. Security & Authentication</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1.5rem;">
                         Data Toyz Terminal implements layered, industry-standard security controls designed to protect user accounts, platform integrity, and stored data.
                     </p>
@@ -3135,9 +3188,9 @@ class TerminalApp {
                     <p style="color:var(--text-secondary); line-height:1.8;">Internal errors are logged server-side. Only sanitized, generic error responses are returned to clients.</p>
                 </div>
 
-                <!-- 16. SOC 2 ALIGNMENT -->
+                <!-- 17. SOC 2 ALIGNMENT -->
                 <div id="doc-soc2" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">16. SOC 2 Alignment</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">17. SOC 2 Alignment</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;">
                         Data Toyz Terminal implements technical and operational controls aligned with the SOC 2 Trust Services Criteria across all five principles.
                     </p>
@@ -3191,9 +3244,9 @@ class TerminalApp {
                     </ul>
                 </div>
 
-                <!-- 17. GLOSSARY -->
+                <!-- 18. GLOSSARY -->
                 <div id="doc-glossary" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">17. Glossary</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">18. Glossary</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Data Toyz Terminal uses intelligence/spy-themed terminology throughout the platform:
                     </p>
@@ -3221,7 +3274,12 @@ class TerminalApp {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Class Tier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Figure size class (Deluxe, Voyager, Leader, Commander, Masterpiece)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Field Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Photos uploaded with intel reports</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Dossier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A user's public profile page</td></tr>
-                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Clearance Level</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">User role (Analyst or Admin)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Clearance Level</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">User role (Analyst or Admin)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">@-Mention</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Tagging another operative with @username to notify them</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Follow</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Subscribe to another operative's activity to receive notifications</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Flag</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Report a broadcast for admin review</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Toast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Brief confirmation message that appears at the top of the screen</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Deep Link</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A URL that links directly to a specific broadcast or figure</td></tr>
                         </tbody>
                     </table>
                 </div>
