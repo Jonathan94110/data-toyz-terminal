@@ -649,30 +649,51 @@ input[type="range"]::-webkit-slider-thumb:hover {
     cursor: help;
 }
 
+.risk-info-wrap {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 0.25rem;
+}
+
 .risk-info-toggle {
     display: inline-block;
     font-size: 0.95rem;
     color: var(--accent);
     opacity: 0.7;
     cursor: pointer;
-    margin-left: 0.25rem;
-    vertical-align: middle;
     transition: opacity 0.2s;
 }
-.risk-info-toggle:hover { opacity: 1; }
+.risk-info-wrap:hover .risk-info-toggle,
+.risk-info-wrap.pinned .risk-info-toggle { opacity: 1; }
 
 .risk-info-panel {
-    background: rgba(10, 11, 20, 0.6);
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 0.4rem;
+    min-width: 280px;
+    background: rgba(10, 11, 20, 0.95);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-sm);
     padding: 0.65rem 0.85rem;
-    margin-bottom: 0.5rem;
     font-size: 0.8rem;
     line-height: 1.7;
     color: var(--text-secondary);
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    font-weight: 400;
+    font-style: normal;
 }
-.risk-info-panel div { margin-bottom: 0.15rem; }
-.risk-info-panel div:last-child { margin-bottom: 0; }
+.risk-info-panel > span { display: block; margin-bottom: 0.15rem; }
+.risk-info-panel > span:last-child { margin-bottom: 0; }
+
+/* Show on hover (desktop) or tap-pin (mobile) */
+.risk-info-wrap:hover .risk-info-panel,
+.risk-info-wrap.pinned .risk-info-panel { display: block; }
+
 .ri-label { font-weight: 700; margin-right: 0.35rem; }
 .ri-bull { color: var(--success); }
 .ri-neut { color: var(--text-muted); }
@@ -1041,7 +1062,8 @@ textarea:focus {
 }
 
 [data-theme="light"] .risk-info-panel {
-    background: rgba(248, 250, 252, 0.9);
+    background: rgba(248, 250, 252, 0.98);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
 
 [data-theme="light"] .app-layout::before {

@@ -52,15 +52,9 @@ TerminalApp.prototype.riskDescriptions = {
 
 TerminalApp.prototype.createRiskSelector = function(id, label, defaultVal = 'neutral') {
     const desc = this.riskDescriptions[id];
-    const infoId = 'riskInfo_' + id;
     return `
         <div class="form-group">
-            <label class="form-label">${label}${desc ? ` <span class="risk-info-toggle" onclick="event.preventDefault(); var el=document.getElementById('${infoId}'); el.style.display=el.style.display==='none'?'block':'none';" title="What do these mean?">&#9432;</span>` : ''}</label>
-            ${desc ? `<div id="${infoId}" class="risk-info-panel" style="display:none;">
-                <div><span class="ri-label ri-bull">\u25B2 Bullish</span> ${desc.bullish}</div>
-                <div><span class="ri-label ri-neut">\u25CF Neutral</span> ${desc.neutral}</div>
-                <div><span class="ri-label ri-bear">\u25BC Bearish</span> ${desc.bearish}</div>
-            </div>` : ''}
+            <label class="form-label">${label}${desc ? ` <span class="risk-info-wrap"><span class="risk-info-toggle" onclick="event.preventDefault(); this.parentElement.classList.toggle('pinned');">&#9432;</span><span class="risk-info-panel"><span><span class="ri-label ri-bull">\u25B2 Bullish</span> ${desc.bullish}</span><span><span class="ri-label ri-neut">\u25CF Neutral</span> ${desc.neutral}</span><span><span class="ri-label ri-bear">\u25BC Bearish</span> ${desc.bearish}</span></span></span>` : ''}</label>
             <div class="segmented-control">
                 <label class="risk-bullish"><input type="radio" name="${id}" value="bullish" ${defaultVal === 'bullish' ? 'checked' : ''}><span>Bullish</span></label>
                 <label class="risk-neutral"><input type="radio" name="${id}" value="neutral" ${defaultVal === 'neutral' ? 'checked' : ''}><span>Neutral</span></label>
@@ -484,6 +478,13 @@ TerminalApp.prototype.renderSubmission = function(container) {
             });
         }
     }
+
+    // Dismiss pinned risk info panels when tapping elsewhere
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.risk-info-wrap')) {
+            document.querySelectorAll('.risk-info-wrap.pinned').forEach(w => w.classList.remove('pinned'));
+        }
+    });
 
     // Initialize transformation labels with current slider values
     this.updateFrustrationLabel(document.getElementById('trans_frustration').value);
