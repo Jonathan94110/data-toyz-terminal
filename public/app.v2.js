@@ -1936,7 +1936,22 @@ class TerminalApp {
     }
 
     // --- INTEL SUBMISSION FORM --- //
-    createSlider(id, label, min, max, val, sublabel, step = 1) {
+    createSlider(id, label, min, max, val, sublabel, step = 1, hasLabel = false) {
+        if (hasLabel) {
+            const oninput = `this.parentElement.nextElementSibling.querySelector('span span').innerText = parseFloat(this.value).toFixed(${step < 1 ? 1 : 0}); app.updateSliderLabel('${id}', this.value)`;
+            return `
+                <div class="form-group">
+                    <label class="form-label">${label} ${sublabel ? `<small style="color:var(--text-muted); font-weight:normal; font-size:0.8rem; display:block; margin-top:0.2rem;">${sublabel}</small>` : ''}</label>
+                    <div style="display:flex; align-items:center; gap:1rem;">
+                        <input type="range" id="${id}" name="${id}" min="${min}" max="${max}" step="${step}" value="${val}" style="flex:1;" oninput="${oninput}">
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
+                        <span class="range-val" style="font-weight:700; color:var(--accent); font-family:var(--font-heading);"><span>${parseFloat(val).toFixed(step < 1 ? 1 : 0)}</span> / ${max}</span>
+                        <span id="label_${id}" style="color:var(--text-secondary); font-style:italic; font-size:0.85rem;"></span>
+                    </div>
+                </div>
+            `;
+        }
         return `
             <div class="form-group">
                 <label class="form-label">${label} ${sublabel ? `<small style="color:var(--text-muted); font-weight:normal; font-size:0.8rem; display:block; margin-top:0.2rem;">${sublabel}</small>` : ''}</label>
@@ -1959,6 +1974,120 @@ class TerminalApp {
                 </div>
             </div>
         `;
+    }
+
+    // Descriptive label definitions for DTS + PQ sliders
+    sliderLabels = {
+        // DTS sliders (0–20 scale)
+        mts_community: [
+            [0, "🧊 Dead — Nobody's looking"],
+            [5, "📉 Low — Minimal interest"],
+            [8, "🤷 Moderate — Some collectors aware"],
+            [12, "📈 Growing — Buzz is building"],
+            [16, "🔥 High — Heavy demand"],
+            [19, "🏆 Explosive — Everyone wants it"]
+        ],
+        mts_buzz: [
+            [0, "🔇 Silent — Zero chatter"],
+            [5, "🤫 Quiet — Occasional mentions"],
+            [8, "💬 Building — Regular discussion"],
+            [12, "📣 Loud — Trending topic"],
+            [16, "🔥 Viral — Dominating feeds"],
+            [19, "🏆 Cultural moment — Breaking through"]
+        ],
+        mts_liquidity: [
+            [0, "🚫 Frozen — Can't move it"],
+            [5, "🐌 Slow — Long wait for buyers"],
+            [8, "🔄 Moderate — Trades with patience"],
+            [12, "⚡ Active — Moves within days"],
+            [16, "🔥 Hot — Instant sell/trade"],
+            [19, "🏆 Liquid gold — Gone in minutes"]
+        ],
+        mts_risk: [
+            [0, "✅ Minimal — Highly unlikely to be replaced"],
+            [5, "🟢 Low — Safe for now"],
+            [8, "🤷 Moderate — Could see a reissue"],
+            [12, "⚠️ Elevated — Rumors circling"],
+            [16, "🔴 High — Replacement likely"],
+            [19, "💀 Critical — Imminent reissue/restock"]
+        ],
+        mts_appeal: [
+            [0, "🎯 Niche — Deep-cut fans only"],
+            [5, "👤 Limited — Single-fandom interest"],
+            [8, "👥 Moderate — Cross-line appeal"],
+            [12, "🌐 Broad — Multi-fandom draw"],
+            [16, "🔥 Mainstream — Casual collectors want it"],
+            [19, "🏆 Universal — Everyone's grail"]
+        ],
+        // PQ sliders (0–10 scale, step 0.1)
+        pq_build: [
+            [0, "🗑️ Broken — Falls apart out of box"],
+            [3, "⚠️ Fragile — Loose joints, cheap feel"],
+            [5, "🤷 Average — Gets the job done"],
+            [7, "👍 Solid — Tight joints, good heft"],
+            [8.5, "💪 Premium — Built to last"],
+            [9.5, "🏆 Exceptional — Tank-like durability"]
+        ],
+        pq_paint: [
+            [0, "🗑️ Botched — Sloppy, smeared, missing"],
+            [3, "⚠️ Rough — Visible slop and bleeds"],
+            [5, "🤷 Passable — Minor blemishes"],
+            [7, "👍 Clean — Sharp lines, good coverage"],
+            [8.5, "💪 Pristine — Museum-quality finish"],
+            [9.5, "🏆 Flawless — Perfection in every detail"]
+        ],
+        pq_articulation: [
+            [0, "🗑️ Statue — Barely moves"],
+            [3, "⚠️ Stiff — Limited, frustrating poses"],
+            [5, "🤷 Functional — Basic poses achievable"],
+            [7, "👍 Flexible — Good range of motion"],
+            [8.5, "💪 Dynamic — Near-limitless posing"],
+            [9.5, "🏆 Best-in-class — Benchmark articulation"]
+        ],
+        pq_accuracy: [
+            [0, "🗑️ Unrecognizable — Who is this?"],
+            [3, "⚠️ Off — Proportions or details wrong"],
+            [5, "🤷 Approximate — Close enough"],
+            [7, "👍 Faithful — Recognizable and correct"],
+            [8.5, "💪 Nailed it — Screen/page accurate"],
+            [9.5, "🏆 Perfect likeness — Definitive version"]
+        ],
+        pq_presence: [
+            [0, "🗑️ Invisible — Disappears on shelf"],
+            [3, "⚠️ Forgettable — Blends into background"],
+            [5, "🤷 Decent — Holds its spot"],
+            [7, "👍 Eye-catching — Draws attention"],
+            [8.5, "💪 Commanding — Dominates the display"],
+            [9.5, "🏆 Showstopper — Centerpiece of any shelf"]
+        ],
+        pq_value: [
+            [0, "🗑️ Robbery — Overpriced for what it is"],
+            [3, "⚠️ Steep — Hard to justify the cost"],
+            [5, "🤷 Fair — You get what you pay for"],
+            [7, "👍 Good deal — Solid bang for buck"],
+            [8.5, "💪 Great value — Exceeds expectations"],
+            [9.5, "🏆 Steal — Unbelievable for the price"]
+        ],
+        pq_packaging: [
+            [0, "🗑️ Damaged — Barely protective"],
+            [3, "⚠️ Basic — Plain box, no extras"],
+            [5, "🤷 Standard — Serviceable packaging"],
+            [7, "👍 Solid — Nice presentation, some extras"],
+            [8.5, "💪 Premium — Collector-worthy unboxing"],
+            [9.5, "🏆 Deluxe — Art-piece packaging, loaded"]
+        ]
+    };
+
+    updateSliderLabel(id, val) {
+        const labels = this.sliderLabels[id];
+        if (!labels) return;
+        const v = parseFloat(val);
+        let label = labels[0][1];
+        for (const [threshold, text] of labels) {
+            if (v >= threshold) label = text;
+        }
+        const el = document.getElementById('label_' + id);
+        if (el) el.innerText = label;
     }
 
     updateFrustrationLabel(val) {
@@ -2049,11 +2178,11 @@ class TerminalApp {
                             <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">Combined DTS Total (0&ndash;100) reflects overall market sentiment. Higher scores indicate stronger market positioning.</p>
                         </div>
                         <div class="grid-2">
-                            ${this.createSlider('mts_community', 'Community Demand', 0, 20, isEdit && ed.mts_community != null ? ed.mts_community : 10, 'Hype & Desirability')}
-                            ${this.createSlider('mts_buzz', 'Buzz Momentum', 0, 20, isEdit && ed.mts_buzz != null ? ed.mts_buzz : 10, 'Current Social Momentum')}
-                            ${this.createSlider('mts_liquidity', 'Trade Liquidity', 0, 20, isEdit && ed.mts_liquidity != null ? ed.mts_liquidity : 10, 'Ease of moving the item')}
-                            ${this.createSlider('mts_risk', 'Replaceability Risk', 0, 20, isEdit && ed.mts_risk != null ? ed.mts_risk : 10, 'Likelihood of alternative release')}
-                            ${this.createSlider('mts_appeal', 'Cross-Faction Appeal', 0, 20, isEdit && ed.mts_appeal != null ? ed.mts_appeal : 10, 'Broader collector interest')}
+                            ${this.createSlider('mts_community', 'Community Demand', 0, 20, isEdit && ed.mts_community != null ? ed.mts_community : 10, 'Hype & Desirability', 1, true)}
+                            ${this.createSlider('mts_buzz', 'Buzz Momentum', 0, 20, isEdit && ed.mts_buzz != null ? ed.mts_buzz : 10, 'Current Social Momentum', 1, true)}
+                            ${this.createSlider('mts_liquidity', 'Trade Liquidity', 0, 20, isEdit && ed.mts_liquidity != null ? ed.mts_liquidity : 10, 'Ease of moving the item', 1, true)}
+                            ${this.createSlider('mts_risk', 'Replaceability Risk', 0, 20, isEdit && ed.mts_risk != null ? ed.mts_risk : 10, 'Likelihood of alternative release', 1, true)}
+                            ${this.createSlider('mts_appeal', 'Cross-Faction Appeal', 0, 20, isEdit && ed.mts_appeal != null ? ed.mts_appeal : 10, 'Broader collector interest', 1, true)}
                         </div>
                     </div>
 
@@ -2091,13 +2220,13 @@ class TerminalApp {
                             <p>Rate the in-hand objective quality (0.0 to 10.0).</p>
                         </div>
                         <div class="grid-2">
-                            ${this.createSlider('pq_build', 'Build Quality', 0, 10, isEdit && ed.pq_build != null ? ed.pq_build : 5.0, '', 0.1)}
-                            ${this.createSlider('pq_paint', 'Paint Application', 0, 10, isEdit && ed.pq_paint != null ? ed.pq_paint : 5.0, '', 0.1)}
-                            ${this.createSlider('pq_articulation', 'Articulation/Function', 0, 10, isEdit && ed.pq_articulation != null ? ed.pq_articulation : 5.0, '', 0.1)}
-                            ${this.createSlider('pq_accuracy', 'Design Accuracy', 0, 10, isEdit && ed.pq_accuracy != null ? ed.pq_accuracy : 5.0, '', 0.1)}
-                            ${this.createSlider('pq_presence', 'Display Presence', 0, 10, isEdit && ed.pq_presence != null ? ed.pq_presence : 5.0, '', 0.1)}
-                            ${this.createSlider('pq_value', 'Price/Value Ratio', 0, 10, isEdit && ed.pq_value != null ? ed.pq_value : 5.0, '', 0.1)}
-                            ${this.createSlider('pq_packaging', 'Packaging/Extras', 0, 10, isEdit && ed.pq_packaging != null ? ed.pq_packaging : 5.0, '', 0.1)}
+                            ${this.createSlider('pq_build', 'Build Quality', 0, 10, isEdit && ed.pq_build != null ? ed.pq_build : 5.0, '', 0.1, true)}
+                            ${this.createSlider('pq_paint', 'Paint Application', 0, 10, isEdit && ed.pq_paint != null ? ed.pq_paint : 5.0, '', 0.1, true)}
+                            ${this.createSlider('pq_articulation', 'Articulation/Function', 0, 10, isEdit && ed.pq_articulation != null ? ed.pq_articulation : 5.0, '', 0.1, true)}
+                            ${this.createSlider('pq_accuracy', 'Design Accuracy', 0, 10, isEdit && ed.pq_accuracy != null ? ed.pq_accuracy : 5.0, '', 0.1, true)}
+                            ${this.createSlider('pq_presence', 'Display Presence', 0, 10, isEdit && ed.pq_presence != null ? ed.pq_presence : 5.0, '', 0.1, true)}
+                            ${this.createSlider('pq_value', 'Price/Value Ratio', 0, 10, isEdit && ed.pq_value != null ? ed.pq_value : 5.0, '', 0.1, true)}
+                            ${this.createSlider('pq_packaging', 'Packaging/Extras', 0, 10, isEdit && ed.pq_packaging != null ? ed.pq_packaging : 5.0, '', 0.1, true)}
                         </div>
                         
                         <div style="margin-top:2rem; padding-top:2rem; border-top:1px solid var(--border-light);">
@@ -2265,6 +2394,14 @@ class TerminalApp {
         // Initialize transformation labels with current slider values
         this.updateFrustrationLabel(document.getElementById('trans_frustration').value);
         this.updateSatisfactionLabel(document.getElementById('trans_satisfaction').value);
+
+        // Initialize all DTS + PQ slider labels
+        ['mts_community','mts_buzz','mts_liquidity','mts_risk','mts_appeal',
+         'pq_build','pq_paint','pq_articulation','pq_accuracy','pq_presence','pq_value','pq_packaging'
+        ].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) this.updateSliderLabel(id, el.value);
+        });
 
         // Initialize price delta display
         if (isEdit && ed.market_price) this.updatePriceDelta();
