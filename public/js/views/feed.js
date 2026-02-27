@@ -245,7 +245,34 @@ TerminalApp.prototype.renderFeed = async function(container) {
                     body: JSON.stringify({ content })
                 });
                 if (!res.ok) throw new Error("Reply failed.");
-                this.renderFeed(container); // refresh feed completely
+
+                // In-place comment injection (no full re-render)
+                const cDate = new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+                const author = this.user.username;
+                const commentHtml = `
+                    <div style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
+                        <div style="display:flex; justify-content:space-between; margin-bottom: 0.25rem;">
+                            <span style="font-weight:700; font-size: 0.9rem; color:var(--accent);" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(author).replace(/'/g, "\\'")}')">${escapeHTML(author)}</span>
+                            <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
+                        </div>
+                        <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(content))}</div>
+                    </div>
+                `;
+
+                // Find or create the comments container above the reply form
+                const postCard = form.closest('.feed-item');
+                let commentsDiv = postCard.querySelector(':scope > div[style*="border-top"]');
+                if (!commentsDiv) {
+                    commentsDiv = document.createElement('div');
+                    commentsDiv.style.cssText = 'margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-light);';
+                    postCard.insertBefore(commentsDiv, form);
+                }
+                commentsDiv.insertAdjacentHTML('beforeend', commentHtml);
+
+                // Reset the input
+                form.querySelector('.replyContent').value = '';
+                btn.disabled = false;
+                btn.innerText = "Reply";
             } catch (err) {
                 alert(err.message);
                 form.querySelector('button').disabled = false;
