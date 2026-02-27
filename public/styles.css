@@ -1503,6 +1503,96 @@ textarea:focus {
     display: block;
 }
 
+/* ======================== COMMUNITY METRICS & PROVISIONAL ======================== */
+
+/* Provisional badge — amber pill shown on scores with < 3 submissions */
+.provisional-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+/* Locked/grayed state for per-metric breakdown when < 3 submissions */
+.metrics-locked {
+    opacity: 0.35;
+    pointer-events: none;
+    filter: blur(1px);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Metric progress bar track */
+.metric-bar-track {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    height: 10px;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Metric progress bar fill */
+.metric-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 2px;
+}
+
+/* Metric bar row layout */
+.metric-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.35rem 0;
+}
+.metric-bar-row .metric-label {
+    min-width: 130px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.metric-bar-row .metric-value {
+    min-width: 50px;
+    text-align: right;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Price delta styling */
+.price-delta-positive {
+    color: var(--danger);
+    font-weight: 600;
+}
+.price-delta-negative {
+    color: var(--success);
+    font-weight: 600;
+}
+
+/* Lock message box */
+.lock-message {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    color: #f59e0b;
+    margin-bottom: 1rem;
+}
+
 /* ======================== MOBILE (max-width: 767px) ======================== */
 @media (max-width: 767px) {
     /* Sidebar: slide-out from left */

@@ -1324,27 +1324,27 @@ class TerminalApp {
 
         let figureSubs = [];
         let marketIntel = null;
+        let communityMetrics = null;
         let overviewStats = {};
-        let indexes = [];
         let headlines = [];
         try {
-            const [subRes, miRes] = await Promise.all([
+            const [subRes, miRes, cmRes] = await Promise.all([
                 fetch(`${API_URL}/submissions/target/${this.currentTarget.id}`),
-                fetch(`${API_URL}/figures/${this.currentTarget.id}/market-intel`)
+                fetch(`${API_URL}/figures/${this.currentTarget.id}/market-intel`),
+                fetch(`${API_URL}/figures/${this.currentTarget.id}/community-metrics`)
             ]);
             if (subRes.ok) figureSubs = await subRes.json();
             if (miRes.ok) marketIntel = await miRes.json();
+            if (cmRes.ok) communityMetrics = await cmRes.json();
         } catch (e) {
             console.error("Failed retrieving pulse data", e);
         }
         try {
-            const [ovRes, idxRes, hdRes] = await Promise.all([
+            const [ovRes, hdRes] = await Promise.all([
                 fetch(`${API_URL}/stats/overview`),
-                fetch(`${API_URL}/stats/indexes`),
                 fetch(`${API_URL}/stats/headlines`)
             ]);
             if (ovRes.ok) overviewStats = await ovRes.json();
-            if (idxRes.ok) indexes = await idxRes.json();
             if (hdRes.ok) headlines = await hdRes.json();
         } catch (e) {
             console.error("Failed retrieving market stats", e);
@@ -1440,7 +1440,7 @@ class TerminalApp {
                 <div class="grid-2" style="margin-bottom: 2.5rem;">
                     <div class="stat-box" style="padding: 2.5rem;">
                         <div class="stat-value" style="font-size:3.5rem;">${overallAvg}</div>
-                        <div class="stat-label">Overall Target Grade (0-100)</div>
+                        <div class="stat-label">Overall Target Grade (0-100)${!isGuestimate && figureSubs.length > 0 && figureSubs.length < 3 ? ' <span class="provisional-badge">PROVISIONAL (' + figureSubs.length + '/3)</span>' : ''}</div>
                     </div>
                     <div class="stat-box" style="display:flex; flex-direction:column; justify-content:center;">
                         ${!isGuestimate && avgTradeRating > 0 ? `
@@ -1463,6 +1463,93 @@ class TerminalApp {
                         ` : ''}
                     </div>
                 </div>
+
+                <!-- PRICE CONTEXT -->
+                ${(() => {
+                    const figureMsrp = this.currentTarget.msrp ? parseFloat(this.currentTarget.msrp) : null;
+                    const cmAvgPrice = communityMetrics && communityMetrics.marketPriceAvg ? communityMetrics.marketPriceAvg : null;
+                    const msrpDelta = (figureMsrp && cmAvgPrice) ? cmAvgPrice - figureMsrp : null;
+                    const msrpDeltaPct = (figureMsrp && msrpDelta !== null) ? ((msrpDelta / figureMsrp) * 100).toFixed(1) : null;
+                    return `
+                <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+                    <h3 style="margin:0 0 1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">💲 Price Context</h3>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem; text-align:center;">
+                        <div>
+                            <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">MSRP</div>
+                            <div style="font-size:1.5rem; font-weight:800; color:var(--success);">${figureMsrp ? '$' + figureMsrp.toFixed(2) : '---'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">Avg Street Price</div>
+                            <div style="font-size:1.5rem; font-weight:800; color:#f59e0b;">${cmAvgPrice ? '$' + cmAvgPrice.toFixed(2) : '---'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">Delta</div>
+                            <div style="font-size:1.5rem; font-weight:800; color:${msrpDelta !== null ? (msrpDelta >= 0 ? 'var(--danger)' : 'var(--success)') : 'var(--text-muted)'};">
+                                ${msrpDeltaPct !== null ? (msrpDelta >= 0 ? '+' : '') + msrpDeltaPct + '%' : '---'}
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                })()}
+
+                <!-- COMMUNITY SCORE BREAKDOWN -->
+                ${communityMetrics && communityMetrics.count > 0 ? (() => {
+                    const hasEnough = figureSubs.length >= 3;
+                    const tierStyle = hasEnough ? '' : 'opacity:0.35; pointer-events:none; filter:blur(1px); user-select:none;';
+                    const mb = (label, value, max, color) => {
+                        const pct = value != null ? ((value / max) * 100).toFixed(0) : 0;
+                        const display = value != null ? value.toFixed(1) : '---';
+                        return '<div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.6rem;">' +
+                            '<span style="width:140px; font-size:0.8rem; color:var(--text-secondary); text-align:right; flex-shrink:0;">' + label + '</span>' +
+                            '<div style="flex:1; height:8px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden;">' +
+                            '<div style="width:' + pct + '%; height:100%; background:' + color + '; border-radius:4px; transition:width 0.5s ease;"></div></div>' +
+                            '<span style="width:55px; font-size:0.85rem; font-weight:700; color:var(--text-primary); text-align:right;">' + display + '/' + max + '</span></div>';
+                    };
+                    const cm = communityMetrics;
+                    return `
+                <div class="card" style="margin-bottom: 2.5rem; padding: 2rem;">
+                    <h3 style="margin:0 0 1.25rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">📊 Community Score Breakdown</h3>
+
+                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:2rem;">
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem;">${cm.dts.total.toFixed(1)}</div>
+                            <div class="stat-label">DTS Total (0-100)</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem;">${cm.approvalAvg.toFixed(1)}</div>
+                            <div class="stat-label">Approval Score</div>
+                        </div>
+                        <div class="stat-box" style="padding:1.25rem;">
+                            <div class="stat-value" style="font-size:1.75rem;">${cm.overallAvg.toFixed(1)}</div>
+                            <div class="stat-label">Overall Grade</div>
+                        </div>
+                    </div>
+
+                    ${!hasEnough ? '<div style="text-align:center; padding:0.75rem; margin-bottom:1rem; border:1px dashed var(--border-light); border-radius:var(--radius-sm); background:rgba(15,17,30,0.3);"><span style="color:var(--text-muted); font-size:0.85rem;">&#128274; ' + (3 - figureSubs.length) + ' more report' + (3 - figureSubs.length !== 1 ? 's' : '') + ' needed to unlock detailed metrics</span></div>' : ''}
+
+                    <div style="${tierStyle}">
+                        <h4 style="margin:1.5rem 0 1rem; font-size:0.9rem; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em;">DTS Metrics (0-20 scale)</h4>
+                        ${mb('Community Demand', cm.dts.community_demand, 20, '#ff2a5f')}
+                        ${mb('Buzz Momentum', cm.dts.buzz, 20, '#ff2a5f')}
+                        ${mb('Trade Liquidity', cm.dts.liquidity, 20, '#ff2a5f')}
+                        ${mb('Replaceability Risk', cm.dts.risk, 20, '#ff2a5f')}
+                        ${mb('Cross-Faction Appeal', cm.dts.appeal, 20, '#ff2a5f')}
+
+                        <h4 style="margin:1.5rem 0 1rem; font-size:0.9rem; color:#10b981; text-transform:uppercase; letter-spacing:0.05em;">Physical Quality (0-10 scale)</h4>
+                        ${mb('Build Quality', cm.pq.build, 10, '#10b981')}
+                        ${mb('Paint Application', cm.pq.paint, 10, '#10b981')}
+                        ${mb('Articulation', cm.pq.articulation, 10, '#10b981')}
+                        ${mb('Design Accuracy', cm.pq.accuracy, 10, '#10b981')}
+                        ${mb('Display Presence', cm.pq.presence, 10, '#10b981')}
+                        ${mb('Price / Value', cm.pq.value, 10, '#10b981')}
+                        ${mb('Packaging', cm.pq.packaging, 10, '#10b981')}
+
+                        <h4 style="margin:1.5rem 0 1rem; font-size:0.9rem; color:#f59e0b; text-transform:uppercase; letter-spacing:0.05em;">Transformation (1-10 scale)</h4>
+                        ${mb('Frustration Score', cm.transformation.frustration, 10, '#f59e0b')}
+                        ${mb('Satisfaction Score', cm.transformation.satisfaction, 10, '#f59e0b')}
+                    </div>
+                </div>`;
+                })() : ''}
 
                 ${marketIntel && marketIntel.transactions.total > 0 ? `
                 <div class="card" style="margin-bottom: 2.5rem; padding: 2rem;">
@@ -1587,33 +1674,6 @@ class TerminalApp {
                         </div>
                     ` : ''}
                 </div>
-
-                <!-- BRAND / LINE INDEXES -->
-                ${indexes.length > 0 ? `
-                <div style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light);">
-                    <h3 style="margin-bottom: 1.5rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">📈 Brand & Line Indexes</h3>
-                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
-                        ${indexes.map(idx => {
-            const grade = idx.avgGrade ? parseFloat(idx.avgGrade) : null;
-            const gradeColor = grade >= 70 ? 'var(--success)' : grade >= 45 ? '#fbbf24' : grade ? 'var(--danger)' : 'var(--text-muted)';
-            const trendIcon = grade >= 70 ? '↑' : grade >= 45 ? '→' : grade ? '↓' : '—';
-            return `
-                                <div class="card" style="padding:1.25rem; display:flex; justify-content:space-between; align-items:center;">
-                                    <div>
-                                        <div style="font-weight:700; font-size:0.95rem;">${escapeHTML(idx.brand)}</div>
-                                        <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHTML(idx.line)} • ${idx.targets} target${idx.targets !== 1 ? 's' : ''}</div>
-                                    </div>
-                                    <div style="text-align:right;">
-                                        <span style="font-size:1.25rem; font-weight:800; color:${gradeColor};">${grade ? escapeHTML(idx.avgGrade) : '—'}</span>
-                                        <span style="font-size:1.1rem; margin-left:0.25rem; color:${gradeColor};">${trendIcon}</span>
-                                        <div style="font-size:0.7rem; color:var(--text-muted);">${idx.submissions} report${idx.submissions !== 1 ? 's' : ''}</div>
-                                    </div>
-                                </div>
-                            `;
-        }).join('')}
-                    </div>
-                </div>
-                ` : ''}
 
                 <!-- INTEL HEADLINES -->
                 ${headlines.length > 0 ? `
@@ -1929,6 +1989,35 @@ class TerminalApp {
         document.getElementById('label_trans_satisfaction').innerText = l;
     }
 
+    updatePriceDelta() {
+        const msrp = this.currentTarget && this.currentTarget.msrp ? parseFloat(this.currentTarget.msrp) : null;
+        const marketEl = document.getElementById('market_price_input');
+        const deltaEl = document.getElementById('priceDeltaDisplay');
+        const deltaText = document.getElementById('priceDeltaText');
+        if (!msrp || !marketEl || !deltaEl || !deltaText) return;
+        const mp = parseFloat(marketEl.value);
+        if (!mp || mp <= 0) { deltaEl.style.display = 'none'; return; }
+        const diff = mp - msrp;
+        const pct = ((diff / msrp) * 100).toFixed(1);
+        const sign = diff >= 0 ? '+' : '';
+        const color = diff >= 0 ? 'var(--danger)' : 'var(--success)';
+        deltaEl.style.display = 'block';
+        deltaText.innerHTML = `<span style="color:${color};">${sign}$${diff.toFixed(2)} (${sign}${pct}%)</span> <span style="color:var(--text-muted);">vs MSRP</span>`;
+    }
+
+    handlePaidMsrp(checked) {
+        const costInput = document.getElementById('cost_basis_input');
+        if (!costInput) return;
+        if (checked && this.currentTarget && this.currentTarget.msrp) {
+            costInput.value = parseFloat(this.currentTarget.msrp).toFixed(2);
+            costInput.disabled = true;
+            costInput.style.opacity = '0.6';
+        } else {
+            costInput.disabled = false;
+            costInput.style.opacity = '1';
+        }
+    }
+
     renderSubmission(container) {
         const isEdit = !!this.editingSubmission;
         const ed = isEdit ? (this.editingSubmission.data || {}) : {};
@@ -2049,22 +2138,49 @@ class TerminalApp {
                         </div>
                     </div>
 
-                    <!-- SECTION 5: AFTERMARKET VALUATION -->
+                    <!-- SECTION 5: PRICING CONTEXT -->
                     <div class="card form-section">
                         <div class="section-header">
-                            <h3>5. Aftermarket Valuation</h3>
-                            <p>What is the current true street value?</p>
-                            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">Enter the average current selling price on secondary markets (eBay, Mercari, BST groups). This feeds the Market Intelligence pricing system.</p>
+                            <h3>5. Pricing Context</h3>
+                            <p>MSRP vs. current secondary market value.</p>
                         </div>
-                        <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
-                            <span style="font-size:1.5rem; color:var(--text-secondary);">$</span>
-                            <input type="number" name="market_price" step="0.01" min="0" required placeholder="120.00" ${isEdit && ed.market_price ? `value="${ed.market_price}"` : ''} style="width:100%; max-width:200px; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.25rem;">
-                        </div>
-                        <div class="form-group" style="margin-top:1.5rem;">
-                            <label class="form-label">Your Cost Basis <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">&#128274; Only visible to you (optional)</span></label>
+
+                        <!-- MSRP (read-only from figure data) -->
+                        <div class="form-group" style="margin-bottom:1.5rem;">
+                            <label class="form-label">Manufacturer's Suggested Retail Price (MSRP)</label>
                             <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <span style="font-size:1.5rem; color:var(--text-muted);">$</span>
+                                <span id="msrpDisplay" style="font-size:1.5rem; font-weight:800; color:var(--success);">${this.currentTarget.msrp ? parseFloat(this.currentTarget.msrp).toFixed(2) : 'Not Set'}</span>
+                            </div>
+                            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem;">Set by admins in the figure catalog.</p>
+                        </div>
+
+                        <!-- Aftermarket Valuation -->
+                        <div class="form-group">
+                            <label class="form-label">Aftermarket Valuation <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">Current street value on secondary markets</span></label>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <span style="font-size:1.5rem; color:var(--text-secondary);">$</span>
+                                <input type="number" name="market_price" id="market_price_input" step="0.01" min="0" required placeholder="120.00" ${isEdit && ed.market_price ? `value="${ed.market_price}"` : ''} style="width:100%; max-width:200px; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.25rem;" oninput="app.updatePriceDelta()">
+                            </div>
+                        </div>
+
+                        <!-- Live Delta -->
+                        <div id="priceDeltaDisplay" style="margin-top:1rem; padding:0.75rem 1rem; background:rgba(15,17,30,0.3); border-radius:var(--radius-sm); border:1px solid var(--border-light); display:none;">
+                            <span id="priceDeltaText" style="font-weight:700; font-size:0.95rem;"></span>
+                        </div>
+
+                        <!-- What You Paid -->
+                        <div style="margin-top:2rem; padding-top:2rem; border-top:1px solid var(--border-light);">
+                            <label class="form-label">What You Paid <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">&#128274; Private &mdash; only visible to you</span></label>
+                            <div style="display:flex; align-items:center; gap:1rem; margin-top:0.5rem;">
+                                <label style="display:flex; align-items:center; gap:0.5rem; cursor:${this.currentTarget.msrp ? 'pointer' : 'not-allowed'}; font-size:0.9rem; color:var(--text-secondary); opacity:${this.currentTarget.msrp ? '1' : '0.4'};">
+                                    <input type="checkbox" id="paidMsrpCheckbox" ${this.currentTarget.msrp ? '' : 'disabled'} onchange="app.handlePaidMsrp(this.checked)">
+                                    I paid MSRP
+                                </label>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.75rem;">
                                 <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
-                                <input type="number" name="cost_basis" step="0.01" min="0" placeholder="99.99" ${isEdit && ed.cost_basis ? `value="${ed.cost_basis}"` : ''} style="width:100%; max-width:200px; padding:0.65rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
+                                <input type="number" name="cost_basis" id="cost_basis_input" step="0.01" min="0" placeholder="99.99" ${isEdit && ed.cost_basis ? `value="${ed.cost_basis}"` : ''} style="width:100%; max-width:200px; padding:0.65rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
                             </div>
                         </div>
                     </div>
@@ -2149,6 +2265,17 @@ class TerminalApp {
         // Initialize transformation labels with current slider values
         this.updateFrustrationLabel(document.getElementById('trans_frustration').value);
         this.updateSatisfactionLabel(document.getElementById('trans_satisfaction').value);
+
+        // Initialize price delta display
+        if (isEdit && ed.market_price) this.updatePriceDelta();
+
+        // Pre-check "I paid MSRP" if cost_basis matches MSRP
+        if (isEdit && ed.cost_basis && this.currentTarget.msrp &&
+            Math.abs(parseFloat(ed.cost_basis) - parseFloat(this.currentTarget.msrp)) < 0.01) {
+            const cb = document.getElementById('paidMsrpCheckbox');
+            const ci = document.getElementById('cost_basis_input');
+            if (cb && ci) { cb.checked = true; ci.disabled = true; ci.style.opacity = '0.6'; }
+        }
     }
 
     async submitIntel(form) {
