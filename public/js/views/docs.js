@@ -103,7 +103,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
                         <li><strong>Delete Post</strong> &mdash; Authors can delete their own broadcasts via the \u{1F5D1}\u{FE0F} button. Admins can delete any broadcast.</li>
                         <li><strong>Share Post</strong> &mdash; Click \u{1F4CB} to copy a direct link to any broadcast. Shared links work as deep links &mdash; recipients are taken straight to that post after login.</li>
-                        <li><strong>Figure Linking</strong> &mdash; Reference any figure in the catalog with <code>[[Figure Name]]</code> bracket syntax. Known figures become clickable links to their scorecard. Unknown names link to Target Search.</li>
+                        <li><strong>Figure Linking</strong> &mdash; Type <code>@</code> to auto-insert brackets, then type the figure name inside (e.g. <code>@[Commander Optimus Prime]</code>). Known figures become clickable links to their scorecard. Unknown names link to Target Search.</li>
                     </ul>
 
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>

@@ -28,9 +28,9 @@ function renderMentions(text) {
     });
 }
 
-// Render [[Figure Name]] as clickable figure links (runs AFTER escapeHTML + renderMentions)
+// Render @[Figure Name] as clickable figure links (runs AFTER escapeHTML + renderMentions)
 function renderFigureLinks(html) {
-    return html.replace(/\[\[([^\]]+)\]\]/g, (match, rawName) => {
+    return html.replace(/@\[([^\]]+)\]/g, (match, rawName) => {
         const name = rawName.trim();
         const figure = MOCK_FIGURES.find(f => f.name.toLowerCase() === name.toLowerCase());
         if (figure) {
@@ -38,6 +38,21 @@ function renderFigureLinks(html) {
         } else {
             const safeName = escapeHTML(name).replace(/'/g, "\\'");
             return `<span class="figure-link not-found" onclick="event.stopPropagation(); app.currentView='search'; app.renderApp(); setTimeout(()=>{const el=document.getElementById('searchInput');if(el){el.value='${safeName}';el.dispatchEvent(new Event('keyup'));}},100);" title="Search for this figure">${escapeHTML(name)}</span>`;
+        }
+    });
+}
+
+// Auto-insert brackets when user types @ for figure linking
+function setupFigureLinkHelper(el) {
+    el.addEventListener('input', function(e) {
+        if (e.data === '@') {
+            const pos = this.selectionStart;
+            const val = this.value;
+            // Only auto-insert if next char isn't already [
+            if (val[pos] !== '[') {
+                this.value = val.slice(0, pos) + '[]' + val.slice(pos);
+                this.selectionStart = this.selectionEnd = pos + 1; // cursor between [ and ]
+            }
         }
     });
 }

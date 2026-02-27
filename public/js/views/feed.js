@@ -195,6 +195,10 @@ TerminalApp.prototype.renderFeed = async function(container) {
 
     container.innerHTML = feedHtml;
 
+    // Auto-bracket helper for figure linking (@[Figure Name])
+    setupFigureLinkHelper(document.getElementById('postContent'));
+    document.querySelectorAll('.replyContent').forEach(el => setupFigureLinkHelper(el));
+
     document.getElementById('postForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const content = document.getElementById('postContent').value.trim();
