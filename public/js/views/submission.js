@@ -27,14 +27,44 @@ TerminalApp.prototype.createSlider = function(id, label, min, max, val, sublabel
     `;
 };
 
+TerminalApp.prototype.riskDescriptions = {
+    risk_character: {
+        bullish: 'Demand for this character is rising \u2014 more collectors want it.',
+        neutral: 'Character demand is steady \u2014 no major shifts expected.',
+        bearish: 'Interest in this character is fading \u2014 fewer buyers ahead.'
+    },
+    risk_engineering: {
+        bullish: 'This mold/engineering is aging well \u2014 holds up against newer releases.',
+        neutral: 'Engineering is adequate \u2014 not being outclassed yet.',
+        bearish: 'Better-engineered alternatives are emerging \u2014 this feels dated.'
+    },
+    risk_ecosystem: {
+        bullish: 'Strong ecosystem support \u2014 complementary figures boost this one\u2019s value.',
+        neutral: 'Ecosystem impact is minimal \u2014 stands on its own.',
+        bearish: 'Ecosystem is weakening \u2014 line cancellations or gaps hurt appeal.'
+    },
+    risk_redeco: {
+        bullish: 'Low redeco/reissue risk \u2014 this deco is likely to stay exclusive.',
+        neutral: 'Moderate reissue chance \u2014 could go either way.',
+        bearish: 'High redeco/reissue risk \u2014 a new version will likely tank value.'
+    }
+};
+
 TerminalApp.prototype.createRiskSelector = function(id, label, defaultVal = 'neutral') {
+    const desc = this.riskDescriptions[id];
+    const infoId = 'riskInfo_' + id;
     return `
         <div class="form-group">
-            <label class="form-label">${label}</label>
+            <label class="form-label">${label}${desc ? ` <span class="risk-info-toggle" onclick="event.preventDefault(); var el=document.getElementById('${infoId}'); el.style.display=el.style.display==='none'?'block':'none';" title="What do these mean?">&#9432;</span>` : ''}</label>
+            ${desc ? `<div id="${infoId}" class="risk-info-panel" style="display:none;">
+                <div><span class="ri-label ri-bull">\u25B2 Bullish</span> ${desc.bullish}</div>
+                <div><span class="ri-label ri-neut">\u25CF Neutral</span> ${desc.neutral}</div>
+                <div><span class="ri-label ri-bear">\u25BC Bearish</span> ${desc.bearish}</div>
+            </div>` : ''}
             <div class="segmented-control">
-                <label class="risk-bullish" title="Expecting a rise in market price"><input type="radio" name="${id}" value="bullish" ${defaultVal === 'bullish' ? 'checked' : ''}><span>Bullish <span class="risk-info-icon">&#9432;</span></span></label>
-                <label class="risk-neutral" title="Expecting stable or minimal price movement"><input type="radio" name="${id}" value="neutral" ${defaultVal === 'neutral' ? 'checked' : ''}><span>Neutral <span class="risk-info-icon">&#9432;</span></span></label>
-                <label class="risk-bearish" title="Expecting a decline in market price"><input type="radio" name="${id}" value="bearish" ${defaultVal === 'bearish' ? 'checked' : ''}><span>Bearish <span class="risk-info-icon">&#9432;</span></span></label>
+                <label class="risk-bullish"><input type="radio" name="${id}" value="bullish" ${defaultVal === 'bullish' ? 'checked' : ''}><span>Bullish</span></label>
+                <label class="risk-neutral"><input type="radio" name="${id}" value="neutral" ${defaultVal === 'neutral' ? 'checked' : ''}><span>Neutral</span></label>
+                <label class="risk-bearish"><input type="radio" name="${id}" value="bearish" ${defaultVal === 'bearish' ? 'checked' : ''}><span>Bearish</span></label>
             </div>
         </div>
     `;

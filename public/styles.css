@@ -649,6 +649,35 @@ input[type="range"]::-webkit-slider-thumb:hover {
     cursor: help;
 }
 
+.risk-info-toggle {
+    display: inline-block;
+    font-size: 0.95rem;
+    color: var(--accent);
+    opacity: 0.7;
+    cursor: pointer;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+    transition: opacity 0.2s;
+}
+.risk-info-toggle:hover { opacity: 1; }
+
+.risk-info-panel {
+    background: rgba(10, 11, 20, 0.6);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+.risk-info-panel div { margin-bottom: 0.15rem; }
+.risk-info-panel div:last-child { margin-bottom: 0; }
+.ri-label { font-weight: 700; margin-right: 0.35rem; }
+.ri-bull { color: var(--success); }
+.ri-neut { color: var(--text-muted); }
+.ri-bear { color: var(--danger); }
+
 .btn-outline {
     background: transparent;
     border: 1px solid var(--border-light);
@@ -1009,6 +1038,10 @@ textarea:focus {
 
 [data-theme="light"] .segmented-control {
     background: rgba(248, 250, 252, 0.8);
+}
+
+[data-theme="light"] .risk-info-panel {
+    background: rgba(248, 250, 252, 0.9);
 }
 
 [data-theme="light"] .app-layout::before {
