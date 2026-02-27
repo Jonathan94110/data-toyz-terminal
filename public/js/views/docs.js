@@ -103,8 +103,20 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. The edit form allows updating the post text, changing the sentiment tag (\u{1F525} HOT / \u{1F937} FENCE / \u{1F9CA} NOT), and using figure linking with autocomplete. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
                         <li><strong>Delete Post</strong> &mdash; Authors can delete their own broadcasts via the \u{1F5D1}\u{FE0F} button. Admins can delete any broadcast.</li>
                         <li><strong>Share Post</strong> &mdash; Click \u{1F4CB} to copy a direct link to any broadcast. Shared links work as deep links &mdash; recipients are taken straight to that post after login.</li>
-                        <li><strong>Figure Linking</strong> &mdash; Type <code>@</code> to auto-insert brackets, then begin typing a figure name inside (e.g. <code>@[Optimus</code>). A live autocomplete dropdown appears, searching all existing scorecard titles as you type. Navigate results with <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> arrow keys and select with <kbd>Enter</kbd> or <kbd>Tab</kbd>, or click a result directly. Known figures render as clickable chips that open the scorecard. Unknown names render as dashed chips that open Target Search with the name pre-filled. Figure linking is also available when editing an existing post.</li>
+                        <li><strong>Figure Linking</strong> &mdash; Reference any scorecard directly inside a post or comment using the <code>@[Figure Name]</code> syntax. See the step-by-step workflow below.</li>
                     </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Linking &mdash; How It Works:</strong></p>
+                    <ol style="color:var(--text-secondary); line-height:2.2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Type <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@</code> &rarr; brackets auto-insert: <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@[]</code> with the cursor placed inside</li>
+                        <li>Start typing a figure name (e.g. <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@[Road</code>) &rarr; a dropdown appears searching the entire scorecard catalog in real time</li>
+                        <li>Matching figures show their name + brand label (e.g. <strong>Roadking</strong> &mdash; <span style="color:var(--text-muted); text-transform:uppercase; font-size:0.8rem;">X-TRANSBOTS</span>)</li>
+                        <li>Click a result or use <kbd>&uarr;</kbd><kbd>&darr;</kbd> arrow keys + <kbd>Enter</kbd>/<kbd>Tab</kbd> to select &mdash; the full name fills in and the cursor jumps past the closing bracket</li>
+                        <li><kbd>Escape</kbd> dismisses the dropdown; blur auto-hides it</li>
+                    </ol>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:0.5rem;">
+                        Works in the main post textarea, all reply inputs, and the edit post form. Known figures render as clickable chips that open the scorecard. Unknown names render as dashed chips that open Target Search with the name pre-filled. The dropdown cleans up on feed re-render so there are no orphaned elements.
+                    </p>
 
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
                 </div>
