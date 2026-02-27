@@ -52,9 +52,15 @@ TerminalApp.prototype.riskDescriptions = {
 
 TerminalApp.prototype.createRiskSelector = function(id, label, defaultVal = 'neutral') {
     const desc = this.riskDescriptions[id];
+    const infoId = 'riskInfo_' + id;
     return `
         <div class="form-group">
-            <label class="form-label">${label}${desc ? ` <span class="risk-info-wrap"><span class="risk-info-toggle" onclick="event.preventDefault(); this.parentElement.classList.toggle('pinned');">&#9432;</span><span class="risk-info-panel"><span><span class="ri-label ri-bull">\u25B2 Bullish</span> ${desc.bullish}</span><span><span class="ri-label ri-neut">\u25CF Neutral</span> ${desc.neutral}</span><span><span class="ri-label ri-bear">\u25BC Bearish</span> ${desc.bearish}</span></span></span>` : ''}</label>
+            <label class="form-label">${label}${desc ? ` <span class="risk-info-toggle" data-target="${infoId}">&#9432;</span>` : ''}</label>
+            ${desc ? `<div id="${infoId}" class="risk-info-panel">
+                <div><span class="ri-label ri-bull">\u25B2 Bullish</span> ${desc.bullish}</div>
+                <div><span class="ri-label ri-neut">\u25CF Neutral</span> ${desc.neutral}</div>
+                <div><span class="ri-label ri-bear">\u25BC Bearish</span> ${desc.bearish}</div>
+            </div>` : ''}
             <div class="segmented-control">
                 <label class="risk-bullish"><input type="radio" name="${id}" value="bullish" ${defaultVal === 'bullish' ? 'checked' : ''}><span>Bullish</span></label>
                 <label class="risk-neutral"><input type="radio" name="${id}" value="neutral" ${defaultVal === 'neutral' ? 'checked' : ''}><span>Neutral</span></label>
@@ -479,10 +485,30 @@ TerminalApp.prototype.renderSubmission = function(container) {
         }
     }
 
-    // Dismiss pinned risk info panels when tapping elsewhere
+    // Risk info ⓘ — hover (desktop) + tap toggle (mobile)
+    document.querySelectorAll('.risk-info-toggle').forEach(icon => {
+        const panelId = icon.dataset.target;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        // Hover: show/hide
+        icon.addEventListener('mouseenter', () => panel.classList.add('visible'));
+        icon.addEventListener('mouseleave', () => {
+            setTimeout(() => { if (!panel.matches(':hover')) panel.classList.remove('visible'); }, 80);
+        });
+        panel.addEventListener('mouseleave', () => panel.classList.remove('visible'));
+        // Tap: pin toggle (mobile fallback)
+        icon.addEventListener('click', (e) => {
+            e.preventDefault();
+            const wasOpen = panel.classList.contains('pinned');
+            // Close all others first
+            document.querySelectorAll('.risk-info-panel.pinned').forEach(p => p.classList.remove('pinned'));
+            if (!wasOpen) panel.classList.add('pinned');
+        });
+    });
+    // Tap outside closes pinned panels
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('.risk-info-wrap')) {
-            document.querySelectorAll('.risk-info-wrap.pinned').forEach(w => w.classList.remove('pinned'));
+        if (!e.target.closest('.risk-info-toggle') && !e.target.closest('.risk-info-panel')) {
+            document.querySelectorAll('.risk-info-panel.pinned').forEach(p => p.classList.remove('pinned'));
         }
     });
 
