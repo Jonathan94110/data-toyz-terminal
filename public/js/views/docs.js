@@ -1,0 +1,594 @@
+// views/docs.js — Documentation
+TerminalApp.prototype.renderDocs = function(container) {
+        const sections = [
+            { id: 'overview', title: 'Platform Overview' },
+            { id: 'navigation', title: 'Navigation Guide' },
+            { id: 'comms-feed', title: 'Comms Feed' },
+            { id: 'breakout-rooms', title: 'Breakout Rooms' },
+            { id: 'target-search', title: 'Target Search & Catalog' },
+            { id: 'trade-scan', title: 'Trade Scan (Submissions)' },
+            { id: 'grading', title: 'Grading System' },
+            { id: 'market-pulse', title: 'Market Pulse Dashboard' },
+            { id: 'intel-history', title: 'My Intel History' },
+            { id: 'leaderboards', title: 'Global Leaderboard & Ranks' },
+            { id: 'profile', title: 'Profile Settings' },
+            { id: 'notifications', title: 'Notifications' },
+            { id: 'profiles-following', title: 'User Profiles & Following' },
+            { id: 'flagging', title: 'Flagging a Post' },
+            { id: 'admin', title: 'Admin Panel' },
+            { id: 'security', title: 'Security & Authentication' },
+            { id: 'soc2', title: 'SOC 2 Alignment' },
+            { id: 'glossary', title: 'Glossary' }
+        ];
+
+        container.innerHTML = `
+            <div style="max-width:860px; margin:0 auto; padding-bottom:4rem;">
+                <div style="margin-bottom:2.5rem; text-align:center;">
+                    <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Data Toyz Documentation</h2>
+                    <p style="color:var(--text-secondary); font-size:1.1rem;">Comprehensive field manual for all Data Toyz operations.</p>
+                </div>
+
+                <!-- TABLE OF CONTENTS -->
+                <div class="card" style="margin-bottom:2.5rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">Table of Contents</h3>
+                    <div class="grid-2" style="gap:0.5rem 2rem;">
+                        ${sections.map((s, i) => `
+                            <a href="#doc-${s.id}" onclick="event.preventDefault(); document.getElementById('doc-${s.id}').scrollIntoView({behavior:'smooth'});" style="color:var(--accent); text-decoration:none; font-size:0.95rem; padding:0.3rem 0; display:block;">
+                                <span style="color:var(--text-muted); margin-right:0.5rem;">${(i + 1).toString().padStart(2, '0')}.</span> ${s.title}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- 01. PLATFORM OVERVIEW -->
+                <div id="doc-overview" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">01. Platform Overview</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        <strong>Data Toyz Terminal</strong> is a community-driven intelligence platform for Transformers action figure collectors. The platform uses a spy/intelligence agency theme where collectors are <strong>operatives</strong>, figures are <strong>targets</strong>, and reviews are <strong>intel reports</strong>.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The core mission: evaluate, rate, and track the collectible market for Transformers figures across all brands and product lines. Operatives submit detailed intelligence reports grading each figure on market sentiment and physical quality, building a comprehensive database of community-driven reviews.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8;">
+                        <strong>Supported Brands:</strong> Hasbro, Takara Tomy, Fans Toys, X-Transbots, and other 3rd party manufacturers.<br>
+                        <strong>Product Lines:</strong> Legacy Evolution, Studio Series, Missing Link, Masterpiece, 3rd Party, and more.<br>
+                        <strong>Class Tiers:</strong> Deluxe, Voyager, Leader, Commander, Masterpiece.
+                    </p>
+                </div>
+
+                <!-- 02. NAVIGATION GUIDE -->
+                <div id="doc-navigation" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">02. Navigation Guide</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">The left sidebar contains all primary navigation tabs:</p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Tab</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Comms Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Social timeline for posting updates, comments, and reactions</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Rooms</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Private encrypted channels for 1-on-1 DMs and group chats</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Dashboard with market statistics, brand indexes, and top-rated figures</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target Search</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">My Intel History</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">View all your past intel report submissions</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Global Leaderboard</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Top operatives ranked by number of submissions</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Profile Settings</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Update your username, email, avatar, and password</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Documentation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">This page &mdash; full platform reference</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Admin Panel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Admin-only: manage users, figures, and view analytics</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The theme toggle at the bottom switches between Dark Mode and Light Mode. Your current view is preserved across page reloads.</p>
+                </div>
+
+                <!-- 03. COMMS FEED -->
+                <div id="doc-comms-feed" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">03. Comms Feed</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Comms Feed is the social hub of the terminal. Operatives can broadcast messages to the entire community, attach images, and engage with each other.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Features:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Post Broadcasts</strong> &mdash; Share text updates with optional image attachments</li>
+                        <li><strong>Sentiment Tags</strong> &mdash; Each post is tagged with a sentiment: \u{1F525} HOT (bullish), \u{1F937} FENCE (neutral), or \u{1F9CA} NOT (bearish)</li>
+                        <li><strong>Comments</strong> &mdash; Reply to any broadcast to start a discussion thread</li>
+                        <li><strong>Emoji Reactions</strong> &mdash; React to posts with one of four emojis: \u{1F44D} \u{2764}\u{FE0F} \u{1F602} \u{1F610} (one reaction per user per post, toggles on/off)</li>
+                        <li><strong>@-Mentions</strong> &mdash; Tag other operatives with <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@username</code> in posts or comments. The mentioned operative receives an in-app notification and the mention appears as a clickable profile link.</li>
+                        <li><strong>User Profiles</strong> &mdash; Click any username to view their operative dossier</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Post Management:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
+                        <li><strong>Delete Post</strong> &mdash; Authors can delete their own broadcasts via the \u{1F5D1}\u{FE0F} button. Admins can delete any broadcast.</li>
+                        <li><strong>Share Post</strong> &mdash; Click \u{1F4CB} to copy a direct link to any broadcast. Shared links work as deep links &mdash; recipients are taken straight to that post after login.</li>
+                    </ul>
+
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
+                </div>
+
+                <!-- 04. BREAKOUT ROOMS -->
+                <div id="doc-breakout-rooms" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. Breakout Rooms</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Breakout Rooms are encrypted private channels within Global Comms. Unlike the public Comms Feed, Breakout Rooms allow operatives to communicate in private &mdash; either one-on-one or in small groups.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Room Types:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Direct Messages (DMs)</strong> &mdash; Private 1-on-1 channels between two operatives. Auto-deduplicated: opening a DM with someone you already have a channel with will reopen the existing conversation.</li>
+                        <li><strong>Group Channels</strong> &mdash; Named rooms with multiple members. Created via the "+ New Room" button with a custom name and invited operatives.</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Messaging Features:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Text Messages</strong> &mdash; Send real-time text transmissions to channel members</li>
+                        <li><strong>Image Attachments</strong> &mdash; Upload images via the camera icon in the input bar</li>
+                        <li><strong>Emoji Reactions</strong> &mdash; React to any message with one of five emojis (\u{1F44D} \u{2764}\u{FE0F} \u{1F602} \u{1F622} \u{1F610}). Reactions toggle on/off.</li>
+                        <li><strong>Typing Indicators</strong> &mdash; See when another operative is composing a message in real time</li>
+                        <li><strong>Read Receipts</strong> &mdash; Unread message counts appear on room cards and the nav badge</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Room Management:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Members Panel</strong> &mdash; Click "Members" in any channel header to view all operatives. The room creator is labeled Commander.</li>
+                        <li><strong>Add Members</strong> &mdash; Commanders can invite additional operatives to group channels by searching usernames</li>
+                        <li><strong>Remove Members</strong> &mdash; Commanders can remove members from group channels</li>
+                        <li><strong>Leave Channel</strong> &mdash; Any member can leave a channel at any time. Ownership auto-transfers if the Commander leaves.</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Starting a DM:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        You can open a direct channel with any operative by clicking the <strong>"Open Secure Channel"</strong> button on their profile dossier. This is accessible from any username link across the platform (Comms Feed, Leaderboard, etc.).
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Filter Tabs:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The room list supports three filter views: <strong>All</strong> (every channel), <strong>DMs</strong> (1-on-1 only), and <strong>Groups</strong> (multi-member channels only). Rooms are sorted by most recent activity.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Messages poll for updates every 3 seconds while you are inside a channel. The nav badge polls every 15 seconds for total unread messages across all rooms.</p>
+                </div>
+
+                <!-- 05. TARGET SEARCH -->
+                <div id="doc-target-search" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Target Search & Catalog</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Target Search page is the central figure catalog. Every Transformers figure in the database is listed here with real-time search and filtering.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>How it works:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Search</strong> &mdash; Type to instantly filter by figure name, brand, class tier, or product line</li>
+                        <li><strong>Class Tier Badges</strong> &mdash; Color-coded badges show the figure's class (Deluxe, Voyager, Leader, Commander, Masterpiece)</li>
+                        <li><strong>Select a Target</strong> &mdash; Click any figure to view its full intel page with all submissions, charts, and gallery</li>
+                        <li><strong>Add New Target</strong> &mdash; Any authenticated operative can add a new figure to the catalog</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8;">
+                        <strong>Figure Data:</strong> Each target has a name, brand (Hasbro, Takara Tomy, etc.), class tier, and product line. Figures can also display a ranked list sorted by average community grade.
+                    </p>
+                </div>
+
+                <!-- 06. TRADE SCAN -->
+                <div id="doc-trade-scan" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Trade Scan (Submissions)</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Trade Scan is the core evaluation form. When you select a figure from Target Search, you can "Execute Trade Scan" to submit a detailed intel report grading the figure across multiple dimensions.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>The 7-Section Evaluation Form:</strong></p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">#</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Section</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">What You Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">1</td><td style="padding:0.6rem 1rem; font-weight:600;">Data Toyz Trading Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">5 market sentiment metrics (Community, Buzz, Liquidity, Risk, Appeal) &mdash; each rated 0&ndash;20</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">2</td><td style="padding:0.6rem 1rem; font-weight:600;">Risk Forecasting</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Predict market direction across 4 axes: Bullish, Neutral, or Bearish &mdash; with a selectable forecast horizon</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">3</td><td style="padding:0.6rem 1rem; font-weight:600;">Physical Quality Scales</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">9 physical attributes (Build, Paint, Articulation, Accuracy, Presence, Value, Packaging, Transformation Frustration & Satisfaction) &mdash; each rated 1-10</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">4</td><td style="padding:0.6rem 1rem; font-weight:600;">Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Upload a photo of the figure as field evidence (appears in the gallery)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">5</td><td style="padding:0.6rem 1rem; font-weight:600;">Aftermarket Valuation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Enter the current market price for the figure</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">6</td><td style="padding:0.6rem 1rem; font-weight:600;">Community Recommendation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Yes or No &mdash; do you recommend acquiring this target?</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; color:var(--text-muted);">7</td><td style="padding:0.6rem 1rem; font-weight:600;">Trade Value Star Rating</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Overall 1-5 star rating for the figure</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Editing Reports:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        After submitting, you can edit any of your own reports from <strong>My Intel History</strong>. Click \u{270F}\u{FE0F} Edit &mdash; the form reopens pre-populated with your original data. Update any fields (DTS scores, risk forecasting, physical quality, evidence image, market price, recommendation, star rating) and save. Edited reports display an <em>(edited)</em> indicator next to the submission date.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Each submission is recorded and visible to the entire community. You can edit or retract your own submissions from My Intel History.</p>
+                </div>
+
+                <!-- 07. GRADING SYSTEM -->
+                <div id="doc-grading" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">07. Grading System</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Every intel report generates three scores that combine into an Overall Grade:
+                    </p>
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
+                        <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
+                            <strong style="color:var(--accent);">DTS Total (Data Toyz Trading Score)</strong><br>
+                            Sum of 5 market metrics (Community + Buzz + Liquidity + Risk + Appeal).<br>
+                            Each metric is rated 0&ndash;20, so DTS Total ranges from <strong>0 to 100</strong>.
+                        </p>
+                    </div>
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
+                        <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
+                            <strong style="color:var(--accent);">Approval Score</strong><br>
+                            Calculated from the 9 Physical Quality ratings (each 1&ndash;10, max sum = 90).<br>
+                            Formula: <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(sum of 9 ratings / 90) &times; 100</code><br>
+                            Result is a percentage from <strong>0 to 100</strong>.
+                        </p>
+                    </div>
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
+                        <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
+                            <strong style="color:var(--accent);">Overall Grade</strong><br>
+                            The average of DTS Total and Approval Score.<br>
+                            Formula: <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(DTS Total + Approval Score) / 2</code>
+                        </p>
+                    </div>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Grade Color Scale:</strong></p>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                        <span style="padding:0.4rem 1rem; border-radius:4px; font-weight:700; font-size:0.9rem; color:var(--success); border:1px solid var(--success);">70+ = Strong</span>
+                        <span style="padding:0.4rem 1rem; border-radius:4px; font-weight:700; font-size:0.9rem; color:#fbbf24; border:1px solid #fbbf24;">50&ndash;69 = Moderate</span>
+                        <span style="padding:0.4rem 1rem; border-radius:4px; font-weight:700; font-size:0.9rem; color:var(--danger); border:1px solid var(--danger);">Below 50 = Weak</span>
+                    </div>
+                </div>
+
+                <!-- 08. MARKET PULSE -->
+                <div id="doc-market-pulse" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">08. Market Pulse Dashboard</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Market Pulse is a high-level analytics dashboard showing the state of the collectible market across all tracked figures.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Dashboard Sections:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Overview Stats</strong> &mdash; Total targets, total intel reports, average grade, and active operatives</li>
+                        <li><strong>Top Rated Targets</strong> &mdash; Figures ranked by highest average community grade</li>
+                        <li><strong>Intel Headlines</strong> &mdash; The most recent submissions across all figures</li>
+                        <li><strong>Brand Indexes</strong> &mdash; Performance breakdown by brand and product line (avg grade, submission count)</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8;">
+                        When you click a figure from Target Search, you see a <strong>detailed intel page</strong> with: all submissions listed, a grade trend chart over time, a price trend chart, community recommendation votes, and a <strong>Field Evidence Gallery</strong> of uploaded photos.
+                    </p>
+                </div>
+
+                <!-- 09. MY INTEL HISTORY -->
+                <div id="doc-intel-history" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">09. My Intel History</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        View all intel reports you have submitted. Each entry shows the target name, class tier, date, and your grade. You can click any entry to navigate to that figure's full intel page.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Actions:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>\u{270F}\u{FE0F} Edit Report</strong> &mdash; Click Edit next to any of your submissions to modify it. The Trade Scan form reopens with all original data pre-loaded. Update any fields and save.</li>
+                        <li><strong>Retract Intel</strong> &mdash; Permanently delete your own submission. Admins can also retract any submission.</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Submissions you have edited display an <em>(edited)</em> indicator next to the date. Click any entry to navigate to that figure's full intel page.</p>
+                </div>
+
+                <!-- 10. LEADERBOARDS -->
+                <div id="doc-leaderboards" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">10. Global Leaderboard & Ranks</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Operatives are ranked by total number of intel submissions. The leaderboard shows the top contributors with clickable profiles.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Operative Title Progression:</strong></p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Submissions</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Title</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem;">0 &ndash; 1</td><td style="padding:0.6rem 1rem; font-weight:600; color:var(--text-muted);">Rookie Analyst</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem;">2 &ndash; 4</td><td style="padding:0.6rem 1rem; font-weight:600; color:var(--accent);">Junior Analyst</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem;">5 &ndash; 9</td><td style="padding:0.6rem 1rem; font-weight:600; color:var(--success);">Field Evaluator</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem;">10 &ndash; 14</td><td style="padding:0.6rem 1rem; font-weight:600; color:var(--text-secondary);">Senior Field Evaluator</td></tr>
+                            <tr><td style="padding:0.6rem 1rem;">15+</td><td style="padding:0.6rem 1rem; font-weight:600; color:#a78bfa;">Prime Intel Officer</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 11. PROFILE SETTINGS -->
+                <div id="doc-profile" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">11. Profile Settings</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Manage your operative identity from the Profile Settings page:
+                    </p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem;">
+                        <li><strong>Avatar</strong> &mdash; Upload a profile image (displayed across the platform)</li>
+                        <li><strong>Username</strong> &mdash; Change your operative codename (updates all past submissions automatically)</li>
+                        <li><strong>Email</strong> &mdash; Update your secure email address (used for password reset and email notifications)</li>
+                        <li><strong>Change Password</strong> &mdash; Requires your current password for verification, then set a new one</li>
+                        <li><strong>Notification Settings</strong> &mdash; Toggle grid to control which notifications you receive via in-app alerts and email (see section 12)</li>
+                    </ul>
+                </div>
+
+                <!-- 12. NOTIFICATIONS -->
+                <div id="doc-notifications" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">12. Notifications</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The notification bell in the top-right corner alerts you to activity on your content. Click a notification to navigate directly to the relevant post or figure. Use "Mark all read" to clear unread badges. Notifications poll for updates every 30 seconds.
+                    </p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Types:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Reply to my broadcast</strong> &mdash; When someone comments on your Comms Feed post</li>
+                        <li><strong>Reaction to my post</strong> &mdash; When someone reacts with an emoji to your broadcast</li>
+                        <li><strong>Co-reviewer on same figure</strong> &mdash; When another operative submits an intel report on a figure you also reviewed</li>
+                        <li><strong>New figure added to catalog</strong> &mdash; When an admin adds a new figure to the database</li>
+                        <li><strong>Important updates from HQ</strong> &mdash; System-wide announcements from Terminal administrators</li>
+                        <li><strong>Breakout Room Messages</strong> &mdash; When a new message is sent in a Breakout Room you are a member of</li>
+                        <li><strong>@-Mention</strong> &mdash; When someone tags you with <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@yourusername</code> in a broadcast or comment</li>
+                        <li><strong>New Follower</strong> &mdash; When another operative starts following you</li>
+                        <li><strong>Flagged Post (Admin)</strong> &mdash; When a broadcast you manage is flagged for review (admin-only)</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Channels:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Each notification type can be delivered through two independent channels:
+                    </p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>In-App</strong> &mdash; Notifications appear in the bell icon dropdown and are stored in the Terminal database. Enabled by default for all types.</li>
+                        <li><strong>Email</strong> &mdash; A styled intelligence briefing is sent to your registered email address. Disabled by default &mdash; opt in from your profile settings.</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Settings:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Manage your preferences from the <strong>Notification Settings</strong> card on your Profile page. A toggle grid lets you independently enable or disable each notification type for each channel. Changes auto-save immediately &mdash; no submit button required. Default preferences are created automatically the first time you visit the settings.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: All notification types &mdash; including mentions, follows, and flag alerts &mdash; can be independently toggled for in-app and email delivery from your profile page.</p>
+                </div>
+
+                <!-- 13. USER PROFILES & FOLLOWING -->
+                <div id="doc-profiles-following" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. User Profiles & Following</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Every operative has a public profile (dossier) that showcases their activity and standing in the community. You can view any operative's profile by clicking their username anywhere on the platform.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Operative Dossiers:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Avatar &amp; Identity</strong> &mdash; Profile image, username, and operative rank title</li>
+                        <li><strong>Join Date</strong> &mdash; When the operative first registered</li>
+                        <li><strong>Submission Count</strong> &mdash; Total number of intel reports filed</li>
+                        <li><strong>Recent Intel</strong> &mdash; A list of their most recent submissions with grades</li>
+                        <li><strong>Follower / Following Counts</strong> &mdash; See how many operatives follow them and how many they follow</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Following:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Follow</strong> &mdash; Click the "Follow" button on any operative's dossier to follow them. You will be notified when they post new intel.</li>
+                        <li><strong>Unfollow</strong> &mdash; Click "Unfollow" to stop receiving notifications about their activity.</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Your Profile:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        Your own dossier is accessible from Profile Settings or by clicking your username. Other operatives can see your public stats, submission history, and follower counts.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: Click "Open Secure Channel" on any operative's profile to start a private Breakout Room DM with them.</p>
+                </div>
+
+                <!-- 14. FLAGGING A POST -->
+                <div id="doc-flagging" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Flagging a Post</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        If you encounter a broadcast that violates community guidelines or contains inappropriate content, you can flag it for admin review. Flagging is anonymous to the post author &mdash; they will not be notified that their post was flagged.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>How to Flag:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Click the <strong>\u{1F6A9} Report</strong> button on any broadcast in the Comms Feed</li>
+                        <li>Optionally provide a reason for the flag (up to 500 characters)</li>
+                        <li>Each user can flag a broadcast only once</li>
+                        <li>You cannot flag your own broadcasts</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>What Happens Next:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Admins receive a notification about the flagged broadcast</li>
+                        <li>Admins can view all flags in the Admin Panel under "Flagged Broadcasts"</li>
+                        <li>Admins can either delete the flagged broadcast or dismiss the flag</li>
+                        <li>The post author is <strong>never</strong> notified about flags on their content</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Please flag responsibly. Flagging is meant for content that genuinely violates community standards.</p>
+                </div>
+
+                <!-- 15. ADMIN PANEL -->
+                <div id="doc-admin" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Admin Panel</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Admin Panel is only visible to operatives with the <strong>admin</strong> role. It provides full control over the platform:
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Analytics Dashboard:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Total figures, users, submissions, and posts at a glance</li>
+                        <li>Top contributors ranked by submission count</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Management:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Edit figure details (name, brand, class tier, product line)</li>
+                        <li>Delete figures and all associated intel reports</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>User Management:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Add new users manually</li>
+                        <li>Promote or demote users (Analyst / Admin)</li>
+                        <li>Suspend or reinstate user accounts</li>
+                        <li>Reset a user's password (admin backup)</li>
+                        <li>Delete user accounts permanently</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Flagged Posts Queue:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem;">
+                        <li>Review broadcasts reported by the community</li>
+                        <li>View the post content, flag count, and reporter reasons</li>
+                        <li>Dismiss flags if the content is acceptable</li>
+                        <li>Delete the flagged broadcast if it violates community guidelines</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The primary admin account (Prime Dynamixx) is protected and cannot be demoted, suspended, or deleted.</p>
+                </div>
+
+                <!-- 16. SECURITY & AUTHENTICATION -->
+                <div id="doc-security" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">16. Security & Authentication</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1.5rem;">
+                        Data Toyz Terminal implements layered, industry-standard security controls designed to protect user accounts, platform integrity, and stored data.
+                    </p>
+
+                    <p style="color:var(--accent); font-weight:700; font-size:1rem; margin-bottom:0.75rem; text-transform:uppercase; letter-spacing:0.03em;">Authentication & Access Control</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>JWT-Based Authentication</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All authenticated requests use signed JSON Web Tokens (JWT) with 24-hour expiration. Tokens are signed using environment-managed secrets in production environments.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Password Security</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Passwords are hashed using bcrypt (10 salt rounds).</li>
+                        <li>Plaintext passwords are never stored.</li>
+                        <li>Minimum complexity requirements: 8 characters, at least one uppercase letter, one lowercase letter, and one number.</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Session Management</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Password changes immediately invalidate all active sessions.</li>
+                        <li>Suspended accounts automatically have all tokens invalidated.</li>
+                        <li>Server extracts identity from verified JWT &mdash; usernames are never trusted from client input.</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Ownership Enforcement</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">Users may only modify their own profiles and retract their own submissions. All authorization checks are enforced server-side.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Multi-Factor Authentication (Planned / Optional)</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1.5rem;">The platform architecture supports future implementation of TOTP-based MFA for elevated security environments.</p>
+
+                    <p style="color:var(--accent); font-weight:700; font-size:1rem; margin-bottom:0.75rem; text-transform:uppercase; letter-spacing:0.03em;">Password Reset & Account Recovery</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Secure Reset Flow</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>&ldquo;Forgot Password?&rdquo; initiates a cryptographically secure reset token.</li>
+                        <li>Reset tokens expire after 1 hour.</li>
+                        <li>Responses are standardized to prevent email enumeration.</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Admin-Initiated Reset</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1.5rem;">Admins may trigger a forced password reset flow but cannot view or set plaintext passwords.</p>
+
+                    <p style="color:var(--accent); font-weight:700; font-size:1rem; margin-bottom:0.75rem; text-transform:uppercase; letter-spacing:0.03em;">Data Protection Controls</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Encryption in Transit</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All production traffic is enforced over HTTPS with HSTS enabled.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Encryption at Rest</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">Production database volumes and storage infrastructure are encrypted at rest.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>XSS Prevention</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All user-generated content is HTML-escaped before rendering.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Input Validation</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All inputs are validated for type, length, and format prior to processing.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>SQL Injection Prevention</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">All database interactions use parameterized queries. Raw string interpolation is prohibited.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>File Upload Controls</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Maximum size: 5 MB</li>
+                        <li>Allowed formats: JPEG, PNG, GIF, WebP</li>
+                        <li>MIME-type validation enforced</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.5rem;"><strong>Error Handling</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8;">Internal errors are logged server-side. Only sanitized, generic error responses are returned to clients.</p>
+                </div>
+
+                <!-- 17. SOC 2 ALIGNMENT -->
+                <div id="doc-soc2" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">17. SOC 2 Alignment</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;">
+                        Data Toyz Terminal implements technical and operational controls aligned with the SOC 2 Trust Services Criteria across all five principles.
+                    </p>
+                    <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:0.75rem 1rem; margin-bottom:1.5rem;">
+                        <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.6; margin:0;">
+                            <strong style="color:var(--text-secondary);">Note:</strong> Formal SOC 2 Type II certification requires independent third-party audit.
+                        </p>
+                    </div>
+
+                    <p style="color:var(--accent); font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128737; Security</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:0.75rem;">
+                        <li>Helmet-based security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, COOP/CORP)</li>
+                        <li>Configured CORS policy (no wildcard origins)</li>
+                        <li>Three-tier rate limiting (global, authentication, messaging)</li>
+                        <li>Audit logging of security-relevant events (login, password changes, admin actions, room management)</li>
+                        <li>Secrets managed via environment configuration (no hardcoded credentials)</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.6; margin-bottom:1.25rem; padding-left:1.5rem;">Audit logs retain security events for a defined operational period in accordance with platform policy.</p>
+
+                    <p style="color:#10b981; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#9889; Availability</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
+                        <li>Health check endpoint for uptime monitoring</li>
+                        <li>Graceful shutdown handling for controlled termination</li>
+                        <li>Database connection pooling with timeout safeguards</li>
+                        <li>Database hosted on Neon Postgres with platform-managed backups and point-in-time recovery</li>
+                    </ul>
+
+                    <p style="color:#3b82f6; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128736; Processing Integrity</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
+                        <li>Strict server-side validation of all user input</li>
+                        <li>Parameterized SQL statements across all operations</li>
+                        <li>File-type and size validation on uploads</li>
+                        <li>Internal error sanitization to prevent information leakage</li>
+                    </ul>
+
+                    <p style="color:#f59e0b; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128274; Confidentiality</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1.25rem;">
+                        <li>Immediate token invalidation on password change</li>
+                        <li>Cascading account deletion across all related records</li>
+                        <li>Minimal access control privileges enforced by role</li>
+                        <li>Configurable primary admin identity (environment-based)</li>
+                    </ul>
+
+                    <p style="color:#a78bfa; font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">&#128101; Privacy</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:0;">
+                        <li>User data export endpoint (Right of Access)</li>
+                        <li>Complete account deletion support</li>
+                        <li>Email enumeration protection</li>
+                        <li>Minimal data collection (username, email, password hash only)</li>
+                        <li>No third-party tracking or analytics</li>
+                    </ul>
+                </div>
+
+                <!-- 18. GLOSSARY -->
+                <div id="doc-glossary" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">18. Glossary</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Data Toyz Terminal uses intelligence/spy-themed terminology throughout the platform:
+                    </p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Terminal Term</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Meaning</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Operative</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A registered user / community member</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A Transformers action figure in the catalog</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Intel Report</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A figure review / submission (Trade Scan)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Trade Scan</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The evaluation form for grading a figure</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Comms Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The social timeline / news feed</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Broadcast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A post on the Comms Feed</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Room</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A private encrypted channel (DM or group chat)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Secure Channel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A direct message (DM) between two operatives</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Commander</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The owner/creator of a Breakout Room channel</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The analytics dashboard showing market trends</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">DTS (Data Toyz Trading Score)</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The market sentiment portion of a grade (0&ndash;100)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Approval Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The physical quality percentage (0&ndash;100)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Password</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Your account password</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Class Tier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Figure size class (Deluxe, Voyager, Leader, Commander, Masterpiece)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Field Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Photos uploaded with intel reports</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Dossier</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A user's public profile page</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Clearance Level</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">User role (Analyst or Admin)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">@-Mention</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Tagging another operative with @username to notify them</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Follow</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Subscribe to another operative's activity to receive notifications</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Flag</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Report a broadcast for admin review</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Toast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Brief confirmation message that appears at the top of the screen</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Deep Link</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A URL that links directly to a specific broadcast or figure</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        `;
+};

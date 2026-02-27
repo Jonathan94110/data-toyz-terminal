@@ -75,7 +75,7 @@ async function run() {
 
     // 3. Compression active (test with larger response)
     try {
-        const res = await request('GET', '/app.v2.js', {
+        const res = await request('GET', '/js/app-core.js', {
             headers: { 'Accept-Encoding': 'gzip, deflate' }
         });
         assert('Compression enabled on large responses', !!res.headers['content-encoding'] || res.status === 200);
@@ -85,7 +85,7 @@ async function run() {
 
     // 4. Static files served
     try {
-        const res = await request('GET', '/app.v2.js');
+        const res = await request('GET', '/js/app-core.js');
         assert('Static JS file served (200)', res.status === 200);
     } catch (e) {
         assert('Static file serving', false);
