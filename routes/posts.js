@@ -174,11 +174,14 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
 
 // Edit a broadcast
 router.put('/:postId', requireAuth, async (req, res) => {
-    const { content } = req.body;
+    const { content, sentiment } = req.body;
     const { postId } = req.params;
 
     if (!content || !content.trim()) return res.status(400).json({ error: "Content cannot be empty." });
     if (content.length > 5000) return res.status(400).json({ error: "Content must be 5000 characters or fewer." });
+    if (sentiment && !['fire', 'fence', 'ice'].includes(sentiment)) {
+        return res.status(400).json({ error: "Invalid sentiment value." });
+    }
 
     try {
         const post = await db.query("SELECT author FROM Posts WHERE id = $1", [postId]);
@@ -188,7 +191,11 @@ router.put('/:postId', requireAuth, async (req, res) => {
         }
 
         const now = new Date().toISOString();
-        await db.query("UPDATE Posts SET content = $1, edited_at = $2 WHERE id = $3", [content.trim(), now, postId]);
+        if (sentiment) {
+            await db.query("UPDATE Posts SET content = $1, sentiment = $2, edited_at = $3 WHERE id = $4", [content.trim(), sentiment, now, postId]);
+        } else {
+            await db.query("UPDATE Posts SET content = $1, edited_at = $2 WHERE id = $3", [content.trim(), now, postId]);
+        }
 
         await auditLog('POST_EDIT', req.user.username, `post_id:${postId}`, 'User edited their broadcast', req.ip);
 

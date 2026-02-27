@@ -150,7 +150,7 @@ TerminalApp.prototype.renderFeed = async function(container) {
             let postActionsHtml = '<div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">';
             if (isMyPost) {
                 postActionsHtml += `
-                    <button class="editPostBtn" data-postid="${p.id}" style="background:none; border:1px solid var(--border-light); color:var(--text-muted); padding:0.25rem 0.5rem; border-radius:4px; font-size:0.75rem; cursor:pointer;">\u270f\ufe0f Edit</button>
+                    <button class="editPostBtn" data-postid="${p.id}" data-sentiment="${p.sentiment || 'fire'}" style="background:none; border:1px solid var(--border-light); color:var(--text-muted); padding:0.25rem 0.5rem; border-radius:4px; font-size:0.75rem; cursor:pointer;">\u270f\ufe0f Edit</button>
                     <button class="deletePostBtn" data-postid="${p.id}" style="background:none; border:1px solid var(--border-light); color:var(--text-muted); padding:0.25rem 0.5rem; border-radius:4px; font-size:0.75rem; cursor:pointer;">\ud83d\uddd1\ufe0f</button>
                 `;
             } else if (isAdmin) {
@@ -309,12 +309,30 @@ TerminalApp.prototype.renderFeed = async function(container) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const postId = btn.dataset.postid;
+            const currentSentiment = btn.dataset.sentiment || 'fire';
             const postCard = btn.closest('.feed-item');
             const contentEl = postCard.querySelector('.post-content');
             const currentText = contentEl.textContent;
 
             contentEl.innerHTML = `
                 <textarea class="editTextarea" style="width:100%; min-height:80px; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--accent); color:var(--text-primary); border-radius:var(--radius-sm); font-family:var(--font-body); resize:vertical; font-size:1rem;">${escapeHTML(currentText)}</textarea>
+                <div style="margin-top:0.5rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.3rem; display:block;">Sentiment Tag</label>
+                    <div class="segmented-control" style="margin:0; min-width:280px;">
+                        <label class="risk-bullish" style="padding:0.35rem;">
+                            <input type="radio" name="editSentiment_${postId}" value="fire" ${currentSentiment === 'fire' ? 'checked' : ''}>
+                            <span style="font-size:0.95rem; white-space:nowrap;">\ud83d\udd25 HOT</span>
+                        </label>
+                        <label class="risk-neutral" style="padding:0.35rem;">
+                            <input type="radio" name="editSentiment_${postId}" value="fence" ${currentSentiment === 'fence' ? 'checked' : ''}>
+                            <span style="font-size:0.95rem; white-space:nowrap;">\ud83e\udd37 FENCE</span>
+                        </label>
+                        <label class="risk-bearish" style="padding:0.35rem;">
+                            <input type="radio" name="editSentiment_${postId}" value="ice" ${currentSentiment === 'ice' ? 'checked' : ''}>
+                            <span style="font-size:0.95rem; white-space:nowrap;">\ud83e\uddca NOT</span>
+                        </label>
+                    </div>
+                </div>
                 <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
                     <button class="saveEditBtn btn" style="padding:0.4rem 1rem; font-size:0.85rem;">Save</button>
                     <button class="cancelEditBtn" style="padding:0.4rem 1rem; font-size:0.85rem; background:none; border:1px solid var(--border-light); color:var(--text-secondary); border-radius:var(--radius-sm); cursor:pointer;">Cancel</button>
@@ -324,10 +342,12 @@ TerminalApp.prototype.renderFeed = async function(container) {
             contentEl.querySelector('.saveEditBtn').addEventListener('click', async () => {
                 const newContent = contentEl.querySelector('.editTextarea').value.trim();
                 if (!newContent) return;
+                const selectedSentiment = contentEl.querySelector(`input[name="editSentiment_${postId}"]:checked`);
+                const sentiment = selectedSentiment ? selectedSentiment.value : currentSentiment;
                 try {
                     const res = await app.authFetch(`${API_URL}/posts/${postId}`, {
                         method: 'PUT',
-                        body: JSON.stringify({ content: newContent })
+                        body: JSON.stringify({ content: newContent, sentiment })
                     });
                     if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
                     app.renderFeed(container);
