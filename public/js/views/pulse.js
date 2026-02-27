@@ -96,7 +96,10 @@ TerminalApp.prototype.renderPulse = async function(container) {
                 <button class="btn-outline" onclick="app.currentView='${this.previousView || 'search'}'; app.renderApp();" style="margin-bottom:1.5rem;">&larr; Back</button>
                 <div class="card" style="display:flex; align-items:center; gap:1.5rem;">
                     <div style="flex:1;">
-                        <h2 style="margin:0 0 0.5rem; font-size:1.75rem;">${escapeHTML(this.currentTarget.name)}</h2>
+                        <h2 style="margin:0 0 0.5rem; font-size:1.75rem;" id="figureNameDisplay">
+                            <span id="figureNameText">${escapeHTML(this.currentTarget.name)}</span>
+                            ${(this.currentTarget.createdBy === this.user.username || this.user.role === 'admin') ? `<button id="editFigureNameBtn" style="background:none; border:1px solid var(--border-light); color:var(--text-muted); cursor:pointer; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem; margin-left:0.75rem; vertical-align:middle;" title="Edit figure name">\u270f\ufe0f</button>` : ''}
+                        </h2>
                         <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
                             <span style="color:var(--text-secondary); font-size:0.9rem; font-weight:600;">${escapeHTML(this.currentTarget.brand)}</span>
                             <span style="color:var(--text-muted);">&bull;</span>
@@ -531,6 +534,45 @@ TerminalApp.prototype.renderPulse = async function(container) {
             }).catch(() => {
                 copyBtn.textContent = '✗ Failed';
                 setTimeout(() => { copyBtn.textContent = '📋 Copy Link'; }, 2000);
+            });
+        });
+    }
+
+    // Figure name edit handler (creator or admin)
+    const editNameBtn = document.getElementById('editFigureNameBtn');
+    if (editNameBtn) {
+        editNameBtn.addEventListener('click', () => {
+            const nameEl = document.getElementById('figureNameDisplay');
+            const currentName = this.currentTarget.name;
+            nameEl.innerHTML = `
+                <input type="text" id="figureNameInput" value="${escapeHTML(currentName)}" style="font-size:1.5rem; font-weight:700; background:var(--bg-surface); border:1px solid var(--accent); color:var(--text-primary); border-radius:var(--radius-sm); padding:0.25rem 0.5rem; width:100%; font-family:var(--font-heading);">
+                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                    <button id="saveNameBtn" class="btn" style="padding:0.4rem 1rem; font-size:0.85rem;">Save</button>
+                    <button id="cancelNameBtn" style="padding:0.4rem 1rem; font-size:0.85rem; background:none; border:1px solid var(--border-light); color:var(--text-secondary); border-radius:var(--radius-sm); cursor:pointer;">Cancel</button>
+                </div>
+            `;
+            document.getElementById('figureNameInput').focus();
+            document.getElementById('figureNameInput').select();
+
+            document.getElementById('saveNameBtn').addEventListener('click', async () => {
+                const newName = document.getElementById('figureNameInput').value.trim();
+                if (!newName) return;
+                if (newName === currentName) { app.renderPulse(container); return; }
+                try {
+                    const res = await app.authFetch(`${API_URL}/figures/name/${app.currentTarget.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ name: newName })
+                    });
+                    if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+                    app.currentTarget.name = newName;
+                    const cached = MOCK_FIGURES.find(f => f.id === app.currentTarget.id);
+                    if (cached) cached.name = newName;
+                    app.renderPulse(container);
+                } catch (err) { alert(err.message); }
+            });
+
+            document.getElementById('cancelNameBtn').addEventListener('click', () => {
+                app.renderPulse(container);
             });
         });
     }

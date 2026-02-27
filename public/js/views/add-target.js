@@ -19,17 +19,7 @@ TerminalApp.prototype.renderAddTarget = function(container) {
                     <div class="form-group" style="margin-bottom:1.5rem;">
                         <label class="form-label">Brand / Manufacturer</label>
                         <input type="text" list="brandList" name="brand" required placeholder="e.g. Hasbro, Takara, Fans Toys" style="width:100%; padding:0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
-                        <datalist id="brandList">
-                            <option value="Hasbro"></option>
-                            <option value="Takara"></option>
-                            <option value="Fans Toys"></option>
-                            <option value="X-Transbots (XTB)"></option>
-                            <option value="DX9"></option>
-                            <option value="Magic Square"></option>
-                            <option value="Zeta Toys"></option>
-                            <option value="Studio Cell"></option>
-                            <option value="Mastermind Creations (MMC)"></option>
-                        </datalist>
+                        <datalist id="brandList"></datalist>
                     </div>
                     <div class="form-group" style="margin-bottom:1.5rem;">
                         <label class="form-label">Product Line</label>
@@ -58,6 +48,18 @@ TerminalApp.prototype.renderAddTarget = function(container) {
         e.preventDefault();
         this.submitNewTarget(e.target);
     });
+
+    // Dynamically load brands from DB
+    (async () => {
+        try {
+            const res = await fetch(`${API_URL}/figures/brands`);
+            if (res.ok) {
+                const brands = await res.json();
+                const dl = document.getElementById('brandList');
+                if (dl) dl.innerHTML = brands.map(b => `<option value="${escapeHTML(b)}">`).join('');
+            }
+        } catch (e) { /* fallback: empty datalist, user types freely */ }
+    })();
 };
 
 TerminalApp.prototype.submitNewTarget = async function(form) {

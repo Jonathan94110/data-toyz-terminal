@@ -162,7 +162,7 @@ class TerminalApp {
                     </div>
                     <nav class="sidebar-nav">
                         <div class="nav-item ${this.currentView === 'feed' ? 'active' : ''}" data-view="feed">
-                            Comms Feed
+                            Community Feed
                         </div>
                         <div class="nav-item ${this.currentView === 'rooms' || this.currentView === 'room_chat' ? 'active' : ''}" data-view="rooms" style="position:relative;">
                             Breakout Rooms

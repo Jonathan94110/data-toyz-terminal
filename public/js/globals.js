@@ -28,6 +28,20 @@ function renderMentions(text) {
     });
 }
 
+// Render [[Figure Name]] as clickable figure links (runs AFTER escapeHTML + renderMentions)
+function renderFigureLinks(html) {
+    return html.replace(/\[\[([^\]]+)\]\]/g, (match, rawName) => {
+        const name = rawName.trim();
+        const figure = MOCK_FIGURES.find(f => f.name.toLowerCase() === name.toLowerCase());
+        if (figure) {
+            return `<span class="figure-link found" onclick="event.stopPropagation(); app.selectTarget(${figure.id})" title="View scorecard">${escapeHTML(figure.name)}</span>`;
+        } else {
+            const safeName = escapeHTML(name).replace(/'/g, "\\'");
+            return `<span class="figure-link not-found" onclick="event.stopPropagation(); app.currentView='search'; app.renderApp(); setTimeout(()=>{const el=document.getElementById('searchInput');if(el){el.value='${safeName}';el.dispatchEvent(new Event('keyup'));}},100);" title="Search for this figure">${escapeHTML(name)}</span>`;
+        }
+    });
+}
+
 // S-6: XSS Prevention — escape HTML entities in user-generated content
 function escapeHTML(str) {
     if (!str) return '';

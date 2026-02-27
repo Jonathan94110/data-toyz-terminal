@@ -3,7 +3,7 @@ TerminalApp.prototype.renderDocs = function(container) {
         const sections = [
             { id: 'overview', title: 'Platform Overview' },
             { id: 'navigation', title: 'Navigation Guide' },
-            { id: 'comms-feed', title: 'Comms Feed' },
+            { id: 'community-feed', title: 'Community Feed' },
             { id: 'breakout-rooms', title: 'Breakout Rooms' },
             { id: 'target-search', title: 'Target Search & Catalog' },
             { id: 'trade-scan', title: 'Trade Scan (Submissions)' },
@@ -68,7 +68,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Comms Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Social timeline for posting updates, comments, and reactions</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Community Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Social timeline for posting updates, comments, and reactions</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Rooms</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Private encrypted channels for 1-on-1 DMs and group chats</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Dashboard with market statistics, brand indexes, and top-rated figures</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target Search</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
@@ -83,10 +83,10 @@ TerminalApp.prototype.renderDocs = function(container) {
                 </div>
 
                 <!-- 03. COMMS FEED -->
-                <div id="doc-comms-feed" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">03. Comms Feed</h3>
+                <div id="doc-community-feed" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">03. Community Feed</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The Comms Feed is the social hub of the terminal. Operatives can broadcast messages to the entire community, attach images, and engage with each other.
+                        The Community Feed is the social hub of the terminal. Operatives can broadcast messages to the entire community, attach images, and engage with each other.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Features:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
@@ -103,6 +103,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
                         <li><strong>Delete Post</strong> &mdash; Authors can delete their own broadcasts via the \u{1F5D1}\u{FE0F} button. Admins can delete any broadcast.</li>
                         <li><strong>Share Post</strong> &mdash; Click \u{1F4CB} to copy a direct link to any broadcast. Shared links work as deep links &mdash; recipients are taken straight to that post after login.</li>
+                        <li><strong>Figure Linking</strong> &mdash; Reference any figure in the catalog with <code>[[Figure Name]]</code> bracket syntax. Known figures become clickable links to their scorecard. Unknown names link to Target Search.</li>
                     </ul>
 
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
@@ -112,7 +113,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                 <div id="doc-breakout-rooms" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. Breakout Rooms</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        Breakout Rooms are encrypted private channels within Global Comms. Unlike the public Comms Feed, Breakout Rooms allow operatives to communicate in private &mdash; either one-on-one or in small groups.
+                        Breakout Rooms are encrypted private channels within the Community Feed. Unlike the public Community Feed, Breakout Rooms allow operatives to communicate in private &mdash; either one-on-one or in small groups.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Room Types:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
@@ -136,7 +137,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Starting a DM:</strong></p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        You can open a direct channel with any operative by clicking the <strong>"Open Secure Channel"</strong> button on their profile dossier. This is accessible from any username link across the platform (Comms Feed, Leaderboard, etc.).
+                        You can open a direct channel with any operative by clicking the <strong>"Open Secure Channel"</strong> button on their profile dossier. This is accessible from any username link across the platform (Community Feed, Leaderboard, etc.).
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Filter Tabs:</strong></p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
@@ -311,7 +312,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Notification Types:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li><strong>Reply to my broadcast</strong> &mdash; When someone comments on your Comms Feed post</li>
+                        <li><strong>Reply to my broadcast</strong> &mdash; When someone comments on your Community Feed post</li>
                         <li><strong>Reaction to my post</strong> &mdash; When someone reacts with an emoji to your broadcast</li>
                         <li><strong>Co-reviewer on same figure</strong> &mdash; When another operative submits an intel report on a figure you also reviewed</li>
                         <li><strong>New figure added to catalog</strong> &mdash; When an admin adds a new figure to the database</li>
@@ -372,7 +373,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>How to Flag:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li>Click the <strong>\u{1F6A9} Report</strong> button on any broadcast in the Comms Feed</li>
+                        <li>Click the <strong>\u{1F6A9} Report</strong> button on any broadcast in the Community Feed</li>
                         <li>Optionally provide a reason for the flag (up to 500 characters)</li>
                         <li>Each user can flag a broadcast only once</li>
                         <li>You cannot flag your own broadcasts</li>
@@ -567,8 +568,8 @@ TerminalApp.prototype.renderDocs = function(container) {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A Transformers action figure in the catalog</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Intel Report</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A figure review / submission (Trade Scan)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Trade Scan</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The evaluation form for grading a figure</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Comms Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The social timeline / news feed</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Broadcast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A post on the Comms Feed</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Community Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The social timeline / news feed</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Broadcast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A post on the Community Feed</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Room</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A private encrypted channel (DM or group chat)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Secure Channel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A direct message (DM) between two operatives</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Commander</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The owner/creator of a Breakout Room channel</td></tr>

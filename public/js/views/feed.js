@@ -1,4 +1,4 @@
-// views/feed.js — Global Comms feed
+// views/feed.js — Community Feed
 
 TerminalApp.prototype.renderFeed = async function(container) {
     container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('feed', 3)}</div>`;
@@ -26,7 +26,7 @@ TerminalApp.prototype.renderFeed = async function(container) {
     let feedHtml = `
         <div style="max-width: 600px; margin: 0 auto; padding-bottom: 3rem;">
             <div style="margin-bottom:2rem; text-align:center;">
-                <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Global Comms</h2>
+                <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Community Feed</h2>
                 <p style="color:var(--text-secondary); font-size:1.1rem;">Live operative intelligence chatter and market sentiment.</p>
             </div>
 
@@ -90,7 +90,7 @@ TerminalApp.prototype.renderFeed = async function(container) {
                                 <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(c.author).replace(/'/g, "\\'")}')">${escapeHTML(c.author)}</span>
                                 <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
                             </div>
-                            <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderMentions(c.content)}</div>
+                            <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(c.content))}</div>
                         </div>
                     `;
                 });
@@ -178,7 +178,7 @@ TerminalApp.prototype.renderFeed = async function(container) {
                             ${badgeIcon} ${escapeHTML(p.sentiment)}
                         </div>
                     </div>
-                    <p class="post-content" style="font-size:1rem; line-height:1.6; color:var(--text-primary); margin-bottom:${p.imagePath ? '1rem' : '0'}; white-space:pre-wrap;">${renderMentions(p.content)}</p>
+                    <p class="post-content" style="font-size:1rem; line-height:1.6; color:var(--text-primary); margin-bottom:${p.imagePath ? '1rem' : '0'}; white-space:pre-wrap;">${renderFigureLinks(renderMentions(p.content))}</p>
                     ${p.imagePath ? `<img src="${p.imagePath}" style="max-width:100%; border-radius:var(--radius-sm); border:1px solid var(--border); max-height:400px; object-fit:contain; background:var(--bg-surface); display:block;">` : ''}
                     ${postActionsHtml}
                     ${reactionsHtml}

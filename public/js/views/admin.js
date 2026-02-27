@@ -42,7 +42,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     </div>
                     <div class="stat-box" style="padding:1.25rem;">
                         <div class="stat-value" style="font-size:2rem; color:var(--accent);">${analytics.totalPosts || 0}</div>
-                        <div class="stat-label">Comms Posts</div>
+                        <div class="stat-label">Community Posts</div>
                     </div>
                 </div>
 

@@ -1593,6 +1593,33 @@ textarea:focus {
     margin-bottom: 1rem;
 }
 
+/* ======================== FIGURE LINKS ======================== */
+.figure-link {
+    display: inline;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.figure-link.found {
+    color: var(--accent);
+    background: rgba(255, 42, 95, 0.1);
+    border: 1px solid rgba(255, 42, 95, 0.3);
+}
+.figure-link.found:hover {
+    background: rgba(255, 42, 95, 0.2);
+}
+.figure-link.not-found {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed var(--border-light);
+}
+.figure-link.not-found:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 /* ======================== MOBILE (max-width: 767px) ======================== */
 @media (max-width: 767px) {
     /* Sidebar: slide-out from left */

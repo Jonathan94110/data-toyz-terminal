@@ -98,7 +98,7 @@ async function initDB() {
         const adminUsername = process.env.ADMIN_USERNAME || 'Prime Dynamixx';
         await pool.query(`UPDATE Users SET role = 'admin' WHERE username = $1`, [adminUsername]);
 
-        // Create Posts Table (Comms Feed)
+        // Create Posts Table (Community Feed)
         await pool.query(`CREATE TABLE IF NOT EXISTS Posts (
             id SERIAL PRIMARY KEY,
             author TEXT NOT NULL,
@@ -108,7 +108,7 @@ async function initDB() {
             date TEXT NOT NULL
         )`);
 
-        // Create Comments Table (Comms Feed Replies)
+        // Create Comments Table (Community Feed Replies)
         await pool.query(`CREATE TABLE IF NOT EXISTS Comments (
             id SERIAL PRIMARY KEY,
             postId INTEGER NOT NULL,
@@ -118,7 +118,7 @@ async function initDB() {
             FOREIGN KEY(postId) REFERENCES Posts(id) ON DELETE CASCADE
         )`);
 
-        // Create Reactions Table (Comms Feed Emoji Toggles)
+        // Create Reactions Table (Community Feed Emoji Toggles)
         await pool.query(`CREATE TABLE IF NOT EXISTS Reactions (
             id SERIAL PRIMARY KEY,
             postId INTEGER NOT NULL,
@@ -352,6 +352,15 @@ async function initDB() {
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN mention_email BOOLEAN DEFAULT false`);
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN flag_inapp BOOLEAN DEFAULT true`);
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN flag_email BOOLEAN DEFAULT false`);
+        }
+
+        // Migration: add created_by column to Figures for ownership tracking
+        const createdByCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'figures' AND column_name = 'created_by'
+        `);
+        if (createdByCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Figures ADD COLUMN created_by TEXT`);
         }
 
         // Seed Figures if empty

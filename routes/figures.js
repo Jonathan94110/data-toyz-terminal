@@ -30,8 +30,8 @@ router.post('/', requireAuth, async (req, res) => {
             return res.status(409).json({ error: `"${existing.rows[0].name}" already exists in the catalog. Search for it and submit your intel there!` });
         }
 
-        const result = await db.query("INSERT INTO Figures (name, brand, classTie, line) VALUES ($1, $2, $3, $4) RETURNING id",
-            [name, brand, classTie, line]);
+        const result = await db.query("INSERT INTO Figures (name, brand, classTie, line, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            [name, brand, classTie, line, req.user.username]);
 
         try {
             const allUsers = await db.query("SELECT u.username FROM Users u JOIN NotificationPrefs np ON u.id = np.user_id WHERE (np.new_figure_inapp = true OR np.new_figure_email = true) AND u.username != $1", [req.user.username]);
@@ -43,6 +43,49 @@ router.post('/', requireAuth, async (req, res) => {
         res.status(201).json({ id: result.rows[0].id, message: "Target added successfully." });
     } catch (err) {
         log.error('Create figure error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Get distinct brands for dynamic datalist
+router.get('/brands', async (req, res) => {
+    try {
+        const result = await db.query("SELECT DISTINCT brand FROM Figures ORDER BY brand ASC");
+        res.json(result.rows.map(r => r.brand));
+    } catch (err) {
+        log.error('Get brands error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// User edit figure name (creator or admin only) — MUST be before /:id
+router.put('/name/:id', requireAuth, async (req, res) => {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'Figure name is required.' });
+    }
+    if (name.trim().length > 200) {
+        return res.status(400).json({ error: 'Name must be 200 characters or fewer.' });
+    }
+    try {
+        const figure = await db.query("SELECT id, name, created_by FROM Figures WHERE id = $1", [req.params.id]);
+        if (figure.rows.length === 0) {
+            return res.status(404).json({ error: 'Figure not found.' });
+        }
+        const fig = figure.rows[0];
+        const isCreator = fig.created_by && fig.created_by === req.user.username;
+        const isAdmin = req.user.role === 'admin';
+        if (!isCreator && !isAdmin) {
+            return res.status(403).json({ error: 'Only the creator or an admin can edit this figure name.' });
+        }
+        const existing = await db.query("SELECT id FROM Figures WHERE LOWER(name) = LOWER($1) AND id != $2", [name.trim(), req.params.id]);
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ error: `A figure named "${name.trim()}" already exists.` });
+        }
+        await db.query("UPDATE Figures SET name = $1 WHERE id = $2", [name.trim(), req.params.id]);
+        res.json({ message: 'Figure name updated.', name: name.trim() });
+    } catch (err) {
+        log.error('Edit figure name error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -79,12 +122,12 @@ router.get('/top-rated', async (req, res) => {
 router.get('/ranked', async (req, res) => {
     try {
         const result = await db.query(`
-            SELECT f.id, f.name, f.brand, f.classTie, f.line,
+            SELECT f.id, f.name, f.brand, f.classTie, f.line, f.created_by,
                    COUNT(s.id) as submissions,
                    AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade
             FROM Figures f
             LEFT JOIN Submissions s ON f.id = s.targetId
-            GROUP BY f.id, f.name, f.brand, f.classTie, f.line
+            GROUP BY f.id, f.name, f.brand, f.classTie, f.line, f.created_by
             ORDER BY f.name ASC
         `);
         res.json(result.rows.map(r => ({
@@ -93,6 +136,7 @@ router.get('/ranked', async (req, res) => {
             brand: r.brand,
             classTie: r.classtie,
             line: r.line,
+            createdBy: r.created_by || null,
             submissions: parseInt(r.submissions) || 0,
             avgGrade: r.avggrade ? parseFloat(r.avggrade).toFixed(1) : null
         })));
