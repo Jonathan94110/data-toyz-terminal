@@ -23,6 +23,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_ME_IN_PRODUCTION';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
 // --- JWT HELPERS --- //
 function generateToken(user) {
@@ -126,7 +127,7 @@ async function createNotification(recipient, type, message, linkType, linkId, se
         if (sendEmail && resend && recipientUser.email) {
             try {
                 await resend.emails.send({
-                    from: 'Data Toyz Terminal <onboarding@resend.dev>',
+                    from: `Data Toyz Terminal <${RESEND_FROM_EMAIL}>`,
                     to: [recipientUser.email],
                     subject: `Notification — Data Toyz Terminal`,
                     html: buildNotificationEmail(recipient, message, type)
@@ -247,8 +248,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             return res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
         }
 
-        await resend.emails.send({
-            from: 'Data Toyz Terminal <onboarding@resend.dev>',
+        const emailResult = await resend.emails.send({
+            from: `Data Toyz Terminal <${RESEND_FROM_EMAIL}>`,
             to: [user.email],
             subject: '🔐 Passcode Reset — Data Toyz Terminal',
             html: `
@@ -261,6 +262,12 @@ app.post('/api/auth/forgot-password', async (req, res) => {
                 </div>
             `
         });
+
+        if (emailResult.error) {
+            console.error('Resend email error:', emailResult.error);
+        } else {
+            console.log('Reset email sent successfully to:', user.email, 'id:', emailResult.data?.id);
+        }
 
         res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
     } catch (e) {
