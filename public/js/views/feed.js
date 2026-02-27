@@ -345,6 +345,9 @@ TerminalApp.prototype.renderFeed = async function(container) {
                 </div>
             `;
 
+            // Wire autocomplete to the edit textarea
+            setupFigureLinkHelper(contentEl.querySelector('.editTextarea'));
+
             contentEl.querySelector('.saveEditBtn').addEventListener('click', async () => {
                 const newContent = contentEl.querySelector('.editTextarea').value.trim();
                 if (!newContent) return;
