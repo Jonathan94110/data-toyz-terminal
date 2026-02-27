@@ -100,10 +100,10 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Post Management:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
+                        <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. The edit form allows updating the post text, changing the sentiment tag (\u{1F525} HOT / \u{1F937} FENCE / \u{1F9CA} NOT), and using figure linking with autocomplete. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
                         <li><strong>Delete Post</strong> &mdash; Authors can delete their own broadcasts via the \u{1F5D1}\u{FE0F} button. Admins can delete any broadcast.</li>
                         <li><strong>Share Post</strong> &mdash; Click \u{1F4CB} to copy a direct link to any broadcast. Shared links work as deep links &mdash; recipients are taken straight to that post after login.</li>
-                        <li><strong>Figure Linking</strong> &mdash; Type <code>@</code> to auto-insert brackets, then type the figure name inside (e.g. <code>@[Commander Optimus Prime]</code>). Known figures become clickable links to their scorecard. Unknown names link to Target Search.</li>
+                        <li><strong>Figure Linking</strong> &mdash; Type <code>@</code> to auto-insert brackets, then begin typing a figure name inside (e.g. <code>@[Optimus</code>). A live autocomplete dropdown appears, searching all existing scorecard titles as you type. Navigate results with <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> arrow keys and select with <kbd>Enter</kbd> or <kbd>Tab</kbd>, or click a result directly. Known figures render as clickable chips that open the scorecard. Unknown names render as dashed chips that open Target Search with the name pre-filled. Figure linking is also available when editing an existing post.</li>
                     </ul>
 
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
@@ -157,7 +157,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Search</strong> &mdash; Type to instantly filter by figure name, brand, class tier, or product line</li>
                         <li><strong>Class Tier Badges</strong> &mdash; Color-coded badges show the figure's class (Deluxe, Voyager, Leader, Commander, Masterpiece)</li>
                         <li><strong>Select a Target</strong> &mdash; Click any figure to view its full intel page with all submissions, charts, and gallery</li>
-                        <li><strong>Add New Target</strong> &mdash; Any authenticated operative can add a new figure to the catalog</li>
+                        <li><strong>Add New Target</strong> &mdash; Any authenticated operative can add a new figure to the catalog. The brand field offers dynamic suggestions pulled from all existing brands in the database, and you can also enter a new brand freely.</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8;">
                         <strong>Figure Data:</strong> Each target has a name, brand (Hasbro, Takara Tomy, etc.), class tier, and product line. Figures can also display a ranked list sorted by average community grade.
@@ -247,6 +247,10 @@ TerminalApp.prototype.renderDocs = function(container) {
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8;">
                         When you click a figure from Target Search, you see a <strong>detailed intel page</strong> with: all submissions listed, a grade trend chart over time, a price trend chart, community recommendation votes, and a <strong>Field Evidence Gallery</strong> of uploaded photos.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Scorecard Title Editing:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8;">
+                        The operative who originally created a figure can rename it by clicking the \u{270F}\u{FE0F} button next to the scorecard title on the intel page. An inline editor appears to type the new name and save or cancel. Admins retain full editing authority over all scorecard titles regardless of who created them. Figures created before this feature was introduced can only be renamed by admins.
                     </p>
                 </div>
 
