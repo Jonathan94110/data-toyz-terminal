@@ -1620,6 +1620,47 @@ textarea:focus {
     color: var(--accent);
 }
 
+/* ======================== FIGURE AUTOCOMPLETE ======================== */
+.figure-autocomplete {
+    position: fixed;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    display: none;
+}
+.figure-ac-item {
+    padding: 0.6rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--border-light);
+}
+.figure-ac-item:last-child {
+    border-bottom: none;
+}
+.figure-ac-item:hover,
+.figure-ac-item.active {
+    background: rgba(255, 42, 95, 0.1);
+    color: var(--accent);
+}
+.figure-ac-name {
+    font-weight: 600;
+}
+.figure-ac-brand {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 /* ======================== MOBILE (max-width: 767px) ======================== */
 @media (max-width: 767px) {
     /* Sidebar: slide-out from left */

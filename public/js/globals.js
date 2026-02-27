@@ -42,18 +42,120 @@ function renderFigureLinks(html) {
     });
 }
 
-// Auto-insert brackets when user types @ for figure linking
+// Auto-insert brackets + live autocomplete when typing @[...] for figure linking
 function setupFigureLinkHelper(el) {
+    let dropdown = null;
+    let selectedIdx = -1;
+
+    function getDropdown() {
+        if (!dropdown) {
+            dropdown = document.createElement('div');
+            dropdown.className = 'figure-autocomplete';
+            document.body.appendChild(dropdown);
+        }
+        const rect = el.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+        return dropdown;
+    }
+
+    function hideDropdown() {
+        if (dropdown) dropdown.style.display = 'none';
+        selectedIdx = -1;
+    }
+
+    function isVisible() {
+        return dropdown && dropdown.style.display === 'block';
+    }
+
+    // Detect if cursor is inside @[...] brackets and return the partial query
+    function getBracketQuery() {
+        const pos = el.selectionStart;
+        const before = el.value.substring(0, pos);
+        const openIdx = before.lastIndexOf('@[');
+        if (openIdx === -1) return null;
+        const partial = before.substring(openIdx + 2);
+        if (partial.includes(']')) return null;
+        return partial;
+    }
+
+    function selectItem(name) {
+        const val = el.value;
+        const pos = el.selectionStart;
+        const before = val.substring(0, pos);
+        const openIdx = before.lastIndexOf('@[');
+        const closeIdx = val.indexOf(']', pos);
+        if (openIdx !== -1 && closeIdx !== -1) {
+            el.value = val.substring(0, openIdx + 2) + name + val.substring(closeIdx);
+            el.selectionStart = el.selectionEnd = openIdx + 2 + name.length + 1;
+        }
+        hideDropdown();
+        el.focus();
+    }
+
+    function showMatches() {
+        const query = getBracketQuery();
+        if (query === null || query.length === 0) { hideDropdown(); return; }
+        const q = query.toLowerCase();
+        const matches = MOCK_FIGURES.filter(f => f.name.toLowerCase().includes(q)).slice(0, 6);
+        if (matches.length === 0) { hideDropdown(); return; }
+
+        selectedIdx = -1;
+        const dd = getDropdown();
+        dd.innerHTML = matches.map(f =>
+            `<div class="figure-ac-item" data-name="${escapeHTML(f.name)}">
+                <span class="figure-ac-name">${escapeHTML(f.name)}</span>
+                <span class="figure-ac-brand">${escapeHTML(f.brand || '')}</span>
+            </div>`
+        ).join('');
+        dd.style.display = 'block';
+
+        dd.querySelectorAll('.figure-ac-item').forEach(item => {
+            item.addEventListener('mousedown', function(ev) {
+                ev.preventDefault();
+                selectItem(this.dataset.name);
+            });
+        });
+    }
+
     el.addEventListener('input', function(e) {
+        // Auto-insert brackets on @
         if (e.data === '@') {
             const pos = this.selectionStart;
             const val = this.value;
-            // Only auto-insert if next char isn't already [
             if (val[pos] !== '[') {
                 this.value = val.slice(0, pos) + '[]' + val.slice(pos);
-                this.selectionStart = this.selectionEnd = pos + 1; // cursor between [ and ]
+                this.selectionStart = this.selectionEnd = pos + 1;
             }
         }
+        showMatches();
+    });
+
+    el.addEventListener('keydown', function(e) {
+        if (!isVisible()) return;
+        const items = dropdown.querySelectorAll('.figure-ac-item');
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIdx = Math.min(selectedIdx + 1, items.length - 1);
+            items.forEach((it, i) => it.classList.toggle('active', i === selectedIdx));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIdx = Math.max(selectedIdx - 1, 0);
+            items.forEach((it, i) => it.classList.toggle('active', i === selectedIdx));
+        } else if ((e.key === 'Enter' || e.key === 'Tab') && selectedIdx >= 0) {
+            e.preventDefault();
+            selectItem(items[selectedIdx].dataset.name);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            hideDropdown();
+        }
+    });
+
+    el.addEventListener('blur', function() {
+        setTimeout(hideDropdown, 150);
     });
 }
 
