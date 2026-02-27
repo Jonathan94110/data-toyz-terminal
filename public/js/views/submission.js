@@ -211,39 +211,28 @@ TerminalApp.prototype.updateSatisfactionLabel = function(val) {
     document.getElementById('label_trans_satisfaction').innerText = l;
 };
 
-TerminalApp.prototype.updatePriceDelta = function() {
-    const msrp = this.currentTarget && this.currentTarget.msrp ? parseFloat(this.currentTarget.msrp) : null;
-    const marketEl = document.getElementById('market_price_input');
-    const deltaEl = document.getElementById('priceDeltaDisplay');
-    const deltaText = document.getElementById('priceDeltaText');
-    if (!msrp || !marketEl || !deltaEl || !deltaText) return;
-    const mp = parseFloat(marketEl.value);
-    if (!mp || mp <= 0) { deltaEl.style.display = 'none'; return; }
-    const diff = mp - msrp;
-    const pct = ((diff / msrp) * 100).toFixed(1);
-    const sign = diff >= 0 ? '+' : '';
-    const color = diff >= 0 ? 'var(--danger)' : 'var(--success)';
-    deltaEl.style.display = 'block';
-    deltaText.innerHTML = `<span style="color:${color};">${sign}$${diff.toFixed(2)} (${sign}${pct}%)</span> <span style="color:var(--text-muted);">vs MSRP</span>`;
-};
-
-TerminalApp.prototype.handlePaidMsrp = function(checked) {
-    const costInput = document.getElementById('cost_basis_input');
-    if (!costInput) return;
-    if (checked && this.currentTarget && this.currentTarget.msrp) {
-        costInput.value = parseFloat(this.currentTarget.msrp).toFixed(2);
-        // Keep field in FormData; disabled inputs are omitted on submit.
-        costInput.readOnly = true;
-        costInput.style.opacity = '0.6';
-    } else {
-        costInput.readOnly = false;
-        costInput.style.opacity = '1';
+TerminalApp.prototype.togglePriceInput = function(type) {
+    const wrapper = document.getElementById('priceInput_' + type);
+    const cbMap = { overseas_msrp: 'pt_overseas', stateside_msrp: 'pt_stateside', secondary_market: 'pt_secondary' };
+    const cb = document.getElementById(cbMap[type]);
+    if (wrapper) {
+        wrapper.style.display = cb && cb.checked ? 'flex' : 'none';
+        if (!cb.checked) {
+            const inp = wrapper.querySelector('input[type="number"]');
+            if (inp) inp.value = '';
+        }
     }
 };
 
 TerminalApp.prototype.renderSubmission = function(container) {
     const isEdit = !!this.editingSubmission;
     const ed = isEdit ? (this.editingSubmission.data || {}) : {};
+
+    // Backward compat: old submissions with market_price but no pricing_types
+    if (isEdit && ed.market_price && !ed.pricing_types) {
+        ed.price_secondary_market = ed.market_price;
+        ed.pricing_types = ['secondary_market'];
+    }
 
     container.innerHTML = `
         <div style="max-width: 900px; margin: 0 auto; padding-bottom: 3rem;">
@@ -365,7 +354,8 @@ TerminalApp.prototype.renderSubmission = function(container) {
                 <div class="card form-section">
                     <div class="section-header">
                         <h3>5. Pricing Context</h3>
-                        <p>MSRP vs. current secondary market value.</p>
+                        <p>Select one or more pricing categories and enter the corresponding amounts.</p>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">At least one pricing type must be submitted. Data feeds independently into analytics by category.</p>
                     </div>
 
                     <!-- MSRP (read-only from figure data) -->
@@ -378,32 +368,53 @@ TerminalApp.prototype.renderSubmission = function(container) {
                         <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem;">Set by admins in the figure catalog.</p>
                     </div>
 
-                    <!-- Aftermarket Valuation -->
-                    <div class="form-group">
-                        <label class="form-label">Aftermarket Valuation <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">Current street value on secondary markets</span></label>
-                        <div style="display:flex; align-items:center; gap:0.5rem;">
-                            <span style="font-size:1.5rem; color:var(--text-secondary);">$</span>
-                            <input type="number" name="market_price" id="market_price_input" step="0.01" min="0" required placeholder="120.00" ${isEdit && ed.market_price ? `value="${ed.market_price}"` : ''} style="width:100%; max-width:200px; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.25rem;" oninput="app.updatePriceDelta()">
-                        </div>
-                    </div>
-
-                    <!-- Live Delta -->
-                    <div id="priceDeltaDisplay" style="margin-top:1rem; padding:0.75rem 1rem; background:rgba(15,17,30,0.3); border-radius:var(--radius-sm); border:1px solid var(--border-light); display:none;">
-                        <span id="priceDeltaText" style="font-weight:700; font-size:0.95rem;"></span>
-                    </div>
-
-                    <!-- What You Paid -->
-                    <div style="margin-top:2rem; padding-top:2rem; border-top:1px solid var(--border-light);">
-                        <label class="form-label">What You Paid <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">&#128274; Private &mdash; only visible to you</span></label>
-                        <div style="display:flex; align-items:center; gap:1rem; margin-top:0.5rem;">
-                            <label style="display:flex; align-items:center; gap:0.5rem; cursor:${this.currentTarget.msrp ? 'pointer' : 'not-allowed'}; font-size:0.9rem; color:var(--text-secondary); opacity:${this.currentTarget.msrp ? '1' : '0.4'};">
-                                <input type="checkbox" id="paidMsrpCheckbox" ${this.currentTarget.msrp ? '' : 'disabled'} onchange="app.handlePaidMsrp(this.checked)">
-                                I paid MSRP
+                    <div style="border-top:1px solid var(--border-light); padding-top:1.5rem;">
+                        <!-- Overseas MSRP -->
+                        <div class="pricing-type-row" style="margin-bottom:1.25rem;">
+                            <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer;">
+                                <input type="checkbox" id="pt_overseas" onchange="app.togglePriceInput('overseas_msrp')"
+                                    ${isEdit && ed.pricing_types && ed.pricing_types.includes('overseas_msrp') ? 'checked' : ''}>
+                                <span style="font-weight:600; color:var(--text-primary);">Overseas MSRP</span>
+                                <span style="font-size:0.8rem; color:var(--text-muted);">Price from overseas retailers</span>
                             </label>
+                            <div id="priceInput_overseas_msrp" style="display:${isEdit && ed.price_overseas_msrp ? 'flex' : 'none'}; align-items:center; gap:0.5rem; margin-top:0.75rem; margin-left:2rem;">
+                                <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
+                                <input type="number" name="price_overseas_msrp" id="price_overseas_msrp_input" step="0.01" min="0" placeholder="85.00"
+                                    ${isEdit && ed.price_overseas_msrp ? `value="${ed.price_overseas_msrp}"` : ''}
+                                    style="width:100%; max-width:200px; padding:0.65rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
+                            </div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.75rem;">
-                            <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
-                            <input type="number" name="cost_basis" id="cost_basis_input" step="0.01" min="0" placeholder="99.99" ${isEdit && ed.cost_basis ? `value="${ed.cost_basis}"` : ''} style="width:100%; max-width:200px; padding:0.65rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
+
+                        <!-- Stateside MSRP -->
+                        <div class="pricing-type-row" style="margin-bottom:1.25rem;">
+                            <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer;">
+                                <input type="checkbox" id="pt_stateside" onchange="app.togglePriceInput('stateside_msrp')"
+                                    ${isEdit && ed.pricing_types && ed.pricing_types.includes('stateside_msrp') ? 'checked' : ''}>
+                                <span style="font-weight:600; color:var(--text-primary);">Stateside MSRP</span>
+                                <span style="font-size:0.8rem; color:var(--text-muted);">Price from US retailers</span>
+                            </label>
+                            <div id="priceInput_stateside_msrp" style="display:${isEdit && ed.price_stateside_msrp ? 'flex' : 'none'}; align-items:center; gap:0.5rem; margin-top:0.75rem; margin-left:2rem;">
+                                <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
+                                <input type="number" name="price_stateside_msrp" id="price_stateside_msrp_input" step="0.01" min="0" placeholder="99.99"
+                                    ${isEdit && ed.price_stateside_msrp ? `value="${ed.price_stateside_msrp}"` : ''}
+                                    style="width:100%; max-width:200px; padding:0.65rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
+                            </div>
+                        </div>
+
+                        <!-- Secondary Market Price -->
+                        <div class="pricing-type-row" style="margin-bottom:1rem;">
+                            <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer;">
+                                <input type="checkbox" id="pt_secondary" onchange="app.togglePriceInput('secondary_market')"
+                                    ${isEdit && ed.pricing_types && ed.pricing_types.includes('secondary_market') ? 'checked' : ''}>
+                                <span style="font-weight:600; color:var(--text-primary);">Secondary Market Price</span>
+                                <span style="font-size:0.8rem; color:var(--text-muted);">Aftermarket / resale value</span>
+                            </label>
+                            <div id="priceInput_secondary_market" style="display:${isEdit && ed.price_secondary_market ? 'flex' : 'none'}; align-items:center; gap:0.5rem; margin-top:0.75rem; margin-left:2rem;">
+                                <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
+                                <input type="number" name="price_secondary_market" id="price_secondary_market_input" step="0.01" min="0" placeholder="150.00"
+                                    ${isEdit && ed.price_secondary_market ? `value="${ed.price_secondary_market}"` : ''}
+                                    style="width:100%; max-width:200px; padding:0.65rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -524,16 +535,6 @@ TerminalApp.prototype.renderSubmission = function(container) {
         if (el) this.updateSliderLabel(id, el.value);
     });
 
-    // Initialize price delta display
-    if (isEdit && ed.market_price) this.updatePriceDelta();
-
-    // Pre-check "I paid MSRP" if cost_basis matches MSRP
-    if (isEdit && ed.cost_basis && this.currentTarget.msrp &&
-        Math.abs(parseFloat(ed.cost_basis) - parseFloat(this.currentTarget.msrp)) < 0.01) {
-        const cb = document.getElementById('paidMsrpCheckbox');
-        const ci = document.getElementById('cost_basis_input');
-        if (cb && ci) { cb.checked = true; ci.readOnly = true; ci.style.opacity = '0.6'; }
-    }
 };
 
 TerminalApp.prototype.submitIntel = async function(form) {
@@ -548,11 +549,20 @@ TerminalApp.prototype.submitIntel = async function(form) {
         form.querySelector('input[name="recommendation"]').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
-    const marketPrice = form.querySelector('input[name="market_price"]');
-    if (!marketPrice.value || parseFloat(marketPrice.value) <= 0) {
-        this.showFormError('Please enter an Aftermarket Valuation (market price).');
-        marketPrice.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        marketPrice.focus();
+    // Validate at least one pricing type selected with a value
+    const pricingTypes = [];
+    const ptChecks = { overseas_msrp: 'pt_overseas', stateside_msrp: 'pt_stateside', secondary_market: 'pt_secondary' };
+    for (const [type, cbId] of Object.entries(ptChecks)) {
+        const cb = document.getElementById(cbId);
+        const inp = document.getElementById('price_' + type + '_input');
+        if (cb && cb.checked && inp && parseFloat(inp.value) > 0) {
+            pricingTypes.push(type);
+        }
+    }
+    if (pricingTypes.length === 0) {
+        this.showFormError('Please select at least one pricing category and enter a valid amount.');
+        const pricingSection = form.querySelector('.pricing-type-row');
+        if (pricingSection) pricingSection.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
 
@@ -563,6 +573,15 @@ TerminalApp.prototype.submitIntel = async function(form) {
 
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
+
+    // Attach multi-type pricing array and clean up old fields
+    data.pricing_types = pricingTypes;
+    delete data.market_price;
+    delete data.cost_basis;
+    // Remove checkbox names from data (they're just toggles, not values)
+    delete data.pt_overseas;
+    delete data.pt_stateside;
+    delete data.pt_secondary;
 
     // Calculate scores
     const mtsTotal = parseFloat(data.mts_community) + parseFloat(data.mts_buzz) + parseFloat(data.mts_liquidity) + parseFloat(data.mts_risk) + parseFloat(data.mts_appeal);

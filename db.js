@@ -363,6 +363,16 @@ async function initDB() {
             await pool.query(`ALTER TABLE Figures ADD COLUMN created_by TEXT`);
         }
 
+        // Migration: add price_type column to MarketTransactions for multi-type pricing
+        const priceTypeCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'markettransactions' AND column_name = 'price_type'
+        `);
+        if (priceTypeCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE MarketTransactions ADD COLUMN price_type TEXT NOT NULL DEFAULT 'secondary_market'`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_figure_pricetype ON MarketTransactions(figure_id, price_type)`);
+        }
+
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {

@@ -85,21 +85,27 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
         );
         const submissionId = result.rows[0].id;
 
-        if (submissionData.market_price && parseFloat(submissionData.market_price) > 0) {
-            try {
-                await db.query(
-                    `INSERT INTO MarketTransactions (figure_id, price_avg, source, submitted_by, submission_id, created_at)
-                     VALUES ($1, $2, 'user_entry', $3, $4, $5)`,
-                    [req.body.targetId, parseFloat(submissionData.market_price), req.user.username, submissionId, req.body.date]
-                );
-            } catch (e) { log.error('Auto-insert market transaction failed', { error: e.message }); }
+        // Multi-type pricing: insert a MarketTransaction row for each selected pricing category
+        const VALID_PRICE_TYPES = ['overseas_msrp', 'stateside_msrp', 'secondary_market'];
+        let pricingTypes = submissionData.pricing_types || [];
+
+        // Backward compat: old-format submission with single market_price
+        if ((!pricingTypes || pricingTypes.length === 0) && submissionData.market_price && parseFloat(submissionData.market_price) > 0) {
+            pricingTypes = ['secondary_market'];
+            submissionData.price_secondary_market = submissionData.market_price;
         }
 
-        if (submissionData.cost_basis && parseFloat(submissionData.cost_basis) > 0) {
+        for (const pType of pricingTypes) {
+            if (!VALID_PRICE_TYPES.includes(pType)) continue;
+            const priceVal = parseFloat(submissionData[`price_${pType}`]);
+            if (!priceVal || priceVal <= 0) continue;
             try {
-                await db.query("UPDATE Submissions SET cost_basis = $1 WHERE id = $2",
-                    [parseFloat(submissionData.cost_basis), submissionId]);
-            } catch (e) { log.error('Save cost_basis failed', { error: e.message }); }
+                await db.query(
+                    `INSERT INTO MarketTransactions (figure_id, price_avg, price_type, source, submitted_by, submission_id, created_at)
+                     VALUES ($1, $2, $3, 'user_entry', $4, $5, $6)`,
+                    [req.body.targetId, priceVal, pType, req.user.username, submissionId, req.body.date]
+                );
+            } catch (e) { log.error('Auto-insert market transaction failed', { error: e.message }); }
         }
 
         const coReviewers = await db.query(
@@ -163,29 +169,45 @@ router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
         const now = new Date().toISOString();
         const mtsTotal = parseFloat(req.body.mtsTotal);
         const approvalScore = parseFloat(req.body.approvalScore);
-        const costBasis = submissionData.cost_basis && parseFloat(submissionData.cost_basis) > 0
-            ? parseFloat(submissionData.cost_basis) : null;
 
         await db.query(
-            `UPDATE Submissions SET mtsTotal = $1, approvalScore = $2, jsonData = $3, edited_at = $4, cost_basis = $5 WHERE id = $6`,
-            [mtsTotal, approvalScore, JSON.stringify(submissionData), now, costBasis, req.params.id]
+            `UPDATE Submissions SET mtsTotal = $1, approvalScore = $2, jsonData = $3, edited_at = $4 WHERE id = $5`,
+            [mtsTotal, approvalScore, JSON.stringify(submissionData), now, req.params.id]
         );
 
-        const newPrice = submissionData.market_price ? parseFloat(submissionData.market_price) : 0;
-        const existingTx = await db.query("SELECT id FROM MarketTransactions WHERE submission_id = $1", [req.params.id]);
+        // Multi-type pricing: sync MarketTransactions per price_type
+        const VALID_PRICE_TYPES = ['overseas_msrp', 'stateside_msrp', 'secondary_market'];
+        let pricingTypes = submissionData.pricing_types || [];
 
-        if (existingTx.rows[0]) {
-            if (newPrice > 0) {
-                await db.query("UPDATE MarketTransactions SET price_avg = $1 WHERE id = $2", [newPrice, existingTx.rows[0].id]);
-            } else {
-                await db.query("DELETE FROM MarketTransactions WHERE id = $1", [existingTx.rows[0].id]);
+        // Backward compat: old submission with single market_price
+        if ((!pricingTypes || pricingTypes.length === 0) && submissionData.market_price && parseFloat(submissionData.market_price) > 0) {
+            pricingTypes = ['secondary_market'];
+            submissionData.price_secondary_market = submissionData.market_price;
+        }
+
+        const existingTxs = await db.query("SELECT id, price_type FROM MarketTransactions WHERE submission_id = $1", [req.params.id]);
+        const existingByType = {};
+        for (const tx of existingTxs.rows) {
+            existingByType[tx.price_type || 'secondary_market'] = tx.id;
+        }
+
+        for (const pType of VALID_PRICE_TYPES) {
+            const priceVal = pricingTypes.includes(pType) ? parseFloat(submissionData[`price_${pType}`]) : 0;
+            const existingId = existingByType[pType];
+
+            if (existingId) {
+                if (priceVal > 0) {
+                    await db.query("UPDATE MarketTransactions SET price_avg = $1 WHERE id = $2", [priceVal, existingId]);
+                } else {
+                    await db.query("DELETE FROM MarketTransactions WHERE id = $1", [existingId]);
+                }
+            } else if (priceVal > 0) {
+                await db.query(
+                    `INSERT INTO MarketTransactions (figure_id, price_avg, price_type, source, submitted_by, submission_id, created_at)
+                     VALUES ($1, $2, $3, 'user_entry', $4, $5, $6)`,
+                    [sub.rows[0].targetid, priceVal, pType, req.user.username, req.params.id, now]
+                );
             }
-        } else if (newPrice > 0) {
-            await db.query(
-                `INSERT INTO MarketTransactions (figure_id, price_avg, source, submitted_by, submission_id, created_at)
-                 VALUES ($1, $2, 'user_entry', $3, $4, $5)`,
-                [sub.rows[0].targetid, newPrice, req.user.username, req.params.id, now]
-            );
         }
 
         await auditLog('SUBMISSION_EDIT', req.user.username, `submission_id:${req.params.id}`, 'User edited their intelligence report', req.ip);

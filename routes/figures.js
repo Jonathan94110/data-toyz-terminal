@@ -192,9 +192,17 @@ router.get('/:id/market-intel', async (req, res) => {
         const msrp = figRes.rows[0].msrp;
         const marketSignal = figRes.rows[0].market_signal;
 
+        // Optional price_type filter (overseas_msrp | stateside_msrp | secondary_market)
+        const priceType = req.query.price_type;
+        const VALID_PT = ['overseas_msrp', 'stateside_msrp', 'secondary_market'];
+        const filterByType = priceType && VALID_PT.includes(priceType);
+        const ptClause = filterByType ? ' AND price_type = $' : '';
+        const baseParams = filterByType ? [figureId, priceType] : [figureId];
+        const ptIdx = filterByType ? baseParams.length : 0; // index for the price_type param
+
         const timelineRes = await db.query(
-            `SELECT id, price_high, price_avg, price_low, source, submitted_by, created_at
-             FROM MarketTransactions WHERE figure_id = $1 ORDER BY created_at ASC`, [figureId]
+            `SELECT id, price_high, price_avg, price_low, price_type, source, submitted_by, created_at
+             FROM MarketTransactions WHERE figure_id = $1${filterByType ? ` AND price_type = $2` : ''} ORDER BY created_at ASC`, baseParams
         );
         const timeline = normalizeRows(timelineRes.rows);
 
@@ -202,20 +210,22 @@ router.get('/:id/market-intel', async (req, res) => {
         const r30 = await db.query(
             `SELECT AVG(price_avg) as avg, MAX(COALESCE(price_high, price_avg)) as high,
                     MIN(COALESCE(price_low, price_avg)) as low, COUNT(*) as count
-             FROM MarketTransactions WHERE figure_id = $1 AND created_at >= $2`, [figureId, d30]
+             FROM MarketTransactions WHERE figure_id = $1 AND created_at >= $2${filterByType ? ' AND price_type = $3' : ''}`,
+            filterByType ? [figureId, d30, priceType] : [figureId, d30]
         );
 
         const d90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
         const r90 = await db.query(
             `SELECT AVG(price_avg) as avg, MAX(COALESCE(price_high, price_avg)) as high,
                     MIN(COALESCE(price_low, price_avg)) as low, COUNT(*) as count
-             FROM MarketTransactions WHERE figure_id = $1 AND created_at >= $2`, [figureId, d90]
+             FROM MarketTransactions WHERE figure_id = $1 AND created_at >= $2${filterByType ? ' AND price_type = $3' : ''}`,
+            filterByType ? [figureId, d90, priceType] : [figureId, d90]
         );
 
         const rAll = await db.query(
             `SELECT AVG(price_avg) as avg, MAX(COALESCE(price_high, price_avg)) as high,
                     MIN(COALESCE(price_low, price_avg)) as low, COUNT(*) as count
-             FROM MarketTransactions WHERE figure_id = $1`, [figureId]
+             FROM MarketTransactions WHERE figure_id = $1${filterByType ? ' AND price_type = $2' : ''}`, baseParams
         );
 
         const fmt = (row) => ({
@@ -256,7 +266,7 @@ router.get('/:id/market-intel', async (req, res) => {
 router.post('/:id/market-transactions', requireAuth, async (req, res) => {
     try {
         const figureId = req.params.id;
-        const { priceAvg, priceHigh, priceLow, source, date } = req.body;
+        const { priceAvg, priceHigh, priceLow, source, date, priceType } = req.body;
 
         if (!priceAvg || parseFloat(priceAvg) <= 0) {
             return res.status(400).json({ error: 'priceAvg is required and must be > 0' });
@@ -270,11 +280,13 @@ router.post('/:id/market-transactions', requireAuth, async (req, res) => {
         const validSources = ['user_entry', 'ebay', 'manual_import'];
         const txSource = validSources.includes(source) ? source : 'user_entry';
         const txDate = date || new Date().toISOString();
+        const VALID_PT = ['overseas_msrp', 'stateside_msrp', 'secondary_market'];
+        const txPriceType = VALID_PT.includes(priceType) ? priceType : 'secondary_market';
 
         const result = await db.query(
-            `INSERT INTO MarketTransactions (figure_id, price_high, price_avg, price_low, source, submitted_by, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-            [figureId, high, avg, low, txSource, req.user.username, txDate]
+            `INSERT INTO MarketTransactions (figure_id, price_high, price_avg, price_low, price_type, source, submitted_by, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+            [figureId, high, avg, low, txPriceType, txSource, req.user.username, txDate]
         );
         res.status(201).json({ id: result.rows[0].id, message: 'Market transaction recorded.' });
     } catch (err) {
@@ -389,6 +401,22 @@ router.get('/:id/community-metrics', async (req, res) => {
             approvalAvg: avg(approvalSum),
             overallAvg: parseFloat(((mtsSum / n + approvalSum / n) / 2).toFixed(1)),
             marketPriceAvg: marketPriceCount > 0 ? parseFloat((marketPriceSum / marketPriceCount).toFixed(2)) : null,
+            marketPriceByType: await (async () => {
+                try {
+                    const ptRes = await db.query(
+                        `SELECT price_type, AVG(price_avg) as avg, COUNT(*) as count
+                         FROM MarketTransactions WHERE figure_id = $1 GROUP BY price_type`, [figureId]
+                    );
+                    const out = {};
+                    for (const row of ptRes.rows) {
+                        out[row.price_type || 'secondary_market'] = {
+                            avg: parseFloat(parseFloat(row.avg).toFixed(2)),
+                            count: parseInt(row.count)
+                        };
+                    }
+                    return Object.keys(out).length > 0 ? out : null;
+                } catch (e) { return null; }
+            })(),
             tradeRating: tradeRatingCount > 0 ? parseFloat((tradeRatingSum / tradeRatingCount).toFixed(1)) : null,
             recommendation: { yes: yesVotes, no: noVotes }
         });

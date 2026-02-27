@@ -12,9 +12,10 @@ TerminalApp.prototype.renderPulse = async function(container) {
     let overviewStats = {};
     let headlines = [];
     try {
+        const ptParam = this.pulsePriceType ? `?price_type=${this.pulsePriceType}` : '';
         const [subRes, miRes, cmRes] = await Promise.all([
             fetch(`${API_URL}/submissions/target/${this.currentTarget.id}`),
-            fetch(`${API_URL}/figures/${this.currentTarget.id}/market-intel`),
+            fetch(`${API_URL}/figures/${this.currentTarget.id}/market-intel${ptParam}`),
             fetch(`${API_URL}/figures/${this.currentTarget.id}/community-metrics`)
         ]);
         if (subRes.ok) figureSubs = await subRes.json();
@@ -154,19 +155,38 @@ TerminalApp.prototype.renderPulse = async function(container) {
             <!-- PRICE CONTEXT -->
             ${(() => {
                 const figureMsrp = this.currentTarget.msrp ? parseFloat(this.currentTarget.msrp) : null;
-                const cmAvgPrice = communityMetrics && communityMetrics.marketPriceAvg ? communityMetrics.marketPriceAvg : null;
+                const cmAvgPrice = (() => {
+                    if (!communityMetrics) return null;
+                    if (this.pulsePriceType && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType[this.pulsePriceType]) {
+                        return communityMetrics.marketPriceByType[this.pulsePriceType].avg;
+                    }
+                    return communityMetrics.marketPriceAvg;
+                })();
+                const priceLabel = this.pulsePriceType ? ({
+                    overseas_msrp: 'Avg Overseas Price',
+                    stateside_msrp: 'Avg Stateside Price',
+                    secondary_market: 'Avg Secondary Price'
+                })[this.pulsePriceType] : 'Avg Street Price';
                 const msrpDelta = (figureMsrp && cmAvgPrice) ? cmAvgPrice - figureMsrp : null;
                 const msrpDeltaPct = (figureMsrp && msrpDelta !== null) ? ((msrpDelta / figureMsrp) * 100).toFixed(1) : null;
                 return `
             <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
-                <h3 style="margin:0 0 1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">💲 Price Context</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
+                    <h3 style="margin:0; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">\u{1F4B2} Price Context</h3>
+                    <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                        <button type="button" class="priceTypeToggle${!this.pulsePriceType ? ' active' : ''}" onclick="app.pulsePriceType=null; app.renderPulse(document.getElementById('mainContent'));">All</button>
+                        <button type="button" class="priceTypeToggle${this.pulsePriceType==='overseas_msrp' ? ' active' : ''}" onclick="app.pulsePriceType='overseas_msrp'; app.renderPulse(document.getElementById('mainContent'));">Overseas</button>
+                        <button type="button" class="priceTypeToggle${this.pulsePriceType==='stateside_msrp' ? ' active' : ''}" onclick="app.pulsePriceType='stateside_msrp'; app.renderPulse(document.getElementById('mainContent'));">Stateside</button>
+                        <button type="button" class="priceTypeToggle${this.pulsePriceType==='secondary_market' ? ' active' : ''}" onclick="app.pulsePriceType='secondary_market'; app.renderPulse(document.getElementById('mainContent'));">Secondary</button>
+                    </div>
+                </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem; text-align:center;">
                     <div>
                         <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">MSRP</div>
                         <div style="font-size:1.5rem; font-weight:800; color:var(--success);">${figureMsrp ? '$' + figureMsrp.toFixed(2) : '---'}</div>
                     </div>
                     <div>
-                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">Avg Street Price</div>
+                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">${priceLabel}</div>
                         <div style="font-size:1.5rem; font-weight:800; color:#f59e0b;">${cmAvgPrice ? '$' + cmAvgPrice.toFixed(2) : '---'}</div>
                     </div>
                     <div>

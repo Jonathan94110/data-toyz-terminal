@@ -8,7 +8,7 @@ const COL_MAP = {
     joined_at: 'joinedAt', last_read_at: 'lastReadAt', updated_at: 'updatedAt',
     figure_id: 'figureId', price_high: 'priceHigh', price_avg: 'priceAvg',
     price_low: 'priceLow', submitted_by: 'submittedBy', submission_id: 'submissionId',
-    cost_basis: 'costBasis', market_signal: 'marketSignal',
+    cost_basis: 'costBasis', price_type: 'priceType', market_signal: 'marketSignal',
     market_signal_updated_at: 'marketSignalUpdatedAt',
     edited_at: 'editedAt', post_id: 'postId', flagged_by: 'flaggedBy',
     follower_id: 'followerId', following_id: 'followingId',
