@@ -316,12 +316,11 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 };
 
 TerminalApp.prototype.editSubmission = async function(submissionId, targetId) {
-        // Fetch the full submission data, then resolve target from figures list or submission metadata
+        // Fetch the single submission by ID, then resolve target from figures list or submission metadata
         try {
-            const subRes = await fetch(`${API_URL}/submissions/user/${this.user.username}`);
+            const subRes = await this.authFetch(`${API_URL}/submissions/${submissionId}`);
             if (!subRes.ok) { alert('Failed to load submission data.'); return; }
-            const allSubs = await subRes.json();
-            const sub = allSubs.find(s => s.id === submissionId);
+            const sub = await subRes.json();
             if (!sub) { alert('Submission not found.'); return; }
 
             // Resolve target: try MOCK_FIGURES first, then fetch full figures list
