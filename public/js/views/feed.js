@@ -1,6 +1,6 @@
 // views/feed.js — Community Feed
 
-TerminalApp.prototype.renderFeed = async function(container) {
+TerminalApp.prototype.renderFeed = async function (container) {
     container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('feed', 3)}</div>`;
 
     let posts = [];
@@ -25,42 +25,42 @@ TerminalApp.prototype.renderFeed = async function(container) {
 
     let feedHtml = `
         <div style="max-width: 600px; margin: 0 auto; padding-bottom: 3rem;">
-            <div style="margin-bottom:2rem; text-align:center;">
-                <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Community Feed</h2>
-                <p style="color:var(--text-secondary); font-size:1.1rem;">Live operative intelligence chatter and market sentiment.</p>
+            <div style="margin-bottom:1rem;">
+                <h2 style="font-size:2rem; margin-bottom:0.25rem; text-transform:uppercase; letter-spacing:0.03em;">Community Feed</h2>
+                <p style="color:var(--text-secondary); font-size:0.9rem;">Live operative intelligence chatter and market sentiment.</p>
             </div>
 
             <!-- NEW POST FORM -->
-            <div class="card" style="margin-bottom:3rem; padding:1.5rem;">
+            <div class="card" style="margin-bottom:1.5rem; padding:1.25rem;">
                 <form id="postForm">
-                    <textarea id="postContent" required placeholder="Broadcast your field observations... (e.g., 'Just handled the new DX9 test shot. Joints are incredibly tight.')" style="width:100%; height:100px; padding:1rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-md); margin-bottom:1rem; font-family:var(--font-body); resize:vertical;"></textarea>
+                    <textarea id="postContent" required placeholder="Broadcast your observations..." style="width:100%; height:56px; padding:0.75rem 1rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-md); margin-bottom:0.75rem; font-family:var(--font-body); resize:vertical; font-size:0.9rem;"></textarea>
 
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.75rem;">
                         <div>
-                            <label for="postImage" style="cursor:pointer; padding:0.5rem 1rem; border:1px solid var(--border-light); border-radius:var(--radius-sm); font-size:0.9rem; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-light)'">
-                                \ud83d\udcf8 Attach Evidence
+                            <label for="postImage" style="cursor:pointer; padding:0.4rem 0.75rem; border:1px solid var(--border-light); border-radius:var(--radius-sm); font-size:0.8rem; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-light)'">
+                                📸 Attach
                             </label>
                             <input type="file" id="postImage" accept="image/*" style="display:none;" onchange="document.getElementById('imgName').innerText = this.files[0] ? this.files[0].name : ''">
-                            <span id="imgName" style="margin-left:0.5rem; font-size:0.8rem; color:var(--accent);"></span>
+                            <span id="imgName" style="margin-left:0.5rem; font-size:0.75rem; color:var(--accent);"></span>
                         </div>
 
-                        <div class="segmented-control" style="margin:0; min-width:360px;">
-                            <label class="risk-bullish" style="padding:0.5rem;">
+                        <div class="segmented-control" style="margin:0; min-width:280px;">
+                            <label class="risk-bullish" style="padding:0.4rem;">
                                 <input type="radio" name="sentiment" value="fire" required>
-                                <span style="font-size:1.1rem; white-space:nowrap;">\ud83d\udd25 HOT</span>
+                                <span style="font-size:0.9rem; white-space:nowrap;">🔥 HOT</span>
                             </label>
-                            <label class="risk-neutral" style="padding:0.5rem;">
+                            <label class="risk-neutral" style="padding:0.4rem;">
                                 <input type="radio" name="sentiment" value="fence" required>
-                                <span style="font-size:1.1rem; white-space:nowrap;">\ud83e\udd37 FENCE</span>
+                                <span style="font-size:0.9rem; white-space:nowrap;">🤷 FENCE</span>
                             </label>
-                            <label class="risk-bearish" style="padding:0.5rem;">
+                            <label class="risk-bearish" style="padding:0.4rem;">
                                 <input type="radio" name="sentiment" value="ice" required>
-                                <span style="font-size:1.1rem; white-space:nowrap;">\ud83e\uddca NOT</span>
+                                <span style="font-size:0.9rem; white-space:nowrap;">🧊 NOT</span>
                             </label>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn" style="width:100%;">Transmit Broadcast</button>
+                    <button type="submit" class="btn" style="width:100%; padding:0.65rem;">Transmit Broadcast</button>
                 </form>
             </div>
 
@@ -304,7 +304,7 @@ TerminalApp.prototype.renderFeed = async function(container) {
                     const currentText = b.textContent.trim();
                     const currentCount = parseInt(currentText.replace(/[^\d]/g, '')) || 0;
                     const wasActive = b.style.borderColor.includes('accent') || b.style.color.includes('accent') ||
-                                      b.style.cssText.includes('var(--accent)');
+                        b.style.cssText.includes('var(--accent)');
 
                     if (bEmoji === emoji) {
                         if (result.action === 'removed') {

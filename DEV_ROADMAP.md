@@ -1,7 +1,26 @@
 # Data Toyz Terminal — Developer Roadmap
 
 **Issued:** 2026-02-27
+**Updated:** 2026-02-28
 **Priority:** High — User concurrency is scaling and the platform needs both feature parity and infrastructure hardening before the next growth wave.
+
+---
+
+## Changelog
+
+### 2026-02-28 — UI Refresh & Market Pulse
+- **Sidebar redesign**: All nav items now use SVG icons + labels; sidebar is collapsible (persisted in localStorage)
+- **Topbar**: Global search bar, SVG notification bell and logout icons replace emoji/text
+- **Login page**: Split layout — Top Rated Toys showcase (left) + auth panel (right); fetches `/api/figures/top-rated`
+- **Intel History (dashboard.js)**: Stats summary row (Total Reports, Avg Grade, Top Target, Your Title), color-coded grades, SVG empty states, renamed CSS classes `dash-*` → `intel-*`
+- **Community Feed (feed.js)**: Tightened spacing, smaller fonts/padding, compact post form
+- **Leaderboard (leaderboards.js)**: Podium-style top 3 (medals, avatars, glow), card-style remaining users, "Your Stats" sidebar with rank/title/progress bar
+- **Rate limiting**: New `authAttemptLimiter` for login/reset brute-force protection (120/15min prod, 400/15min dev)
+- **Housekeeping**: Removed Vercel adapter (`api/index.js`, `vercel.json`), removed service worker (`public/sw.js`), renamed package from `the-survey-assement-` to `data-toyz-terminal`
+- **Market Pulse (Card Ladder features)**: 3-tab layout (Overview, Rankings, Compare), Chart.js volume chart, brand index grid, sortable figure rankings, side-by-side compare tool with overlaid price charts
+- **Backend (stats.js)**: New endpoints — `GET /stats/market-volume`, `GET /stats/brand-index`; extended `GET /stats/overview` with market tx count, avg secondary price, most active brand, 30d price trend
+- **Backend (figures.js)**: New endpoints — `GET /figures/market-ranked`, `GET /figures/compare`
+- **Database**: 3 new indexes — `idx_submissions_date`, `idx_mt_created_at`, `idx_mt_pricetype_created`
 
 ---
 
@@ -15,52 +34,23 @@
 
 ---
 
-### 1.2 Fix Intel History Logs — Universal Visibility
+### 1.2 Fix Intel History Logs — Universal Visibility ✅ DONE
 
-**Current State:** The dashboard (`GET /submissions/user/:username` in `routes/submissions.js`, lines 39-51) fetches all submissions for the logged-in user. The frontend renders them in `public/js/views/dashboard.js` with date, target name, and grade.
+**Status:** Pagination implemented. Dashboard handles both array and paginated object API responses. Client-side search fallback for backends that return flat arrays. Stats summary cards added (Total Reports, Avg Grade, Top Target, User Title).
 
-**Known Gap:** Verify that every user role (`analyst`, `admin`) sees their full history without exception. Currently, the query filters by `author = $1` with no role gate — so this should work. However, the `user profile` endpoint (`GET /users/:username/profile`) caps results at the last 20. This needs to either paginate or match the full dashboard behavior.
-
-**Action Items:**
-1. Audit the `GET /submissions/user/:username` query — confirm no silent `LIMIT` or role-based filter is dropping records.
-2. Add pagination to the dashboard view (currently loads all submissions in one query — will degrade as submission volume grows).
-3. Ensure the user profile submissions endpoint (`routes/users.js`) either paginates or uses the same unlimited query as the dashboard.
+**Remaining:**
+- Ensure the user profile submissions endpoint (`routes/users.js`) paginates or matches the dashboard query.
 
 ---
 
-### 1.3 Add Search to Intel History Logs
+### 1.3 Add Search to Intel History Logs ✅ DONE
 
-**Current State:** No search or filter capability exists on the intel history. Users see a flat chronological list of all their submissions. The only search in the app is figure search (`public/js/views/search.js`) which queries by figure name/brand/line.
+**Status:** Search bar added to Intel History. Supports `?q=` and `?page=` params. Frontend renders search input with clear button, pagination controls, and total record count. Client-side filter fallback when backend returns flat array.
 
-**Implementation Plan:**
-
-**Backend — New query params on `GET /submissions/user/:username`:**
-```
-?q=<search_term>     — full-text search on target figure name
-?date_from=YYYY-MM-DD — filter by date range
-?date_to=YYYY-MM-DD
-?grade_min=<number>   — filter by minimum grade
-?sort=date|grade|name — sort order (default: date desc)
-?page=<number>        — pagination (20 per page)
-```
-
-**SQL approach:**
-```sql
-SELECT s.*, f.name AS target_name
-FROM Submissions s
-JOIN Figures f ON s.targetId = f.id
-WHERE s.author = $1
-  AND ($2::text IS NULL OR LOWER(f.name) LIKE '%' || LOWER($2) || '%')
-  AND ($3::date IS NULL OR s.date >= $3)
-  AND ($4::date IS NULL OR s.date <= $4)
-ORDER BY s.date DESC
-LIMIT 20 OFFSET $5
-```
-
-**Frontend — Dashboard enhancements (`dashboard.js`):**
-- Add a search bar at the top of the intel log with a text input and optional date range picker.
-- Debounced client-side fetch (300ms) that re-queries the backend with params.
-- Show total result count and page navigation.
+**Remaining (nice-to-have):**
+- Date range picker filter
+- Grade minimum filter
+- Sort order toggle (date/grade/name)
 
 ---
 
@@ -302,24 +292,30 @@ After implementing the P0 and P1 fixes above, the platform should comfortably ha
 
 ```
 Phase 1 (Immediate — Infrastructure)
-  [P0] Add all database indexes
-  [P0] Rewrite rooms.js query
-  [P1] Increase pool to 40 + add monitoring
-  [P1] Enable static file caching
-  [P1] Add auth user caching
+  [P0] Add all database indexes                    ← 3 market indexes done, others pending
+  [P0] Rewrite rooms.js query                      ← PENDING
+  [P1] Increase pool to 40 + add monitoring        ← PENDING
+  [P1] Enable static file caching                  ← PENDING
+  [P1] Add auth user caching                       ← PENDING
 
 Phase 2 (This Sprint — Features)
-  [1.2] Audit + paginate intel history
-  [1.3] Add search to intel logs (backend + frontend)
-  [1.4] Submission permalink / deep-link system
+  [1.2] Audit + paginate intel history             ← DONE (2026-02-28)
+  [1.3] Add search to intel logs                   ← DONE (2026-02-28)
+  [1.4] Submission permalink / deep-link system    ← PENDING
 
 Phase 3 (Next Sprint — Polish)
-  [P2] Batch mention validation
-  [P2] Batch notification inserts
-  [1.4] Community post back-linking
-  [1.4] Market transaction → scorecard traceability
+  [P2] Batch mention validation                    ← PENDING
+  [P2] Batch notification inserts                  ← PENDING
+  [1.4] Community post back-linking                ← PENDING
+  [1.4] Market transaction → scorecard traceability ← PENDING
+
+Completed (not in original roadmap):
+  - Card Ladder Market Pulse (3 tabs, 5 endpoints) ← DONE (2026-02-28)
+  - UI Refresh (icons, collapsible sidebar, login)  ← DONE (2026-02-28)
+  - Auth brute-force rate limiter                   ← DONE (2026-02-28)
+  - Vercel/SW cleanup                               ← DONE (2026-02-28)
 ```
 
 ---
 
-*Generated from codebase analysis on 2026-02-27. All file references, line numbers, and query patterns verified against the live repository.*
+*Generated from codebase analysis on 2026-02-27. Updated 2026-02-28 with completion status. All file references and query patterns verified against the live repository.*

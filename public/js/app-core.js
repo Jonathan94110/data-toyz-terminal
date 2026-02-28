@@ -153,49 +153,64 @@ class TerminalApp {
     }
 
     renderApp() {
+        const sidebarCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
         this.appEl.innerHTML = `
             <div class="app-layout animate-mount">
-                <aside class="sidebar">
+                <aside class="sidebar${sidebarCollapsed ? ' collapsed' : ''}">
                     <div class="sidebar-brand" style="cursor:pointer; display: flex; flex-direction: column; align-items: center; text-align: center;" onclick="app.currentView='feed'; app.renderApp();">
-                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));">
-
+                        <img src="logo.png" alt="Data Toyz Logo" class="sidebar-logo" style="max-height: 120px; width: auto; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));">
                     </div>
                     <nav class="sidebar-nav">
                         <div class="nav-item ${this.currentView === 'feed' ? 'active' : ''}" data-view="feed">
-                            Community Feed
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <span class="nav-label">Community Feed</span>
                         </div>
                         <div class="nav-item ${this.currentView === 'rooms' || this.currentView === 'room_chat' ? 'active' : ''}" data-view="rooms" style="position:relative;">
-                            Breakout Rooms
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span class="nav-label">Breakout Rooms</span>
                             <span id="roomsBadge" style="display:none; position:absolute; right:1rem; top:50%; transform:translateY(-50%); background:var(--danger); color:#fff; font-size:0.6rem; font-weight:800; padding:1px 5px; border-radius:10px; min-width:16px; text-align:center;"></span>
                         </div>
                         <div class="nav-item ${this.currentView === 'market_pulse' ? 'active' : ''}" data-view="market_pulse">
-                            Market Pulse
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            <span class="nav-label">Market Pulse</span>
                         </div>
                         <div class="nav-item ${this.currentView === 'search' ? 'active' : ''}" data-view="search">
-                            Score Card
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            <span class="nav-label">Score Card</span>
                         </div>
                         <div class="nav-item ${this.currentView === 'dashboard' ? 'active' : ''}" data-view="dashboard">
-                            My Intel History
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            <span class="nav-label">My Intel History</span>
                         </div>
                         <div class="nav-item ${this.currentView === 'leaderboards' ? 'active' : ''}" data-view="leaderboards">
-                            Global Leaderboard
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 7 7 7 7"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 17 7 17 7"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                            <span class="nav-label">Global Leaderboard</span>
                         </div>
                         <div class="nav-item ${this.currentView === 'profile' ? 'active' : ''}" data-view="profile">
-                            Profile Settings
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            <span class="nav-label">Profile Settings</span>
                         </div>
                         <div class="nav-item ${this.currentView === 'docs' ? 'active' : ''}" data-view="docs">
-                            Documentation
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            <span class="nav-label">Documentation</span>
                         </div>
                         ${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? `
                         <div class="nav-item ${this.currentView === 'admin' ? 'active' : ''}" data-view="admin" style="margin-top:1rem; border-top:1px solid var(--border-light); padding-top:1rem;">
-                            ⚙️ Admin Panel
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            <span class="nav-label">Admin Panel</span>
                         </div>
                         ` : ''}
                         <div id="pwaInstallBtn" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; display:${deferredInstallPrompt ? 'flex' : 'none'}; color:var(--accent);">
-                            📲 Install App
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span class="nav-label">Install App</span>
                         </div>
                         <div id="themeToggle" class="nav-item" style="${deferredInstallPrompt ? '' : 'margin-top:auto; '}border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
-                            ${document.body.getAttribute('data-theme') === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${document.body.getAttribute('data-theme') === 'dark' ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>' : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'}</svg>
+                            <span class="nav-label">${document.body.getAttribute('data-theme') === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                        </div>
+                        <div id="sidebarCollapseBtn" class="nav-item" style="border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${sidebarCollapsed ? '<polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>' : '<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>'}</svg>
+                            <span class="nav-label">${sidebarCollapsed ? 'Expand' : 'Collapse'}</span>
                         </div>
                     </nav>
                 </aside>
@@ -204,10 +219,14 @@ class TerminalApp {
                 <main class="main-content">
                     <header class="topbar">
                         <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle menu">☰</button>
+                        <div class="topbar-search">
+                            <svg class="topbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="globalSearchInput" class="topbar-search-input" placeholder="Search targets, users, intel..." />
+                        </div>
                         <div class="user-profile">
-                            <div id="notifBell" style="position:relative; cursor:pointer; margin-right:1rem; padding:0.5rem;">
-                                <span style="font-size:1.3rem;">🔔</span>
-                                <span id="notifBadge" style="display:none; position:absolute; top:0; right:0; background:var(--danger); color:#fff; font-size:0.6rem; font-weight:800; padding:1px 5px; border-radius:10px; min-width:16px; text-align:center;"></span>
+                            <div id="notifBell" class="topbar-icon-btn" style="position:relative; cursor:pointer;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                                <span id="notifBadge" style="display:none; position:absolute; top:-2px; right:-2px; background:var(--danger); color:#fff; font-size:0.55rem; font-weight:800; padding:1px 4px; border-radius:10px; min-width:14px; text-align:center;"></span>
                                 <div id="notifDropdown" class="notif-dropdown" style="display:none;"></div>
                             </div>
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>`}
@@ -215,7 +234,9 @@ class TerminalApp {
                                 <div style="font-weight:600; font-size:0.95rem;">${escapeHTML(this.user.username)}</div>
                                 <div style="font-size:0.75rem; color:${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '#fbbf24' : 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '★ Admin' : 'Analyst'}</div>
                             </div>
-                            <button id="logoutBtn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; margin-left:1.5rem; font-size:0.85rem; transition:color 0.2s;">[ Exit ]</button>
+                            <button id="logoutBtn" class="topbar-icon-btn" title="Sign Out" style="margin-left:0.5rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                            </button>
                         </div>
                     </header>
                     <div class="content-area" id="mainContent">
@@ -256,6 +277,37 @@ class TerminalApp {
             localStorage.setItem('terminal_theme', next);
             this.renderApp();
         });
+
+        // Sidebar collapse toggle
+        const collapseBtn = document.getElementById('sidebarCollapseBtn');
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+                localStorage.setItem('sidebar_collapsed', !isCollapsed);
+                this.renderApp();
+            });
+        }
+
+        // Global search
+        const globalSearch = document.getElementById('globalSearchInput');
+        if (globalSearch) {
+            globalSearch.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const q = globalSearch.value.trim();
+                    if (q) {
+                        this.currentView = 'search';
+                        this.renderApp();
+                        setTimeout(() => {
+                            const searchInput = document.getElementById('searchInput');
+                            if (searchInput) { searchInput.value = q; }
+                            const searchBtn = document.querySelector('.score-search-btn, [onclick*="doSearch"]');
+                            if (typeof app.doSearchFromGlobal === 'function') app.doSearchFromGlobal(q);
+                        }, 200);
+                    }
+                }
+            });
+        }
 
         // Notification bell
         const bell = document.getElementById('notifBell');
@@ -334,7 +386,7 @@ class TerminalApp {
 
 // --- Navigation & utility methods (prototype extensions) --- //
 
-TerminalApp.prototype.logout = function() {
+TerminalApp.prototype.logout = function () {
     this.token = null;
     this.user = null;
     localStorage.removeItem('terminal_token');
@@ -348,14 +400,14 @@ TerminalApp.prototype.logout = function() {
     this.renderLogin();
 };
 
-TerminalApp.prototype.viewUserProfile = function(username) {
+TerminalApp.prototype.viewUserProfile = function (username) {
     sessionStorage.setItem('profileUser', username);
     this.previousView = this.currentView;
     this.currentView = 'user_profile';
     this.renderApp();
 };
 
-TerminalApp.prototype.selectTarget = function(id) {
+TerminalApp.prototype.selectTarget = function (id) {
     // Track where user came from for back navigation
     this.previousView = this.currentView;
     // Try MOCK_FIGURES first (loose equality handles string/number mismatch)
@@ -389,7 +441,7 @@ TerminalApp.prototype.selectTarget = function(id) {
 
 // --- Notification methods (prototype extensions) --- //
 
-TerminalApp.prototype.updateNotifBadge = async function() {
+TerminalApp.prototype.updateNotifBadge = async function () {
     try {
         const res = await this.authFetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}/count`);
         const data = await res.json();
@@ -405,7 +457,7 @@ TerminalApp.prototype.updateNotifBadge = async function() {
     } catch (e) { /* silent */ }
 };
 
-TerminalApp.prototype.loadNotifications = async function() {
+TerminalApp.prototype.loadNotifications = async function () {
     const dropdown = document.getElementById('notifDropdown');
     if (!dropdown) return;
     dropdown.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Loading...</div>';
@@ -427,8 +479,8 @@ TerminalApp.prototype.loadNotifications = async function() {
                 <button id="markAllRead" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.8rem; font-weight:600;">Mark all read</button>
             </div>
             ${notifs.slice(0, 20).map(n => {
-                const timeAgo = this.timeAgo(n.created_at);
-                return `
+            const timeAgo = this.timeAgo(n.created_at);
+            return `
                 <div class="notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}" data-link-type="${n.link_type}" data-link-id="${n.link_id}">
                     <span class="notif-icon">${icons[n.type] || '🔔'}</span>
                     <div>
@@ -436,7 +488,7 @@ TerminalApp.prototype.loadNotifications = async function() {
                         <div class="notif-time">${timeAgo}</div>
                     </div>
                 </div>`;
-            }).join('')}
+        }).join('')}
         `;
 
         dropdown.querySelectorAll('.notif-item').forEach(item => {
@@ -469,7 +521,7 @@ TerminalApp.prototype.loadNotifications = async function() {
     }
 };
 
-TerminalApp.prototype.timeAgo = function(dateStr) {
+TerminalApp.prototype.timeAgo = function (dateStr) {
     const now = new Date();
     const d = new Date(dateStr);
     const secs = Math.floor((now - d) / 1000);
@@ -480,7 +532,7 @@ TerminalApp.prototype.timeAgo = function(dateStr) {
     return d.toLocaleDateString();
 };
 
-TerminalApp.prototype.updateRoomsBadge = async function() {
+TerminalApp.prototype.updateRoomsBadge = async function () {
     try {
         const res = await this.authFetch(`${API_URL}/rooms/unread-total`);
         if (!res.ok) return;

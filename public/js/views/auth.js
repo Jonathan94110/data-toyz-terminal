@@ -1,6 +1,6 @@
 // views/auth.js — Login, registration, password reset
 
-TerminalApp.prototype.renderResetPassword = function(resetToken) {
+TerminalApp.prototype.renderResetPassword = function (resetToken) {
     this.appEl.innerHTML = `
         <div class="auth-container animate-mount">
             <div class="auth-panel">
@@ -47,72 +47,88 @@ TerminalApp.prototype.renderResetPassword = function(resetToken) {
     });
 };
 
-TerminalApp.prototype.renderLogin = function() {
+TerminalApp.prototype.renderLogin = function () {
     this.appEl.innerHTML = `
         <div class="auth-container animate-mount">
-            <div class="auth-panel">
-                <div class="brand-header">
-                    <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 1rem; filter: drop-shadow(0 0 20px rgba(255, 42, 95, 0.4));">
-                    <h1 class="glow-text">Data Toyz</h1>
-                    <p>Trade Value & Risk Terminal</p>
+            <div class="auth-landing">
+                <!-- LEFT: Top Rated Toys -->
+                <div class="auth-showcase">
+                    <div class="showcase-section animate-stagger" style="animation-delay: 0.15s;">
+                        <h3 class="showcase-title">🏆 Top Rated Toys</h3>
+                        <div id="loginTopRated">
+                            <div class="showcase-loading">Loading top rated toys...</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="loginSection">
-                    <form id="loginForm">
-                        <div class="input-group">
-                            <label for="loginUsername">Username</label>
-                            <input type="text" id="loginUsername" name="username" placeholder="Enter your username..." required autocomplete="username">
-                        </div>
-                        <div class="input-group">
-                            <label for="loginPassword">Password</label>
-                            <input type="password" id="loginPassword" placeholder="••••••••" required>
-                        </div>
-                        <button type="submit" class="btn">Authenticate</button>
-                        <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem; display:flex; flex-direction:column; gap:0.5rem;">
-                            <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Register Account</a>
-                            <a href="#" id="showForgotBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Password?</a>
-                        </div>
-                    </form>
-                </div>
+                <!-- RIGHT: Login Panel -->
+                <div class="auth-panel">
+                    <div class="brand-header">
+                        <img src="logo.png" alt="Data Toyz Logo" style="max-height: 120px; width: auto; margin-bottom: 1rem; filter: drop-shadow(0 0 20px rgba(255, 42, 95, 0.4));">
+                        <h1 class="glow-text">Data Toyz</h1>
+                        <p>Trade Value &amp; Risk Terminal</p>
+                    </div>
 
-                <div id="registerSection" style="display:none;">
-                    <form id="registerForm">
-                        <div class="input-group">
-                            <label for="regUsername">New Username</label>
-                            <input type="text" id="regUsername" required autocomplete="off">
-                        </div>
-                        <div class="input-group">
-                            <label for="regEmail">Secure Email</label>
-                            <input type="email" id="regEmail" required autocomplete="email">
-                        </div>
-                        <div class="input-group">
-                            <label for="regPassword">Password</label>
-                            <input type="password" id="regPassword" placeholder="••••••••" required>
-                        </div>
-                        <button type="submit" class="btn" style="background:var(--success); color:#000;">Register Identity</button>
-                        <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem;">
-                            <a href="#" id="showLoginBtn" style="color:var(--text-secondary); text-decoration:none;">Return to Authentication</a>
-                        </div>
-                    </form>
-                </div>
+                    <div id="loginSection">
+                        <form id="loginForm">
+                            <div class="input-group">
+                                <label for="loginUsername">Username</label>
+                                <input type="text" id="loginUsername" name="username" placeholder="Enter your username..." required autocomplete="username">
+                            </div>
+                            <div class="input-group">
+                                <label for="loginPassword">Password</label>
+                                <input type="password" id="loginPassword" placeholder="••••••••" required>
+                            </div>
+                            <button type="submit" class="btn">Authenticate</button>
+                            <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem; display:flex; flex-direction:column; gap:0.5rem;">
+                                <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Register Account</a>
+                                <a href="#" id="showForgotBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Password?</a>
+                            </div>
+                        </form>
+                    </div>
 
-                <div id="forgotSection" style="display:none;">
-                    <form id="forgotForm">
-                        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">Enter your registered email. If an account exists, we'll send a reset link.</p>
-                        <div class="input-group">
-                            <label for="forgotEmail">Registered Email</label>
-                            <input type="email" id="forgotEmail" required autocomplete="email">
-                        </div>
-                        <button type="submit" class="btn" style="background:#eab308; color:#000;">Send Reset Link</button>
-                        <div id="forgotMessage" style="margin-top:1rem; text-align:center;"></div>
-                        <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem;">
-                            <a href="#" id="showLoginFromForgotBtn" style="color:var(--text-secondary); text-decoration:none;">Return to Authentication</a>
-                        </div>
-                    </form>
+                    <div id="registerSection" style="display:none;">
+                        <form id="registerForm">
+                            <div class="input-group">
+                                <label for="regUsername">New Username</label>
+                                <input type="text" id="regUsername" required autocomplete="off">
+                            </div>
+                            <div class="input-group">
+                                <label for="regEmail">Secure Email</label>
+                                <input type="email" id="regEmail" required autocomplete="email">
+                            </div>
+                            <div class="input-group">
+                                <label for="regPassword">Password</label>
+                                <input type="password" id="regPassword" placeholder="••••••••" required>
+                            </div>
+                            <button type="submit" class="btn" style="background:var(--success); color:#000;">Register Identity</button>
+                            <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem;">
+                                <a href="#" id="showLoginBtn" style="color:var(--text-secondary); text-decoration:none;">Return to Authentication</a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="forgotSection" style="display:none;">
+                        <form id="forgotForm">
+                            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">Enter your registered email. If an account exists, we'll send a reset link.</p>
+                            <div class="input-group">
+                                <label for="forgotEmail">Registered Email</label>
+                                <input type="email" id="forgotEmail" required autocomplete="email">
+                            </div>
+                            <button type="submit" class="btn" style="background:#eab308; color:#000;">Send Reset Link</button>
+                            <div id="forgotMessage" style="margin-top:1rem; text-align:center;"></div>
+                            <div style="margin-top:1.5rem; text-align:center; font-size:0.9rem;">
+                                <a href="#" id="showLoginFromForgotBtn" style="color:var(--text-secondary); text-decoration:none;">Return to Authentication</a>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     `;
+
+    // --- Fetch and render live public data for the showcase ---
+    this._loadLoginShowcase();
 
     document.getElementById('showRegisterBtn').addEventListener('click', (e) => {
         e.preventDefault();
@@ -220,4 +236,47 @@ TerminalApp.prototype.renderLogin = function() {
             alert(err.message);
         }
     });
+};
+
+// --- Login Showcase: fetch and render Top Rated Toys ---
+TerminalApp.prototype._loadLoginShowcase = async function () {
+    let figures = [];
+    try {
+        const res = await fetch(`${API_URL}/figures/top-rated`);
+        if (res.ok) figures = await res.json();
+    } catch (e) {
+        console.error('Failed fetching top rated figures', e);
+    }
+
+    const el = document.getElementById('loginTopRated');
+    if (!el) return;
+
+    if (figures.length === 0) {
+        el.innerHTML = '<div class="showcase-loading">No rated toys yet — be the first to submit intel!</div>';
+        return;
+    }
+
+    const rankIcons = ['🥇', '🥈', '🥉'];
+    el.innerHTML = figures.map((fig, i) => {
+        const grade = parseFloat(fig.avgGrade);
+        const gradeColor = grade >= 85 ? 'var(--success)' : grade >= 70 ? 'var(--neutral)' : grade >= 50 ? '#eab308' : 'var(--danger)';
+        const tierClass = (fig.classTie || '').toLowerCase().replace(/\s+/g, '');
+
+        return `
+            <div class="tr-row animate-stagger" style="animation-delay: ${0.08 * i}s;">
+                <span class="tr-rank">${i < 3 ? rankIcons[i] : '<span class="tr-rank-num">' + (i + 1) + '</span>'}</span>
+                <div class="tr-info">
+                    <div class="tr-name">${escapeHTML(fig.name)}</div>
+                    <div class="tr-meta">
+                        <span class="tr-brand">${escapeHTML(fig.brand || '')}</span>
+                        <span class="tier-badge ${escapeHTML(tierClass)}">${escapeHTML(fig.classTie || '')}</span>
+                    </div>
+                </div>
+                <div class="tr-score">
+                    <span class="tr-grade" style="color:${gradeColor};">${fig.avgGrade}</span>
+                    <span class="tr-subs">${fig.submissions} ${fig.submissions === 1 ? 'review' : 'reviews'}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
 };

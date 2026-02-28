@@ -10,10 +10,19 @@ const apiLimiter = rateLimit({
     message: { error: 'Too many requests. Please try again later.' }
 });
 
-// Auth rate limiter: 50 requests per 15 min per IP
+// Auth rate limiter: broad cap for auth APIs.
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: process.env.NODE_ENV === 'production' ? 50 : 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many authentication attempts. Please try again later.' }
+});
+
+// Login/reset limiter: tighter guard on brute-force targets without impacting normal browsing.
+const authAttemptLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: process.env.NODE_ENV === 'production' ? 120 : 400,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many authentication attempts. Please try again later.' }
@@ -28,4 +37,4 @@ const messageLimiter = rateLimit({
     message: { error: 'Message rate limit exceeded. Please slow down.' }
 });
 
-module.exports = { apiLimiter, authLimiter, messageLimiter };
+module.exports = { apiLimiter, authLimiter, authAttemptLimiter, messageLimiter };
