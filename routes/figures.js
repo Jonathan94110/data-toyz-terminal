@@ -34,10 +34,16 @@ router.post('/', requireAuth, async (req, res) => {
             [name, brand, classTie, line, req.user.username]);
 
         try {
-            const allUsers = await db.query("SELECT u.username FROM Users u JOIN NotificationPrefs np ON u.id = np.user_id WHERE (np.new_figure_inapp = true OR np.new_figure_email = true) AND u.username != $1", [req.user.username]);
-            for (const row of allUsers.rows) {
-                await createNotification(row.username, 'new_figure', `${req.user.username} added "${name}" to the catalog`, 'figure', result.rows[0].id, req.user.username);
-            }
+            // Batch insert notifications for all opted-in users (single query instead of N+1 loop)
+            const figMsg = `${req.user.username} added "${name}" to the catalog`;
+            await db.query(
+                `INSERT INTO Notifications (recipient, type, message, link_type, link_id, sender, created_at)
+                 SELECT u.username, 'new_figure', $1, 'figure', $2, $3, $4
+                 FROM Users u
+                 JOIN NotificationPrefs np ON u.id = np.user_id
+                 WHERE np.new_figure_inapp = true AND u.username != $3`,
+                [figMsg, result.rows[0].id, req.user.username, new Date().toISOString()]
+            );
         } catch (notifErr) { log.error('New figure notification error', { error: notifErr.message || notifErr }); }
 
         res.status(201).json({ id: result.rows[0].id, message: "Target added successfully." });

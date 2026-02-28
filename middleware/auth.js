@@ -2,6 +2,33 @@ const jwt = require('jsonwebtoken');
 const db = require('../db.js');
 const { JWT_SECRET } = require('../helpers/config');
 
+// --- LRU user cache (15-second TTL) to avoid DB hit on every request --- //
+const userCache = new Map();
+const USER_CACHE_TTL = 15000;
+
+async function getCachedUser(userId) {
+    const cached = userCache.get(userId);
+    if (cached && Date.now() - cached.ts < USER_CACHE_TTL) return cached.data;
+
+    const result = await db.query(
+        "SELECT id, username, role, suspended, password_changed_at FROM Users WHERE id = $1", [userId]
+    );
+    const user = result.rows[0] || null;
+    if (user) userCache.set(userId, { data: user, ts: Date.now() });
+    return user;
+}
+
+// Invalidate cache for a specific user (call after password change, role change, etc.)
+function invalidateUserCache(userId) { userCache.delete(userId); }
+
+// Periodic cleanup of stale entries (every 5 min)
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of userCache) {
+        if (now - val.ts > USER_CACHE_TTL * 4) userCache.delete(key);
+    }
+}, 5 * 60 * 1000);
+
 // --- C-3: Session invalidation on password change --- //
 async function requireAuth(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -11,12 +38,12 @@ async function requireAuth(req, res, next) {
     try {
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, JWT_SECRET);
-        const result = await db.query("SELECT id, username, role, suspended, password_changed_at FROM Users WHERE id = $1", [decoded.id]);
-        if (!result.rows[0]) return res.status(401).json({ error: 'Account no longer exists.' });
-        if (result.rows[0].suspended) return res.status(403).json({ error: 'Your account has been suspended.' });
+        const user = await getCachedUser(decoded.id);
+        if (!user) return res.status(401).json({ error: 'Account no longer exists.' });
+        if (user.suspended) return res.status(403).json({ error: 'Your account has been suspended.' });
 
         // C-3: Reject token if it was issued before the password was changed
-        const passwordChangedAt = result.rows[0].password_changed_at;
+        const passwordChangedAt = user.password_changed_at;
         if (passwordChangedAt && decoded.iat) {
             const changedAtSec = Math.floor(new Date(passwordChangedAt).getTime() / 1000);
             if (decoded.iat < changedAtSec) {
@@ -24,7 +51,7 @@ async function requireAuth(req, res, next) {
             }
         }
 
-        req.user = { id: result.rows[0].id, username: result.rows[0].username, role: result.rows[0].role || 'analyst' };
+        req.user = { id: user.id, username: user.username, role: user.role || 'analyst' };
         next();
     } catch (err) {
         return res.status(401).json({ error: 'Invalid or expired token. Please log in again.' });
@@ -37,4 +64,4 @@ function requireAdmin(req, res, next) {
     next();
 }
 
-module.exports = { requireAuth, requireAdmin };
+module.exports = { requireAuth, requireAdmin, invalidateUserCache };

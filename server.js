@@ -53,9 +53,9 @@ app.use(express.json({ limit: '10mb' }));
 // --- Global API rate limiter --- //
 app.use('/api/', apiLimiter);
 
-// --- Static files --- //
+// --- Static files (7-day cache; busted via ?v=N in index.html) --- //
 app.use(express.static(path.join(__dirname, 'public'), {
-    maxAge: 0,
+    maxAge: '7d',
     etag: true,
     lastModified: true
 }));

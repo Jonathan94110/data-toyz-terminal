@@ -7,7 +7,7 @@ const { ADMIN_USERNAME } = require('../helpers/config');
 const { validatePassword } = require('../helpers/validation');
 const { normalizeRows } = require('../helpers/normalize');
 const { auditLog } = require('../helpers/audit');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, invalidateUserCache } = require('../middleware/auth');
 
 // Reset user password
 router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
@@ -26,6 +26,7 @@ router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, 
         const hash = await bcrypt.hash(newPassword, 10);
         const now = new Date().toISOString();
         await db.query("UPDATE Users SET password_hash = $1, password_changed_at = $2 WHERE id = $3", [hash, now, req.params.id]);
+        invalidateUserCache(parseInt(req.params.id));
 
         await auditLog('ADMIN_PASSWORD_RESET', req.user.username, user.rows[0].username, 'Admin reset user password', req.ip);
 
@@ -85,6 +86,7 @@ router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
 
         const newRole = user.rows[0].role === 'admin' ? 'analyst' : 'admin';
         await db.query("UPDATE Users SET role = $1 WHERE id = $2", [newRole, req.params.id]);
+        invalidateUserCache(parseInt(req.params.id));
 
         await auditLog('ADMIN_ROLE_CHANGE', req.user.username, user.rows[0].username, `Role changed to ${newRole}`, req.ip);
 
@@ -104,6 +106,7 @@ router.put('/users/:id/suspend', requireAuth, requireAdmin, async (req, res) => 
 
         const newStatus = !user.rows[0].suspended;
         await db.query("UPDATE Users SET suspended = $1 WHERE id = $2", [newStatus, req.params.id]);
+        invalidateUserCache(parseInt(req.params.id));
 
         await auditLog('ADMIN_SUSPEND', req.user.username, user.rows[0].username, `User ${newStatus ? 'suspended' : 'reinstated'}`, req.ip);
 

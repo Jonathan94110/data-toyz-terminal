@@ -8,14 +8,24 @@ const pool = new Pool({
     ssl: {
         rejectUnauthorized: process.env.NODE_ENV === 'production' // S-7: Enable SSL verification in production
     },
-    max: 20,             // Maximum pool size
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000
+    max: 40,             // Maximum pool size (scaled for 20+ concurrent users)
+    idleTimeoutMillis: 20000,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 10000  // Kill runaway queries after 10s
 });
 
 pool.on('error', (err) => {
     log.error('Unexpected database pool error', { error: err.message });
 });
+
+// Pool utilization monitoring (every 60s)
+setInterval(() => {
+    log.info('DB Pool status', {
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount
+    });
+}, 60000);
 
 pool.connect((err, client, release) => {
     if (err) {
@@ -372,6 +382,24 @@ async function initDB() {
             await pool.query(`ALTER TABLE MarketTransactions ADD COLUMN price_type TEXT NOT NULL DEFAULT 'secondary_market'`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_figure_pricetype ON MarketTransactions(figure_id, price_type)`);
         }
+
+        // --- Performance indexes for concurrent user scaling ---
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_author ON Posts(author)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_id_desc ON Posts(id DESC)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_comments_postid ON Comments(postId)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_reactions_postid ON Reactions(postId)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_author ON Submissions(author)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_targetid ON Submissions(targetId)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_room_created ON Messages(room_id, created_at DESC)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_roommembers_room ON RoomMembers(room_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_roommembers_username ON RoomMembers(username)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON Notifications(recipient, created_at DESC)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_username ON Users(username)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_follows_follower ON Follows(follower_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_follows_following ON Follows(following_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_flags_postid ON Flags(post_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_figurecomments_figureid ON FigureComments(figure_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_msgreactions_msgid ON MessageReactions(message_id)`);
 
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");

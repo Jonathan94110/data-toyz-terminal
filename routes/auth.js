@@ -8,7 +8,7 @@ const { resend, RESEND_FROM_EMAIL, APP_URL } = require('../helpers/config');
 const { validatePassword, escapeHTML } = require('../helpers/validation');
 const { auditLog } = require('../helpers/audit');
 const { generateToken } = require('../helpers/token');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, invalidateUserCache } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiters');
 
 // Register a new operative
@@ -109,6 +109,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
         const now = new Date().toISOString();
         await db.query("UPDATE Users SET password_hash = $1, password_changed_at = $2 WHERE id = $3",
             [hash, now, req.user.id]);
+        invalidateUserCache(req.user.id);
 
         await auditLog('PASSWORD_CHANGE', req.user.username, req.user.username, 'User changed their password', req.ip);
 
@@ -185,6 +186,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
         const now = new Date().toISOString();
         await db.query("UPDATE Users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL, password_changed_at = $2 WHERE id = $3",
             [hash, now, result.rows[0].id]);
+        invalidateUserCache(result.rows[0].id);
 
         await auditLog('PASSWORD_RESET', null, `user_id:${result.rows[0].id}`, 'Password reset via email token', req.ip);
 

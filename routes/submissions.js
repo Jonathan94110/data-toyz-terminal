@@ -35,17 +35,60 @@ router.get('/target/:targetId', async (req, res) => {
     }
 });
 
-// Get submissions by user
+// Get submissions by user (with search, pagination, and linked post lookup)
 router.get('/user/:username', async (req, res) => {
     try {
-        const result = await db.query("SELECT * FROM Submissions WHERE author = $1 ORDER BY id DESC", [req.params.username]);
+        const username = req.params.username;
+        const q = req.query.q || '';
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+        const offset = (page - 1) * limit;
+
+        // Build dynamic WHERE clause
+        const conditions = ['s.author = $1'];
+        const params = [username];
+        let paramIdx = 2;
+
+        if (q.trim()) {
+            conditions.push(`LOWER(s.targetName) LIKE '%' || LOWER($${paramIdx}) || '%'`);
+            params.push(q.trim());
+            paramIdx++;
+        }
+
+        const where = conditions.join(' AND ');
+
+        // Total count for pagination
+        const countRes = await db.query(`SELECT COUNT(*) as total FROM Submissions s WHERE ${where}`, params);
+        const total = parseInt(countRes.rows[0].total);
+
+        // Paginated results
+        const result = await db.query(
+            `SELECT s.* FROM Submissions s WHERE ${where} ORDER BY s.id DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+            [...params, limit, offset]
+        );
         const rows = normalizeRows(result.rows);
+
         rows.forEach(r => {
             try { r.data = JSON.parse(r.jsonData); } catch (e) { r.data = {}; }
         });
-        res.json(rows);
+
+        res.json({ rows, total, page, limit, totalPages: Math.ceil(total / limit) });
     } catch (err) {
         log.error('Get submissions by user error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Get a single submission by ID (scorecard deep-link)
+router.get('/:id', requireAuth, async (req, res) => {
+    try {
+        const result = await db.query("SELECT * FROM Submissions WHERE id = $1", [req.params.id]);
+        if (!result.rows[0]) return res.status(404).json({ error: 'Submission not found.' });
+        const row = normalizeRows([result.rows[0]])[0];
+        try { row.data = JSON.parse(row.jsonData); } catch (e) { row.data = {}; }
+        res.json(row);
+    } catch (err) {
+        log.error('Get submission by id error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });

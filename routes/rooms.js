@@ -85,69 +85,42 @@ router.post('/', requireAuth, async (req, res) => {
     }
 });
 
-// List all rooms
+// List all rooms (optimized: single query replaces N+1 pattern)
 router.get('/', requireAuth, async (req, res) => {
     try {
-        const rooms = await db.query(`
-            SELECT r.id, r.name, r.type, r.created_by, r.created_at
+        const username = req.user.username;
+
+        // Single query: fetch rooms, members, last message, and unread count in one shot
+        const roomsRes = await db.query(`
+            SELECT r.id, r.name, r.type, r.created_by, r.created_at,
+                (SELECT json_agg(json_build_object(
+                    'username', rm2.username, 'role', rm2.role,
+                    'joined_at', rm2.joined_at, 'avatar', u2.avatar
+                )) FROM RoomMembers rm2
+                LEFT JOIN Users u2 ON rm2.username = u2.username
+                WHERE rm2.room_id = r.id) AS members,
+                (SELECT json_build_object('author', m.author, 'content', m.content, 'createdAt', m.created_at)
+                 FROM Messages m WHERE m.room_id = r.id ORDER BY m.id DESC LIMIT 1) AS last_message,
+                CASE
+                    WHEN my.last_read_at IS NOT NULL THEN
+                        (SELECT COUNT(*) FROM Messages m WHERE m.room_id = r.id AND m.created_at > my.last_read_at AND m.author != $1)
+                    ELSE
+                        (SELECT COUNT(*) FROM Messages m WHERE m.room_id = r.id AND m.author != $1)
+                END AS unread_count
             FROM Rooms r
-            JOIN RoomMembers rm ON r.id = rm.room_id
-            WHERE rm.username = $1
-            ORDER BY r.id DESC
-        `, [req.user.username]);
+            JOIN RoomMembers my ON r.id = my.room_id AND my.username = $1
+            ORDER BY (SELECT MAX(m2.created_at) FROM Messages m2 WHERE m2.room_id = r.id) DESC NULLS LAST, r.id DESC
+        `, [username]);
 
-        const result = [];
-        for (const room of rooms.rows) {
-            const members = await db.query(`
-                SELECT rm.username, rm.role, rm.joined_at, u.avatar
-                FROM RoomMembers rm
-                LEFT JOIN Users u ON rm.username = u.username
-                WHERE rm.room_id = $1
-            `, [room.id]);
-
-            const lastMsg = await db.query(
-                "SELECT author, content, created_at FROM Messages WHERE room_id = $1 ORDER BY id DESC LIMIT 1",
-                [room.id]
-            );
-
-            const memberRow = await db.query(
-                "SELECT last_read_at FROM RoomMembers WHERE room_id = $1 AND username = $2",
-                [room.id, req.user.username]
-            );
-            let unreadCount = 0;
-            if (memberRow.rows[0]) {
-                const lastRead = memberRow.rows[0].last_read_at;
-                if (lastRead) {
-                    const unread = await db.query(
-                        "SELECT COUNT(*) as count FROM Messages WHERE room_id = $1 AND created_at > $2 AND author != $3",
-                        [room.id, lastRead, req.user.username]
-                    );
-                    unreadCount = parseInt(unread.rows[0].count);
-                } else {
-                    const unread = await db.query(
-                        "SELECT COUNT(*) as count FROM Messages WHERE room_id = $1 AND author != $2",
-                        [room.id, req.user.username]
-                    );
-                    unreadCount = parseInt(unread.rows[0].count);
-                }
-            }
-
-            result.push({
-                id: room.id,
-                name: room.name,
-                type: room.type,
-                createdBy: room.created_by,
-                members: members.rows,
-                lastMessage: lastMsg.rows[0] ? { author: lastMsg.rows[0].author, content: lastMsg.rows[0].content, createdAt: lastMsg.rows[0].created_at } : null,
-                unreadCount
-            });
-        }
-
-        result.sort((a, b) => {
-            const aTime = a.lastMessage ? a.lastMessage.createdAt : '0';
-            const bTime = b.lastMessage ? b.lastMessage.createdAt : '0';
-            return bTime.localeCompare(aTime);
-        });
+        const result = roomsRes.rows.map(room => ({
+            id: room.id,
+            name: room.name,
+            type: room.type,
+            createdBy: room.created_by,
+            members: room.members || [],
+            lastMessage: room.last_message || null,
+            unreadCount: parseInt(room.unread_count) || 0
+        }));
 
         res.json(result);
     } catch (err) {

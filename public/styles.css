@@ -705,6 +705,101 @@ input[type="range"]::-webkit-slider-thumb:hover {
     color: var(--accent);
 }
 
+/* --- Dashboard: Search, Pagination, Deep-links --- */
+.dash-search-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    align-items: center;
+}
+.dash-search-input {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    background: rgba(15, 17, 30, 0.6);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: border-color 0.2s;
+}
+.dash-search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.dash-search-input::placeholder { color: var(--text-muted); }
+.dash-search-btn,
+.dash-search-clear {
+    padding: 0.65rem 1.1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border-light);
+    transition: all 0.2s;
+    font-family: var(--font-heading);
+}
+.dash-search-btn {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+.dash-search-btn:hover { background: var(--accent-hover); }
+.dash-search-clear {
+    background: transparent;
+    color: var(--text-secondary);
+}
+.dash-search-clear:hover { color: var(--accent); border-color: var(--accent); }
+
+.dash-target-link {
+    cursor: pointer;
+    color: var(--text-primary);
+    text-decoration: underline;
+    text-decoration-color: var(--border-light);
+    text-underline-offset: 4px;
+    transition: color 0.2s;
+}
+.dash-target-link:hover { color: var(--accent); text-decoration-color: var(--accent); }
+
+.dash-action-btn {
+    background: transparent;
+    margin-right: 0.35rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.dash-action-btn.accent { border-color: var(--accent); color: var(--accent); }
+.dash-action-btn.danger { border-color: var(--danger); color: var(--danger); }
+.dash-action-btn:hover { opacity: 0.8; }
+
+.dash-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 0.75rem 0;
+}
+.dash-page-btn {
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    font-family: var(--font-heading);
+}
+.dash-page-btn:hover { border-color: var(--accent); color: var(--accent); }
+.dash-page-info {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
 .btn-outline {
     background: transparent;
     border: 1px solid var(--border-light);
@@ -1069,6 +1164,9 @@ textarea:focus {
 
 [data-theme="light"] .risk-info-panel {
     background: rgba(248, 250, 252, 0.95);
+}
+[data-theme="light"] .dash-search-input {
+    background: rgba(248, 250, 252, 0.9);
 }
 
 [data-theme="light"] .app-layout::before {

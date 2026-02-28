@@ -81,12 +81,14 @@ router.post('/:postId/comments', requireAuth, async (req, res) => {
 
         const mentions = content.match(/@(\w+)/g);
         if (mentions) {
-            const uniqueMentions = [...new Set(mentions.map(m => m.slice(1)))];
-            for (const mentioned of uniqueMentions) {
-                if (mentioned === author) continue;
-                const userCheck = await db.query("SELECT id FROM Users WHERE username = $1", [mentioned]);
-                if (userCheck.rows[0]) {
-                    await createNotification(mentioned, 'mention', `${author} mentioned you in a reply`, 'post', parseInt(postId), author);
+            const uniqueMentions = [...new Set(mentions.map(m => m.slice(1)))].filter(m => m !== author);
+            if (uniqueMentions.length > 0) {
+                const validUsers = await db.query("SELECT username FROM Users WHERE username = ANY($1::text[])", [uniqueMentions]);
+                const validSet = new Set(validUsers.rows.map(r => r.username));
+                for (const mentioned of uniqueMentions) {
+                    if (validSet.has(mentioned)) {
+                        await createNotification(mentioned, 'mention', `${author} mentioned you in a reply`, 'post', parseInt(postId), author);
+                    }
                 }
             }
         }
@@ -155,12 +157,14 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
 
         const mentions = content.match(/@(\w+)/g);
         if (mentions) {
-            const uniqueMentions = [...new Set(mentions.map(m => m.slice(1)))];
-            for (const mentioned of uniqueMentions) {
-                if (mentioned === author) continue;
-                const userCheck = await db.query("SELECT id FROM Users WHERE username = $1", [mentioned]);
-                if (userCheck.rows[0]) {
-                    await createNotification(mentioned, 'mention', `${author} mentioned you in a broadcast`, 'post', result.rows[0].id, author);
+            const uniqueMentions = [...new Set(mentions.map(m => m.slice(1)))].filter(m => m !== author);
+            if (uniqueMentions.length > 0) {
+                const validUsers = await db.query("SELECT username FROM Users WHERE username = ANY($1::text[])", [uniqueMentions]);
+                const validSet = new Set(validUsers.rows.map(r => r.username));
+                for (const mentioned of uniqueMentions) {
+                    if (validSet.has(mentioned)) {
+                        await createNotification(mentioned, 'mention', `${author} mentioned you in a broadcast`, 'post', result.rows[0].id, author);
+                    }
                 }
             }
         }
@@ -255,12 +259,15 @@ router.post('/:postId/flag', requireAuth, async (req, res) => {
             [postId, flaggedBy, reason || null, new Date().toISOString()]
         );
 
-        const admins = await db.query("SELECT username FROM Users WHERE role = 'admin'");
-        for (const admin of admins.rows) {
-            await createNotification(admin.username, 'flag',
-                `${flaggedBy} flagged a broadcast by ${post.rows[0].author}`,
-                'post', parseInt(postId), flaggedBy);
-        }
+        // Batch insert flag notifications for all admins
+        const flagMsg = `${flaggedBy} flagged a broadcast by ${post.rows[0].author}`;
+        await db.query(
+            `INSERT INTO Notifications (recipient, type, message, link_type, link_id, sender, created_at)
+             SELECT u.username, 'flag', $1, 'post', $2, $3, $4
+             FROM Users u
+             WHERE u.role = 'admin'`,
+            [flagMsg, parseInt(postId), flaggedBy, new Date().toISOString()]
+        );
 
         await auditLog('POST_FLAG', flaggedBy, `post_id:${postId}`,
             `User flagged broadcast by ${post.rows[0].author}${reason ? ': ' + reason.slice(0, 100) : ''}`, req.ip);
