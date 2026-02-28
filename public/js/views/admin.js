@@ -2,19 +2,21 @@
 TerminalApp.prototype.renderAdmin = async function(container) {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Loading Admin Panel...</div>`;
 
-        let analytics = {}, users = [], figures = [], flags = [];
+        let analytics = {}, users = [], figures = [], flags = [], topRated = [];
 
         try {
-            const [aRes, uRes, fRes, flagRes] = await Promise.all([
+            const [aRes, uRes, fRes, flagRes, trRes] = await Promise.all([
                 this.authFetch(`${API_URL}/admin/analytics`),
                 this.authFetch(`${API_URL}/admin/users`),
                 fetch(`${API_URL}/figures`),
-                this.authFetch(`${API_URL}/admin/flags`)
+                this.authFetch(`${API_URL}/admin/flags`),
+                fetch(`${API_URL}/figures/top-rated`)
             ]);
             if (aRes.ok) analytics = await aRes.json();
             if (uRes.ok) users = await uRes.json();
             if (fRes.ok) figures = await fRes.json();
             if (flagRes.ok) flags = await flagRes.json();
+            if (trRes.ok) topRated = await trRes.json();
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
             return;
@@ -62,6 +64,43 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     </div>
                 </div>
                 ` : ''}
+
+                <!-- TOP RATED TOYS (login page showcase) -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">🏆 Top Rated Toys — Login Showcase (${topRated.length})</h3>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">These appear on the login page. Figures need ≥ 2 reviews to qualify. Delete a figure to remove it entirely.</p>
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
+                    ${topRated.length === 0 ? '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No figures with 2+ reviews yet.</div>' : `
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--bg-panel); text-align:left;">
+                                <th style="padding:0.75rem 1rem; font-weight:600; width:50px;">#</th>
+                                <th style="padding:0.75rem 1rem; font-weight:600;">Figure</th>
+                                <th style="padding:0.75rem 1rem; font-weight:600;">Brand</th>
+                                <th style="padding:0.75rem 1rem; font-weight:600;">Grade</th>
+                                <th style="padding:0.75rem 1rem; font-weight:600;">Reviews</th>
+                                <th style="padding:0.75rem 1rem; font-weight:600; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${topRated.map((fig, i) => {
+                                const grade = parseFloat(fig.avgGrade);
+                                const gradeColor = grade >= 85 ? 'var(--success)' : grade >= 70 ? 'var(--neutral)' : grade >= 50 ? '#eab308' : 'var(--danger)';
+                                return `
+                                <tr style="border-top:1px solid var(--border-light);">
+                                    <td style="padding:0.6rem 1rem; font-weight:800; color:${i < 3 ? '#fbbf24' : 'var(--text-muted)'};">${i + 1}</td>
+                                    <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(fig.name)}</td>
+                                    <td style="padding:0.6rem 1rem;">${escapeHTML(fig.brand || '')}</td>
+                                    <td style="padding:0.6rem 1rem;"><span style="color:${gradeColor}; font-weight:700;">${fig.avgGrade}</span></td>
+                                    <td style="padding:0.6rem 1rem;">${fig.submissions}</td>
+                                    <td style="padding:0.6rem 1rem; text-align:right;">
+                                        <button class="delTopRatedBtn" data-id="${fig.id}" data-name="${escapeHTML(fig.name)}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete Figure</button>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    `}
+                </div>
 
                 <!-- FLAGGED BROADCASTS -->
                 ${flags.length > 0 ? `
@@ -177,6 +216,23 @@ TerminalApp.prototype.renderAdmin = async function(container) {
         `;
 
         // Wire up admin action handlers (all use JWT auth via authFetch)
+
+        // Delete Top Rated figure
+        document.querySelectorAll('.delTopRatedBtn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm(`Delete "${btn.dataset.name}" and ALL associated intel? This removes it from Top Rated and the entire system.`)) return;
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
+                        this.renderAdmin(container);
+                    } else {
+                        const err = await res.json();
+                        alert(err.error);
+                    }
+                } catch (e) { console.error(e); }
+            });
+        });
 
         // Add User
         document.getElementById('addAdminUserBtn').addEventListener('click', async () => {

@@ -117,6 +117,7 @@ router.get('/top-rated', async (req, res) => {
             FROM Submissions s
             LEFT JOIN Figures f ON f.id = s.targetId
             GROUP BY s.targetId, s.targetName, f.brand, f.classTie, f.line
+            HAVING COUNT(*) >= 2
             ORDER BY avgGrade DESC
             LIMIT 10
         `);
