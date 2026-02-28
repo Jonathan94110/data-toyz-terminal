@@ -64,7 +64,7 @@ router.get('/brands', async (req, res) => {
     }
 });
 
-// User edit figure name (creator or admin only) — MUST be before /:id
+// User edit figure name (creator, scorecard author, or admin) — MUST be before /:id
 router.put('/name/:id', requireAuth, async (req, res) => {
     const { name } = req.body;
     if (!name || !name.trim()) {
@@ -81,14 +81,25 @@ router.put('/name/:id', requireAuth, async (req, res) => {
         const fig = figure.rows[0];
         const isCreator = fig.created_by && fig.created_by === req.user.username;
         const isAdmin = req.user.role === 'admin';
+        // Allow any user who has submitted a scorecard for this figure
+        let isScorecardAuthor = false;
         if (!isCreator && !isAdmin) {
-            return res.status(403).json({ error: 'Only the creator or an admin can edit this figure name.' });
+            const subCheck = await db.query(
+                "SELECT id FROM Submissions WHERE targetId = $1 AND author = $2 LIMIT 1",
+                [req.params.id, req.user.username]
+            );
+            isScorecardAuthor = subCheck.rows.length > 0;
+        }
+        if (!isCreator && !isAdmin && !isScorecardAuthor) {
+            return res.status(403).json({ error: 'Only the creator, a scorecard author, or an admin can edit this figure name.' });
         }
         const existing = await db.query("SELECT id FROM Figures WHERE LOWER(name) = LOWER($1) AND id != $2", [name.trim(), req.params.id]);
         if (existing.rows.length > 0) {
             return res.status(409).json({ error: `A figure named "${name.trim()}" already exists.` });
         }
         await db.query("UPDATE Figures SET name = $1 WHERE id = $2", [name.trim(), req.params.id]);
+        // Cascade: keep Submissions.targetName in sync so intel logs reflect the fix
+        await db.query("UPDATE Submissions SET targetName = $1 WHERE targetId = $2", [name.trim(), req.params.id]);
         res.json({ message: 'Figure name updated.', name: name.trim() });
     } catch (err) {
         log.error('Edit figure name error', { error: err.message || err });

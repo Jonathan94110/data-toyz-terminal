@@ -99,7 +99,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
                     <div style="flex:1;">
                         <h2 style="margin:0 0 0.5rem; font-size:1.75rem;" id="figureNameDisplay">
                             <span id="figureNameText">${escapeHTML(this.currentTarget.name)}</span>
-                            ${(this.currentTarget.createdBy === this.user.username || this.user.role === 'admin') ? `<button id="editFigureNameBtn" style="background:none; border:1px solid var(--border-light); color:var(--text-muted); cursor:pointer; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem; margin-left:0.75rem; vertical-align:middle;" title="Edit figure name">\u270f\ufe0f</button>` : ''}
+                            ${(this.currentTarget.createdBy === this.user.username || this.user.role === 'admin' || figureSubs.some(s => s.author === this.user.username)) ? `<button id="editFigureNameBtn" style="background:none; border:1px solid var(--border-light); color:var(--text-muted); cursor:pointer; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem; margin-left:0.75rem; vertical-align:middle;" title="Edit figure name">\u270f\ufe0f</button>` : ''}
                         </h2>
                         <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
                             <span style="color:var(--text-secondary); font-size:0.9rem; font-weight:600;">${escapeHTML(this.currentTarget.brand)}</span>
