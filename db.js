@@ -401,6 +401,11 @@ async function initDB() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_figurecomments_figureid ON FigureComments(figure_id)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_msgreactions_msgid ON MessageReactions(message_id)`);
 
+        // --- Market analytics indexes ---
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_date ON Submissions(date)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_created_at ON MarketTransactions(created_at)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_pricetype_created ON MarketTransactions(price_type, created_at)`);
+
         // Seed Figures if empty
         const res = await pool.query("SELECT COUNT(*) as count FROM Figures");
         if (parseInt(res.rows[0].count, 10) === 0) {

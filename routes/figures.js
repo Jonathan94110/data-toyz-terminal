@@ -163,6 +163,226 @@ router.get('/ranked', async (req, res) => {
     }
 });
 
+// Market-ranked figures — MUST be before /:id
+router.get('/market-ranked', async (req, res) => {
+    try {
+        const sort = ['price', 'grade', 'change', 'submissions'].includes(req.query.sort) ? req.query.sort : 'price';
+        const order = req.query.order === 'asc' ? 'asc' : 'desc';
+        const brand = req.query.brand || null;
+
+        const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const d60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+
+        // Query 1: Figures + submission aggregates
+        const q1 = db.query(`
+            SELECT f.id, f.name, f.brand, f.classTie, f.line,
+                   COUNT(s.id) as submission_count,
+                   AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+            FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+            GROUP BY f.id, f.name, f.brand, f.classTie, f.line
+        `);
+
+        // Query 2: Latest secondary market price per figure
+        const q2 = db.query(`
+            SELECT DISTINCT ON (figure_id) figure_id, price_avg as latest_price, created_at
+            FROM MarketTransactions
+            WHERE price_type = 'secondary_market'
+            ORDER BY figure_id, created_at DESC
+        `);
+
+        // Query 3: 30-day avg and prior-30-day avg per figure
+        const q3 = db.query(`
+            SELECT figure_id,
+                   AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_30d,
+                   AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_30d
+            FROM MarketTransactions
+            WHERE price_type = 'secondary_market'
+            GROUP BY figure_id
+        `, [d30, d60]);
+
+        const [r1, r2, r3] = await Promise.all([q1, q2, q3]);
+
+        // Build lookup maps for query 2 and 3 by figure_id
+        const priceMap = {};
+        for (const row of r2.rows) {
+            priceMap[row.figure_id] = parseFloat(row.latest_price);
+        }
+        const changeMap = {};
+        for (const row of r3.rows) {
+            const avg30 = row.avg_30d ? parseFloat(row.avg_30d) : null;
+            const avgPrior = row.avg_prior_30d ? parseFloat(row.avg_prior_30d) : null;
+            changeMap[row.figure_id] = (avg30 !== null && avgPrior !== null && avgPrior !== 0)
+                ? parseFloat((((avg30 - avgPrior) / avgPrior) * 100).toFixed(1))
+                : null;
+        }
+
+        // Merge all by figure id
+        let merged = r1.rows.map(r => ({
+            id: r.id,
+            name: r.name,
+            brand: r.brand,
+            classTie: r.classtie,
+            line: r.line,
+            submissions: parseInt(r.submission_count) || 0,
+            avgGrade: r.avg_grade ? parseFloat(parseFloat(r.avg_grade).toFixed(1)) : null,
+            latestPrice: priceMap[r.id] !== undefined ? priceMap[r.id] : null,
+            priceChange30d: changeMap[r.id] !== undefined ? changeMap[r.id] : null
+        }));
+
+        // Apply brand filter if provided
+        if (brand) {
+            merged = merged.filter(f => f.brand && f.brand.toLowerCase() === brand.toLowerCase());
+        }
+
+        // Sort by requested field
+        const sortKey = { price: 'latestPrice', grade: 'avgGrade', change: 'priceChange30d', submissions: 'submissions' }[sort];
+        merged.sort((a, b) => {
+            const aVal = a[sortKey];
+            const bVal = b[sortKey];
+            if (aVal === null && bVal === null) return 0;
+            if (aVal === null) return 1;
+            if (bVal === null) return -1;
+            return order === 'asc' ? aVal - bVal : bVal - aVal;
+        });
+
+        res.json(merged);
+    } catch (err) {
+        log.error('Market-ranked figures error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Compare two figures — MUST be before /:id
+router.get('/compare', async (req, res) => {
+    try {
+        const idsParam = req.query.ids;
+        if (!idsParam) {
+            return res.status(400).json({ error: 'ids query parameter is required (comma-separated, exactly 2).' });
+        }
+        const ids = idsParam.split(',').map(s => s.trim());
+        if (ids.length !== 2 || ids.some(id => !id || isNaN(parseInt(id)))) {
+            return res.status(400).json({ error: 'Exactly 2 valid integer IDs are required.' });
+        }
+        const [id1, id2] = ids.map(id => parseInt(id));
+
+        const fetchFigureData = async (figureId) => {
+            // Run all queries in parallel for this figure
+            const [figRes, metricsRes, jsonRes, timelineRes, avgPriceRes] = await Promise.all([
+                // 1. Figure info
+                db.query("SELECT * FROM Figures WHERE id = $1", [figureId]),
+                // 2. Community metrics aggregated
+                db.query(`
+                    SELECT COUNT(*) as count,
+                           AVG(mtsTotal) as mts_avg,
+                           AVG(approvalScore) as approval_avg,
+                           AVG((mtsTotal + approvalScore) / 2) as overall_avg
+                    FROM Submissions WHERE targetId = $1
+                `, [figureId]),
+                // 3. jsonData for detailed scores
+                db.query("SELECT jsonData FROM Submissions WHERE targetId = $1", [figureId]),
+                // 4. Market intel timeline
+                db.query(`
+                    SELECT price_avg, created_at
+                    FROM MarketTransactions
+                    WHERE figure_id = $1 AND price_type = 'secondary_market'
+                    ORDER BY created_at ASC
+                `, [figureId]),
+                // 5. Avg secondary price
+                db.query(`
+                    SELECT AVG(price_avg) as avg
+                    FROM MarketTransactions
+                    WHERE figure_id = $1 AND price_type = 'secondary_market'
+                `, [figureId])
+            ]);
+
+            if (figRes.rows.length === 0) {
+                return null;
+            }
+
+            const fig = figRes.rows[0];
+            const m = metricsRes.rows[0];
+            const count = parseInt(m.count) || 0;
+
+            // Parse jsonData for detailed scores
+            const detailedKeys = {
+                mts: ['mts_community', 'mts_buzz', 'mts_liquidity', 'mts_risk', 'mts_appeal'],
+                pq: ['pq_build', 'pq_paint', 'pq_articulation', 'pq_accuracy', 'pq_presence', 'pq_value', 'pq_packaging']
+            };
+            const sums = {};
+            [...detailedKeys.mts, ...detailedKeys.pq].forEach(k => sums[k] = 0);
+            let yesVotes = 0, noVotes = 0, recCount = 0;
+
+            for (const row of jsonRes.rows) {
+                try {
+                    const data = JSON.parse(row.jsondata || '{}');
+                    for (const key of [...detailedKeys.mts, ...detailedKeys.pq]) {
+                        if (data[key] != null && !isNaN(parseFloat(data[key]))) {
+                            sums[key] += parseFloat(data[key]);
+                        }
+                    }
+                    if (data.recommendation === 'yes') { yesVotes++; recCount++; }
+                    if (data.recommendation === 'no') { noVotes++; recCount++; }
+                } catch (e) { /* skip bad json */ }
+            }
+
+            const n = jsonRes.rows.length || 1;
+            const avg = (v) => parseFloat((v / n).toFixed(1));
+
+            return {
+                id: fig.id,
+                name: fig.name,
+                brand: fig.brand,
+                classTie: fig.classtie,
+                line: fig.line,
+                metrics: {
+                    count,
+                    overallAvg: m.overall_avg ? parseFloat(parseFloat(m.overall_avg).toFixed(1)) : null,
+                    mtsAvg: m.mts_avg ? parseFloat(parseFloat(m.mts_avg).toFixed(1)) : null,
+                    approvalAvg: m.approval_avg ? parseFloat(parseFloat(m.approval_avg).toFixed(1)) : null,
+                    dts: {
+                        community: avg(sums.mts_community),
+                        buzz: avg(sums.mts_buzz),
+                        liquidity: avg(sums.mts_liquidity),
+                        risk: avg(sums.mts_risk),
+                        appeal: avg(sums.mts_appeal)
+                    },
+                    pq: {
+                        build: avg(sums.pq_build),
+                        paint: avg(sums.pq_paint),
+                        articulation: avg(sums.pq_articulation),
+                        accuracy: avg(sums.pq_accuracy),
+                        presence: avg(sums.pq_presence),
+                        value: avg(sums.pq_value),
+                        packaging: avg(sums.pq_packaging)
+                    },
+                    recommendation: { yes: yesVotes, no: noVotes },
+                    avgSecondaryPrice: avgPriceRes.rows[0].avg
+                        ? parseFloat(parseFloat(avgPriceRes.rows[0].avg).toFixed(2))
+                        : null
+                },
+                timeline: timelineRes.rows.map(r => ({
+                    price: parseFloat(r.price_avg),
+                    date: r.created_at
+                }))
+            };
+        };
+
+        const [fig1, fig2] = await Promise.all([fetchFigureData(id1), fetchFigureData(id2)]);
+
+        if (!fig1 || !fig2) {
+            const missing = [];
+            if (!fig1) missing.push(id1);
+            if (!fig2) missing.push(id2);
+            return res.status(404).json({ error: `Figure(s) not found: ${missing.join(', ')}` });
+        }
+
+        res.json({ figures: [fig1, fig2] });
+    } catch (err) {
+        log.error('Compare figures error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Figure comments
 router.get('/:id/comments', async (req, res) => {
     try {
