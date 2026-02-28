@@ -235,6 +235,22 @@ router.delete('/flags/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// Wipe all submissions for a user (removes from leaderboard without deleting account)
+router.delete('/users/:username/submissions', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const username = req.params.username;
+        if (username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot wipe admin submissions." });
+
+        const result = await db.query("DELETE FROM Submissions WHERE author = $1", [username]);
+        await auditLog('ADMIN_WIPE_SUBMISSIONS', req.user.username, username, `Wiped ${result.rowCount} submissions`, req.ip);
+
+        res.json({ message: `Removed ${result.rowCount} submissions for ${username}.`, count: result.rowCount });
+    } catch (err) {
+        log.error('Admin wipe submissions error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Data retention cleanup
 router.delete('/cleanup', requireAuth, requireAdmin, async (req, res) => {
     try {

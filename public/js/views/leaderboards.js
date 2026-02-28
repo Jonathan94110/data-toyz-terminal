@@ -17,6 +17,7 @@ TerminalApp.prototype.renderLeaderboards = async function (container) {
     });
 
     const sortedAuthors = Object.entries(authorCounts).sort((a, b) => b[1] - a[1]);
+    const isAdmin = this.user.role === 'admin' || this.user.username === 'Prime Dynamixx';
 
     function getTitle(count) {
         if (count >= 15) return { title: 'Prime Intel Officer', color: '#a855f7' };
@@ -81,6 +82,7 @@ TerminalApp.prototype.renderLeaderboards = async function (container) {
                 <div class="lb-podium-name">${escapeHTML(name)} ${isMe ? '<span style="font-size:0.7rem; color:var(--text-muted);">(You)</span>' : ''}</div>
                 <div class="lb-podium-count">${count} <span style="font-size:0.75rem; color:var(--text-muted);">scans</span></div>
                 <span class="badge" style="background:transparent; border-color:${titleInfo.color}; color:${titleInfo.color}; font-size:0.7rem;">${titleInfo.title}</span>
+                ${isAdmin ? `<button class="lb-admin-btn" data-username="${escapeHTML(name)}" title="Remove from leaderboard" onclick="event.stopPropagation();">🗑️</button>` : ''}
             </div>
         `;
     });
@@ -105,6 +107,7 @@ TerminalApp.prototype.renderLeaderboards = async function (container) {
                     </div>
                     <div class="lb-row-count">${count} <span style="font-size:0.75rem; color:var(--text-muted);">scans</span></div>
                     <span class="badge" style="background:transparent; border-color:${titleInfo.color}; color:${titleInfo.color}; font-size:0.65rem;">${titleInfo.title}</span>
+                    ${isAdmin ? `<button class="lb-admin-btn" data-username="${escapeHTML(name)}" title="Remove from leaderboard" onclick="event.stopPropagation();">🗑️</button>` : ''}
                 </div>
             `;
         }).join('');
@@ -154,4 +157,28 @@ TerminalApp.prototype.renderLeaderboards = async function (container) {
             </div>
         </div>
     `;
+
+    // Admin: wire up leaderboard delete buttons
+    if (isAdmin) {
+        container.querySelectorAll('.lb-admin-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const username = btn.dataset.username;
+                if (!confirm(`Remove ALL submissions for "${username}"? This will remove them from the leaderboard but keep their account.`)) return;
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users/${encodeURIComponent(username)}/submissions`, { method: 'DELETE' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        alert(data.message);
+                        this.renderApp();
+                    } else {
+                        const err = await res.json();
+                        alert(err.error || 'Failed to remove submissions.');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert('Connection error.');
+                }
+            });
+        });
+    }
 };

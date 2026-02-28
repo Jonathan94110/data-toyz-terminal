@@ -3114,6 +3114,23 @@ textarea:focus {
     transform: translateY(-1px);
 }
 
+.lb-admin-btn {
+    background: none;
+    border: 1px solid var(--danger, #ef4444);
+    color: var(--danger, #ef4444);
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    margin-left: auto;
+}
+
+.lb-admin-btn:hover {
+    opacity: 1;
+}
+
 @media (max-width: 768px) {
     .market-tab {
         padding: 0.6rem 1rem;
