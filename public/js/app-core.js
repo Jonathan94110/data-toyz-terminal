@@ -172,7 +172,7 @@ class TerminalApp {
                             Market Pulse
                         </div>
                         <div class="nav-item ${this.currentView === 'search' ? 'active' : ''}" data-view="search">
-                            Target Search
+                            Score Card
                         </div>
                         <div class="nav-item ${this.currentView === 'dashboard' ? 'active' : ''}" data-view="dashboard">
                             My Intel History

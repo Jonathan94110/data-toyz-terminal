@@ -1,4 +1,4 @@
-// views/search.js — Target Search
+// views/search.js — Score Card
 TerminalApp.prototype.renderSearch = async function(container) {
     container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('cards', 4)}</div>`;
 

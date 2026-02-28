@@ -5,7 +5,7 @@ TerminalApp.prototype.renderDocs = function(container) {
             { id: 'navigation', title: 'Navigation Guide' },
             { id: 'community-feed', title: 'Community Feed' },
             { id: 'breakout-rooms', title: 'Breakout Rooms' },
-            { id: 'target-search', title: 'Target Search & Catalog' },
+            { id: 'target-search', title: 'Score Card & Catalog' },
             { id: 'trade-scan', title: 'Trade Scan (Submissions)' },
             { id: 'grading', title: 'Grading System' },
             { id: 'market-pulse', title: 'Market Pulse Dashboard' },
@@ -71,7 +71,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Community Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Social timeline for posting updates, comments, and reactions</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Rooms</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Private encrypted channels for 1-on-1 DMs and group chats</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Dashboard with market statistics, brand indexes, and top-rated figures</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Target Search</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Score Card</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">My Intel History</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">View all your past intel report submissions</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Global Leaderboard</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Top operatives ranked by number of submissions</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Profile Settings</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Update your username, email, avatar, and password</td></tr>
@@ -115,7 +115,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><kbd>Escape</kbd> dismisses the dropdown; blur auto-hides it</li>
                     </ol>
                     <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:0.5rem;">
-                        Works in the main post textarea, all reply inputs, and the edit post form. Known figures render as clickable chips that open the scorecard. Unknown names render as dashed chips that open Target Search with the name pre-filled. The dropdown cleans up on feed re-render so there are no orphaned elements.
+                        Works in the main post textarea, all reply inputs, and the edit post form. Known figures render as clickable chips that open the scorecard. Unknown names render as dashed chips that open Score Card with the name pre-filled. The dropdown cleans up on feed re-render so there are no orphaned elements.
                     </p>
 
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
@@ -160,9 +160,9 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 05. TARGET SEARCH -->
                 <div id="doc-target-search" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Target Search & Catalog</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Score Card & Catalog</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The Target Search page is the central figure catalog. Every Transformers figure in the database is listed here with real-time search and filtering.
+                        The Score Card page is the central figure catalog. Every Transformers figure in the database is listed here with real-time search and filtering.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>How it works:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
@@ -180,7 +180,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                 <div id="doc-trade-scan" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Trade Scan (Submissions)</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The Trade Scan is the core evaluation form. When you select a figure from Target Search, you can "Execute Trade Scan" to submit a detailed intel report grading the figure across multiple dimensions.
+                        The Trade Scan is the core evaluation form. When you select a figure from Score Card, you can "Execute Trade Scan" to submit a detailed intel report grading the figure across multiple dimensions.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>The 7-Section Evaluation Form:</strong></p>
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
@@ -258,7 +258,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Brand Indexes</strong> &mdash; Performance breakdown by brand and product line (avg grade, submission count)</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8;">
-                        When you click a figure from Target Search, you see a <strong>detailed intel page</strong> with: all submissions listed, a grade trend chart over time, a price trend chart, community recommendation votes, and a <strong>Field Evidence Gallery</strong> of uploaded photos.
+                        When you click a figure from Score Card, you see a <strong>detailed intel page</strong> with: all submissions listed, a grade trend chart over time, a price trend chart, community recommendation votes, and a <strong>Field Evidence Gallery</strong> of uploaded photos.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Scorecard Title Editing:</strong></p>
                     <p style="color:var(--text-secondary); line-height:1.8;">
