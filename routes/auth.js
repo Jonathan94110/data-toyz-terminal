@@ -9,10 +9,8 @@ const { validatePassword, escapeHTML } = require('../helpers/validation');
 const { auditLog } = require('../helpers/audit');
 const { generateToken } = require('../helpers/token');
 const { requireAuth, invalidateUserCache } = require('../middleware/auth');
-const { authLimiter } = require('../middleware/rateLimiters');
-
 // Register a new operative
-router.post('/register', authLimiter, async (req, res) => {
+router.post('/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) {
         return res.status(400).json({ error: "Missing required fields." });
@@ -48,7 +46,7 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 // Authenticate operative
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Missing credentials." });
 
@@ -121,7 +119,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
 });
 
 // Forgot password — send reset email
-router.post('/forgot-password', authLimiter, async (req, res) => {
+router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required.' });
 
@@ -167,7 +165,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
 });
 
 // Reset password with token
-router.post('/reset-password', authLimiter, async (req, res) => {
+router.post('/reset-password', async (req, res) => {
     const { token, newPassword } = req.body;
     if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password are required.' });
 
