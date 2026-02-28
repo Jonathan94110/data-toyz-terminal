@@ -386,32 +386,25 @@ TerminalApp.prototype.sortRankings = function(col) {
 
 // ==================== COMPARE TAB ====================
 TerminalApp.prototype.renderMarketCompare = function(container) {
-    const savedIds = sessionStorage.getItem('compareIds');
-    let id1 = '', id2 = '';
-    if (savedIds) {
-        const parts = savedIds.split(',');
-        id1 = parts[0] || '';
-        id2 = parts[1] || '';
-    }
-
     container.innerHTML = `
         <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1.5rem;">Compare Figures</h3>
         <div class="grid-2" style="margin-bottom:2rem;">
             <div style="position:relative;">
                 <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); display:block; margin-bottom:0.5rem;">Figure A</label>
-                <input type="text" id="compareInput1" class="form-input" placeholder="Search figure name..." value="${id1 ? escapeHTML(MOCK_FIGURES.find(f => f.id == id1)?.name || '') : ''}" autocomplete="off" />
-                <input type="hidden" id="compareId1" value="${escapeHTML(id1)}" />
+                <input type="text" id="compareInput1" class="form-input" placeholder="Search figure name..." autocomplete="off" />
+                <input type="hidden" id="compareId1" value="" />
                 <div id="compareDrop1" class="figure-autocomplete" style="display:none;"></div>
             </div>
             <div style="position:relative;">
                 <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); display:block; margin-bottom:0.5rem;">Figure B</label>
-                <input type="text" id="compareInput2" class="form-input" placeholder="Search figure name..." value="${id2 ? escapeHTML(MOCK_FIGURES.find(f => f.id == id2)?.name || '') : ''}" autocomplete="off" />
-                <input type="hidden" id="compareId2" value="${escapeHTML(id2)}" />
+                <input type="text" id="compareInput2" class="form-input" placeholder="Search figure name..." autocomplete="off" />
+                <input type="hidden" id="compareId2" value="" />
                 <div id="compareDrop2" class="figure-autocomplete" style="display:none;"></div>
             </div>
         </div>
-        <div style="text-align:center; margin-bottom:2rem;">
+        <div style="display:flex; justify-content:center; gap:1rem; margin-bottom:2rem;">
             <button class="btn-primary" onclick="app.runCompare()">Compare</button>
+            <button class="btn-sm" onclick="app.clearCompare()">Clear</button>
         </div>
         <div id="compareResults"></div>
     `;
@@ -419,11 +412,6 @@ TerminalApp.prototype.renderMarketCompare = function(container) {
     // Setup autocomplete for both inputs
     this._setupCompareAutocomplete('compareInput1', 'compareDrop1', 'compareId1');
     this._setupCompareAutocomplete('compareInput2', 'compareDrop2', 'compareId2');
-
-    // If we already have two IDs, run the comparison
-    if (id1 && id2) {
-        this.runCompare();
-    }
 };
 
 TerminalApp.prototype._setupCompareAutocomplete = function(inputId, dropId, hiddenId) {
@@ -464,7 +452,11 @@ TerminalApp.prototype._setupCompareAutocomplete = function(inputId, dropId, hidd
         });
     };
 
-    input.addEventListener('input', showMatches);
+    input.addEventListener('input', () => {
+        // Clear the hidden ID whenever user manually types — forces re-selection from autocomplete
+        hidden.value = '';
+        showMatches();
+    });
     input.addEventListener('keydown', (e) => {
         if (dropdown.style.display === 'none') return;
         const items = dropdown.querySelectorAll('.figure-ac-item');
@@ -505,7 +497,6 @@ TerminalApp.prototype.runCompare = async function() {
         return;
     }
 
-    sessionStorage.setItem('compareIds', `${id1},${id2}`);
     results.innerHTML = this.skeletonHTML('stats', 4);
 
     try {
@@ -596,6 +587,21 @@ TerminalApp.prototype.runCompare = async function() {
         results.innerHTML = `<div style="text-align:center; color:var(--danger); padding:2rem;">Failed to load comparison data.</div>`;
         console.error(e);
     }
+};
+
+TerminalApp.prototype.clearCompare = function() {
+    sessionStorage.removeItem('compareIds');
+    const input1 = document.getElementById('compareInput1');
+    const input2 = document.getElementById('compareInput2');
+    const hidden1 = document.getElementById('compareId1');
+    const hidden2 = document.getElementById('compareId2');
+    const results = document.getElementById('compareResults');
+    if (input1) input1.value = '';
+    if (input2) input2.value = '';
+    if (hidden1) hidden1.value = '';
+    if (hidden2) hidden2.value = '';
+    if (results) results.innerHTML = '';
+    if (this._compareChart) { this._compareChart.destroy(); this._compareChart = null; }
 };
 
 TerminalApp.prototype._renderCompareChart = function(a, b) {
