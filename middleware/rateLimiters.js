@@ -1,19 +1,19 @@
 const rateLimit = require('express-rate-limit');
 
 // --- S-3: Rate Limiting --- //
-// API rate limiter: 300 requests per 15 min per IP (API routes only)
+// API rate limiter: 500 requests per 15 min per IP (API routes only)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: process.env.NODE_ENV === 'production' ? 300 : 1000,
+    max: process.env.NODE_ENV === 'production' ? 500 : 2000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests. Please try again later.' }
 });
 
-// Auth rate limiter: 25 requests per 15 min per IP
+// Auth rate limiter: 50 requests per 15 min per IP
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 25,
+    max: process.env.NODE_ENV === 'production' ? 50 : 200,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many authentication attempts. Please try again later.' }
