@@ -60,9 +60,14 @@ app.use(express.static(path.join(__dirname, 'public'), {
     lastModified: true
 }));
 
-// --- Health check --- //
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime() });
+// --- Health check (DB connectivity gate for blue-green deploys) --- //
+app.get('/api/health', async (req, res) => {
+    try {
+        await db.query('SELECT 1');
+        res.json({ status: 'ok', uptime: process.uptime() });
+    } catch (err) {
+        res.status(503).json({ status: 'unhealthy', error: 'database unreachable' });
+    }
 });
 
 // --- Mount route modules --- //

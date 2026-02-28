@@ -1,14 +1,16 @@
 services:
   - type: web
-    name: data-toyz-terminal
+    name: data-toyz-staging
     runtime: node
+    repo: https://github.com/Jonathan94110/data-toyz-terminal
+    branch: staging
     plan: starter
     buildCommand: npm install
     startCommand: node server.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
-        value: production
+        value: staging
       - key: POSTGRES_URL
         sync: false
       - key: JWT_SECRET
@@ -16,9 +18,9 @@ services:
       - key: ADMIN_USERNAME
         sync: false
       - key: APP_URL
-        value: https://datatoyz.com
+        value: https://staging.datatoyz.com
       - key: CORS_ORIGIN
-        value: https://datatoyz.com
+        value: https://staging.datatoyz.com
       - key: RESEND_FROM_EMAIL
         sync: false
       - key: RESEND_API_KEY
