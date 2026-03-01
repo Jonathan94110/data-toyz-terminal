@@ -247,6 +247,32 @@ router.post('/brands', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// Edit approved brand (rename + cascade to Figures)
+router.put('/brands/:id', requireAuth, requireAdmin, async (req, res) => {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: "Brand name required." });
+    try {
+        // Get the old brand name first
+        const old = await db.query("SELECT name FROM ApprovedBrands WHERE id = $1", [req.params.id]);
+        if (!old.rows[0]) return res.status(404).json({ error: "Brand not found." });
+        const oldName = old.rows[0].name;
+        const newName = name.trim();
+
+        // Update the approved brand
+        await db.query("UPDATE ApprovedBrands SET name = $1 WHERE id = $2", [newName, req.params.id]);
+
+        // Cascade: update all figures that use the old brand name
+        const figResult = await db.query("UPDATE Figures SET brand = $1 WHERE brand = $2", [newName, oldName]);
+
+        log.info('Brand renamed', { oldName, newName, figuresUpdated: figResult.rowCount });
+        res.json({ message: `Brand renamed from "${oldName}" to "${newName}". ${figResult.rowCount} figure(s) updated.` });
+    } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: "A brand with that name already exists." });
+        log.error('Admin edit brand error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Delete approved brand
 router.delete('/brands/:id', requireAuth, requireAdmin, async (req, res) => {
     try {

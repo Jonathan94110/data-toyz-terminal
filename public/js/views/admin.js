@@ -28,6 +28,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
         const PAGE_SIZE = 20;
         let figSearch = '', figPage = 1;
         let userSearch = '', userPage = 1;
+        let brandSearch = '', brandPage = 1;
 
         const self = this;
 
@@ -41,6 +42,12 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             if (!userSearch) return users;
             const q = userSearch.toLowerCase();
             return users.filter(u => u.username.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q)));
+        }
+
+        function filterBrands() {
+            if (!brandSearch) return approvedBrands;
+            const q = brandSearch.toLowerCase();
+            return approvedBrands.filter(b => b.name.toLowerCase().includes(q) || (b.approved_by && b.approved_by.toLowerCase().includes(q)));
         }
 
         function paginate(arr, page) {
@@ -274,6 +281,82 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             });
         }
 
+        function renderBrandTable() {
+            const filtered = filterBrands();
+            const paged = paginate(filtered, brandPage);
+            const tbody = document.getElementById('adminBrandTbody');
+            const paginationEl = document.getElementById('adminBrandPagination');
+            const countEl = document.getElementById('adminBrandCount');
+            if (!tbody) return;
+
+            if (countEl) countEl.textContent = filtered.length;
+            tbody.innerHTML = paged.length === 0
+                ? '<tr><td colspan="5" style="padding:1.5rem; text-align:center; color:var(--text-muted);">No brands match your search.</td></tr>'
+                : paged.map(b => `
+                    <tr style="border-top:1px solid var(--border-light);">
+                        <td style="padding:0.6rem 1rem; color:var(--text-muted);">${b.id}</td>
+                        <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(b.name)}</td>
+                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(b.approved_by || '\u2014')}</td>
+                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${b.created_at ? new Date(b.created_at).toLocaleDateString() : '\u2014'}</td>
+                        <td style="padding:0.6rem 1rem; text-align:right;">
+                            <div class="admin-action-btns">
+                                <button class="editBrandBtn" data-id="${b.id}" data-name="${escapeHTML(b.name)}">\u{270F}\u{FE0F} Edit</button>
+                                <button class="delBrandBtn" data-id="${b.id}" data-name="${escapeHTML(b.name)}" style="border-color:var(--danger); color:var(--danger);">\u{1F5D1}\u{FE0F} Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+            if (paginationEl) paginationEl.innerHTML = paginationHTML(filtered.length, brandPage, 'brand');
+            wireUpBrandActions();
+        }
+
+        function wireUpBrandActions() {
+            document.querySelectorAll('.editBrandBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const newName = prompt('Edit Brand Name:', btn.dataset.name);
+                    if (!newName || newName.trim() === btn.dataset.name) return;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/brands/${btn.dataset.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ name: newName.trim() })
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            alert(data.message);
+                            // Update local data
+                            const brand = approvedBrands.find(b => b.id == btn.dataset.id);
+                            if (brand) brand.name = newName.trim();
+                            // Also update figures list if any were affected
+                            figures.forEach(f => { if (f.brand === btn.dataset.name) f.brand = newName.trim(); });
+                            MOCK_FIGURES.forEach(f => { if (f.brand === btn.dataset.name) f.brand = newName.trim(); });
+                            renderBrandTable();
+                            renderFigureTable();
+                        } else {
+                            const err = await res.json();
+                            alert(err.error);
+                        }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.delBrandBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm(`Remove brand "${btn.dataset.name}" from approved list?\n\nExisting figures with this brand won't be affected, but users won't be able to create new figures with this brand.`)) return;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/brands/${btn.dataset.id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            approvedBrands = approvedBrands.filter(b => b.id != btn.dataset.id);
+                            renderBrandTable();
+                        } else {
+                            const err = await res.json();
+                            alert(err.error);
+                        }
+                    } catch (e) { console.error(e); }
+                });
+            });
+        }
+
         container.innerHTML = `
             <div style="max-width: 1100px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
                 <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">\u{2699}\u{FE0F} Admin Panel</h2>
@@ -356,23 +439,28 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 
                 <!-- APPROVED BRANDS -->
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">\u{1F3F7}\u{FE0F} Approved Brands (${approvedBrands.length})</h3>
-                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">\u{1F3F7}\u{FE0F} Approved Brands (<span id="adminBrandCount">${approvedBrands.length}</span>)</h3>
+                    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                        <input type="text" id="adminBrandSearch" placeholder="Search brands..." style="padding:0.5rem 0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.85rem; width:200px;">
                         <input type="text" id="newBrandInput" placeholder="New brand name..." style="padding:0.5rem 0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.85rem; width:200px;">
                         <button id="addBrandBtn" style="background:none; border:1px solid var(--success); color:var(--success); cursor:pointer; padding:0.4rem 0.8rem; border-radius:4px; font-size:0.8rem; font-weight:700; white-space:nowrap;">+ Add Brand</button>
                     </div>
                 </div>
                 <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Only approved brands appear in the figure creation dropdown. Non-admin users cannot use unapproved brands.</p>
-                <div class="card" style="padding:1rem; margin-bottom:2.5rem;">
-                    <div style="display:flex; flex-wrap:wrap; gap:0.5rem;" id="approvedBrandsList">
-                        ${approvedBrands.length === 0 ? '<span style="color:var(--text-muted);">No brands approved yet. Brands will be seeded from existing figures on next server restart.</span>' :
-                            approvedBrands.map(b => `
-                                <div style="display:inline-flex; align-items:center; gap:0.4rem; background:var(--bg-surface); border:1px solid var(--border); border-radius:4px; padding:0.3rem 0.6rem; font-size:0.85rem;">
-                                    <span>${escapeHTML(b.name)}</span>
-                                    <button class="delBrandBtn" data-id="${b.id}" data-name="${escapeHTML(b.name)}" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:0.7rem; padding:0 0.2rem;" title="Remove brand">\u{2716}</button>
-                                </div>
-                            `).join('')}
-                    </div>
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--bg-panel); text-align:left;">
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">ID</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Brand Name</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Approved By</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Date Added</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminBrandTbody"></tbody>
+                    </table>
+                    <div id="adminBrandPagination"></div>
                 </div>
 
                 ${flags.length > 0 ? `
@@ -462,6 +550,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
         // Initial render of tables
         renderFigureTable();
         renderUserTable();
+        renderBrandTable();
 
         // Wire up search inputs
         const figSearchInput = document.getElementById('adminFigSearch');
@@ -482,6 +571,15 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             });
         }
 
+        const brandSearchInput = document.getElementById('adminBrandSearch');
+        if (brandSearchInput) {
+            brandSearchInput.addEventListener('input', () => {
+                brandSearch = brandSearchInput.value.trim();
+                brandPage = 1;
+                renderBrandTable();
+            });
+        }
+
         // Pagination click delegation
         container.addEventListener('click', (e) => {
             const btn = e.target.closest('.fig-page-btn');
@@ -494,6 +592,12 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             if (ubtn && !ubtn.disabled) {
                 userPage = parseInt(ubtn.dataset.page);
                 renderUserTable();
+                return;
+            }
+            const bbtn = e.target.closest('.brand-page-btn');
+            if (bbtn && !bbtn.disabled) {
+                brandPage = parseInt(bbtn.dataset.page);
+                renderBrandTable();
                 return;
             }
         });
@@ -544,21 +648,15 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     method: 'POST',
                     body: JSON.stringify({ name })
                 });
-                if (res.ok) { input.value = ''; this.renderAdmin(container); }
+                if (res.ok) {
+                    input.value = '';
+                    // Re-fetch brands to get the new ID
+                    const brRes = await this.authFetch(`${API_URL}/admin/brands`);
+                    if (brRes.ok) approvedBrands = await brRes.json();
+                    renderBrandTable();
+                }
                 else { const err = await res.json(); alert(err.error); }
             } catch (e) { console.error(e); }
-        });
-
-        // Delete Brand
-        document.querySelectorAll('.delBrandBtn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm(`Remove brand "${btn.dataset.name}" from approved list? Existing figures with this brand won't be affected, but users won't be able to create new figures with this brand.`)) return;
-                try {
-                    const res = await this.authFetch(`${API_URL}/admin/brands/${btn.dataset.id}`, { method: 'DELETE' });
-                    if (res.ok) { this.renderAdmin(container); }
-                    else { const err = await res.json(); alert(err.error); }
-                } catch (e) { console.error(e); }
-            });
         });
 
         // Add User
