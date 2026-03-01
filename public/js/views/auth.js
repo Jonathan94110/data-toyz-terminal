@@ -51,10 +51,39 @@ TerminalApp.prototype.renderLogin = function () {
     this.appEl.innerHTML = `
         <div class="auth-container animate-mount">
             <div class="auth-landing">
-                <!-- LEFT: Top Rated Toys -->
+                <!-- LEFT: Feature Highlights + Top Rated -->
                 <div class="auth-showcase">
-                    <div class="showcase-section animate-stagger" style="animation-delay: 0.15s;">
-                        <h3 class="showcase-title">🏆 Top Rated Toys</h3>
+                    <!-- Feature Highlights -->
+                    <div class="showcase-section animate-stagger" style="animation-delay: 0.1s;">
+                        <h3 class="showcase-title">\u{1F680} What is Data Toyz?</h3>
+                        <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.6; margin-bottom:1.25rem;">The community-powered platform for tracking action figure trade values in real time.</p>
+                        <div class="feature-grid">
+                            <div class="feature-card">
+                                <div class="feature-icon">\u{1F4CA}</div>
+                                <div class="feature-label">Track Values</div>
+                                <div class="feature-desc">Real-time trade values and market signals for your collection</div>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">\u{1F4DD}</div>
+                                <div class="feature-label">Submit Intel</div>
+                                <div class="feature-desc">Grade figures and contribute pricing data to the community</div>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">\u{1F3C6}</div>
+                                <div class="feature-label">Rankings</div>
+                                <div class="feature-desc">Leaderboards, top-rated figures, and analyst rankings</div>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">\u{1F4E1}</div>
+                                <div class="feature-label">Market Signals</div>
+                                <div class="feature-desc">Buy, hold, or sell signals driven by community assessments</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Rated Toys -->
+                    <div class="showcase-section animate-stagger" style="animation-delay: 0.25s;">
+                        <h3 class="showcase-title">\u{1F3C6} Top Rated Toys</h3>
                         <div id="loginTopRated">
                             <div class="showcase-loading">Loading top rated toys...</div>
                         </div>

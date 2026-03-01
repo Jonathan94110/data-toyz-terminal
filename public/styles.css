@@ -93,34 +93,68 @@ h6 {
     position: relative;
     overflow: hidden;
     height: 100vh;
-    background: radial-gradient(circle at 50% 50%, rgba(20, 20, 35, 1) 0%, var(--bg-base) 100%);
+    background: radial-gradient(ellipse at 20% 50%, rgba(255, 42, 95, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(255, 142, 60, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(20, 20, 35, 1) 0%, var(--bg-base) 100%);
 }
 
+/* Animated ambient glow orbs */
 .auth-container::before {
     content: '';
     position: absolute;
-    width: 120vw;
-    height: 120vh;
-    background-image:
-        radial-gradient(circle at 15% 50%, rgba(255, 42, 95, 0.08), transparent 40%),
-        radial-gradient(circle at 85% 30%, rgba(255, 142, 60, 0.08), transparent 40%);
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: -1;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(255, 42, 95, 0.12), transparent 70%);
+    top: -10%;
+    left: -5%;
+    z-index: 0;
     pointer-events: none;
-    animation: pulse 10s ease-in-out infinite alternate;
+    animation: orbFloat1 12s ease-in-out infinite alternate;
+    filter: blur(60px);
 }
 
-@keyframes pulse {
-    0% {
-        opacity: 0.6;
-        transform: translate(-50%, -50%) scale(0.95);
-    }
+.auth-container::after {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255, 142, 60, 0.1), transparent 70%);
+    bottom: -10%;
+    right: -5%;
+    z-index: 0;
+    pointer-events: none;
+    animation: orbFloat2 14s ease-in-out infinite alternate;
+    filter: blur(60px);
+}
 
+@keyframes orbFloat1 {
+    0% {
+        transform: translate(0, 0) scale(0.9);
+        opacity: 0.5;
+    }
+    50% {
+        transform: translate(60px, 40px) scale(1.1);
+        opacity: 0.8;
+    }
     100% {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1.05);
+        transform: translate(-30px, 80px) scale(1);
+        opacity: 0.6;
+    }
+}
+
+@keyframes orbFloat2 {
+    0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.4;
+    }
+    50% {
+        transform: translate(-50px, -30px) scale(1.15);
+        opacity: 0.7;
+    }
+    100% {
+        transform: translate(40px, -60px) scale(0.9);
+        opacity: 0.5;
     }
 }
 
@@ -2422,7 +2456,8 @@ textarea:focus {
     width: 100%;
     max-width: 1200px;
     min-height: 0;
-    z-index: 1;
+    z-index: 2;
+    position: relative;
 }
 
 .auth-landing .auth-panel {
@@ -2707,6 +2742,51 @@ textarea:focus {
     letter-spacing: 0.04em;
 }
 
+/* Feature Highlights Grid */
+.feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.feature-card {
+    background: rgba(10, 11, 20, 0.6);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    text-align: center;
+    transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    cursor: default;
+}
+
+.feature-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(255, 42, 95, 0.15), inset 0 0 20px rgba(255, 42, 95, 0.03);
+    transform: translateY(-2px);
+}
+
+.feature-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.5rem;
+    line-height: 1;
+}
+
+.feature-label {
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.feature-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
 /* Stagger animation for showcase sections */
 .animate-stagger {
     opacity: 0;
@@ -2738,6 +2818,19 @@ textarea:focus {
     .auth-showcase {
         max-height: none;
         overflow-y: visible;
+    }
+
+    .feature-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+
+    .feature-card {
+        padding: 0.75rem;
+    }
+
+    .feature-icon {
+        font-size: 1.4rem;
     }
 
     .auth-container {
