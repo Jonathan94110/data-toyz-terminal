@@ -239,7 +239,7 @@ TerminalApp.prototype.renderSubmission = function(container) {
             <div style="display:flex; align-items:center; gap:1rem; margin-bottom: 2rem;">
                 <button class="btn-outline" onclick="app.editingSubmission=null; app.currentView='${isEdit ? 'dashboard' : 'pulse'}'; app.renderApp();">&larr; Back</button>
                 <div>
-                    <h2 style="margin:0; font-size:2rem;">${isEdit ? 'Edit Intelligence Report' : 'Intelligence Submission'}</h2>
+                    <h2 style="margin:0; font-size:2rem;">${isEdit ? 'Edit Intelligence Report' : 'Intelligence Submission'} <a onclick="app.currentView='docs'; app.renderApp(); setTimeout(()=>{const el=document.getElementById('doc-trade-scan');if(el)el.scrollIntoView({behavior:'smooth'});},200);" style="cursor:pointer; font-size:1rem; color:var(--text-muted); vertical-align:middle; margin-left:0.25rem;" title="View documentation">\u{1F4D6}</a></h2>
                     <div style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:0.25rem;">Target: ${escapeHTML(this.currentTarget.name)}</div>
                 </div>
             </div>

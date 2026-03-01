@@ -26,7 +26,7 @@ TerminalApp.prototype.renderFeed = async function (container) {
     let feedHtml = `
         <div style="max-width: 600px; margin: 0 auto; padding-bottom: 3rem;">
             <div style="margin-bottom:1rem;">
-                <h2 style="font-size:2rem; margin-bottom:0.25rem; text-transform:uppercase; letter-spacing:0.03em;">Community Feed</h2>
+                <h2 style="font-size:2rem; margin-bottom:0.25rem; text-transform:uppercase; letter-spacing:0.03em;">Community Feed <a onclick="app.currentView='docs'; app.renderApp(); setTimeout(()=>{const el=document.getElementById('doc-community-feed');if(el)el.scrollIntoView({behavior:'smooth'});},200);" style="cursor:pointer; font-size:1rem; color:var(--text-muted); vertical-align:middle; margin-left:0.25rem;" title="View documentation">\u{1F4D6}</a></h2>
                 <p style="color:var(--text-secondary); font-size:0.9rem;">Live operative intelligence chatter and market sentiment.</p>
             </div>
 
@@ -60,7 +60,7 @@ TerminalApp.prototype.renderFeed = async function (container) {
                         </div>
                     </div>
 
-                    <button type="submit" class="btn" style="width:100%; padding:0.65rem;">Transmit Broadcast</button>
+                    <button type="submit" class="btn" style="width:100%; padding:0.65rem;">Submit</button>
                 </form>
             </div>
 
@@ -224,7 +224,7 @@ TerminalApp.prototype.renderFeed = async function (container) {
         } catch (err) {
             alert(err.message);
             e.target.querySelector('button').disabled = false;
-            e.target.querySelector('button').innerText = "Transmit Broadcast";
+            e.target.querySelector('button').innerText = "Submit";
         }
     });
 

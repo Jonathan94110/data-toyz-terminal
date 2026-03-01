@@ -22,6 +22,215 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             return;
         }
 
+        // Pagination + search state
+        const PAGE_SIZE = 20;
+        let figSearch = '', figPage = 1;
+        let userSearch = '', userPage = 1;
+
+        const self = this;
+
+        function filterFigures() {
+            if (!figSearch) return figures;
+            const q = figSearch.toLowerCase();
+            return figures.filter(f => f.name.toLowerCase().includes(q) || (f.brand && f.brand.toLowerCase().includes(q)) || (f.line && f.line.toLowerCase().includes(q)));
+        }
+
+        function filterUsers() {
+            if (!userSearch) return users;
+            const q = userSearch.toLowerCase();
+            return users.filter(u => u.username.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q)));
+        }
+
+        function paginate(arr, page) {
+            const start = (page - 1) * PAGE_SIZE;
+            return arr.slice(start, start + PAGE_SIZE);
+        }
+
+        function paginationHTML(total, currentPage, prefix) {
+            const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+            if (totalPages <= 1) return '';
+            let html = '<div style="display:flex; justify-content:center; align-items:center; gap:0.5rem; padding:0.75rem; border-top:1px solid var(--border-light);">';
+            html += `<button class="${prefix}-page-btn" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''} style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">&laquo; Prev</button>`;
+            html += `<span style="font-size:0.8rem; color:var(--text-muted);">Page ${currentPage} of ${totalPages}</span>`;
+            html += `<button class="${prefix}-page-btn" data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''} style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">Next &raquo;</button>`;
+            html += '</div>';
+            return html;
+        }
+
+        function renderFigureTable() {
+            const filtered = filterFigures();
+            const paged = paginate(filtered, figPage);
+            const tbody = document.getElementById('adminFigTbody');
+            const paginationEl = document.getElementById('adminFigPagination');
+            const countEl = document.getElementById('adminFigCount');
+            if (!tbody) return;
+
+            if (countEl) countEl.textContent = filtered.length;
+            tbody.innerHTML = paged.length === 0
+                ? '<tr><td colspan="7" style="padding:1.5rem; text-align:center; color:var(--text-muted);">No figures match your search.</td></tr>'
+                : paged.map(f => `
+                    <tr style="border-top:1px solid var(--border-light);" id="figRow-${f.id}">
+                        <td style="padding:0.6rem 1rem; color:var(--text-muted);">${f.id}</td>
+                        <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(f.name)}</td>
+                        <td style="padding:0.6rem 1rem;">${escapeHTML(f.brand)}</td>
+                        <td style="padding:0.6rem 1rem;"><span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}" style="font-size:0.7rem;">${escapeHTML(f.classTie)}</span></td>
+                        <td style="padding:0.6rem 1rem; color:var(--text-muted);">${escapeHTML(f.line)}</td>
+                        <td style="padding:0.6rem 1rem; color:#10b981; font-weight:600;">${f.msrp ? '$' + parseFloat(f.msrp).toFixed(2) : '<span style="color:var(--text-muted); font-weight:400;">\u{2014}</span>'}</td>
+                        <td style="padding:0.6rem 1rem; text-align:right;">
+                            <div class="admin-action-btns">
+                                <button class="editFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" data-brand="${escapeHTML(f.brand)}" data-class="${escapeHTML(f.classTie)}" data-line="${escapeHTML(f.line)}" data-msrp="${f.msrp || ''}">\u{270F}\u{FE0F} Edit</button>
+                                <button class="delFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" style="border-color:var(--danger); color:var(--danger);">\u{1F5D1}\u{FE0F} Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+            if (paginationEl) paginationEl.innerHTML = paginationHTML(filtered.length, figPage, 'fig');
+            wireUpFigureActions();
+        }
+
+        function renderUserTable() {
+            const filtered = filterUsers();
+            const paged = paginate(filtered, userPage);
+            const tbody = document.getElementById('adminUserTbody');
+            const paginationEl = document.getElementById('adminUserPagination');
+            const countEl = document.getElementById('adminUserCount');
+            if (!tbody) return;
+
+            if (countEl) countEl.textContent = filtered.length;
+            tbody.innerHTML = paged.length === 0
+                ? '<tr><td colspan="7" style="padding:1.5rem; text-align:center; color:var(--text-muted);">No users match your search.</td></tr>'
+                : paged.map(u => {
+                    const isAdmin = u.role === 'admin';
+                    const isSuspended = u.suspended;
+                    const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Unknown';
+                    return `
+                        <tr style="border-top:1px solid var(--border-light); ${isSuspended ? 'opacity:0.5;' : ''}">
+                            <td style="padding:0.6rem 1rem; color:var(--text-muted);">${u.id}</td>
+                            <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(u.username)} ${isAdmin ? '<span style="color:#fbbf24; font-size:0.75rem;">\u{2605} ADMIN</span>' : ''}</td>
+                            <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(u.email)}</td>
+                            <td style="padding:0.6rem 1rem;"><span style="color:${isAdmin ? '#fbbf24' : 'var(--accent)'}; font-size:0.8rem; font-weight:600; text-transform:uppercase;">${escapeHTML(u.role || 'analyst')}</span></td>
+                            <td style="padding:0.6rem 1rem;"><span style="color:${isSuspended ? 'var(--danger)' : 'var(--success)'}; font-size:0.8rem; font-weight:600;">${isSuspended ? '\u{26D4} SUSPENDED' : '\u{2705} ACTIVE'}</span></td>
+                            <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${joined}</td>
+                            <td style="padding:0.6rem 1rem; text-align:right;">
+                                ${u.username !== 'Prime Dynamixx' ? `
+                                <div class="admin-action-btns">
+                                    <button class="roleBtn" data-id="${u.id}" data-role="${u.role}" style="border-color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'};">${isAdmin ? 'Demote' : 'Promote'}</button>
+                                    <button class="suspendBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'};">${isSuspended ? '\u{2705} Reinstate' : '\u{26A0}\u{FE0F} Suspend'}</button>
+                                    <button class="resetPwBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:var(--accent); color:var(--accent);">\u{1F511} Reset PW</button>
+                                    <button class="delUserBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:var(--danger); color:var(--danger);">\u{1F5D1}\u{FE0F} Delete</button>
+                                </div>
+                                ` : '<span style="font-size:0.8rem; color:var(--text-muted);">Protected</span>'}
+                            </td>
+                        </tr>`;
+                }).join('');
+
+            if (paginationEl) paginationEl.innerHTML = paginationHTML(filtered.length, userPage, 'user');
+            wireUpUserActions();
+        }
+
+        function wireUpFigureActions() {
+            document.querySelectorAll('.delFigBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm(`Delete "${btn.dataset.name}" and ALL associated intel? This cannot be undone.`)) return;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
+                            figures = figures.filter(f => f.id != btn.dataset.id);
+                            renderFigureTable();
+                        } else {
+                            const err = await res.json();
+                            alert(err.error);
+                        }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.editFigBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const newName = prompt('Figure Name:', btn.dataset.name);
+                    if (!newName) return;
+                    const newBrand = prompt('Brand:', btn.dataset.brand);
+                    if (!newBrand) return;
+                    const newClass = prompt('Class Tier:', btn.dataset.class);
+                    if (!newClass) return;
+                    const newLine = prompt('Product Line:', btn.dataset.line);
+                    if (!newLine) return;
+                    const msrpStr = prompt('MSRP (leave blank to clear):', btn.dataset.msrp || '');
+                    if (msrpStr === null) return;
+                    const newMsrp = msrpStr.trim() !== '' ? parseFloat(msrpStr) : null;
+
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine, msrp: newMsrp })
+                        });
+                        if (res.ok) {
+                            const fig = MOCK_FIGURES.find(f => f.id == btn.dataset.id);
+                            if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; fig.msrp = newMsrp; }
+                            const localFig = figures.find(f => f.id == btn.dataset.id);
+                            if (localFig) { localFig.name = newName; localFig.brand = newBrand; localFig.classTie = newClass; localFig.line = newLine; localFig.msrp = newMsrp; }
+                            renderFigureTable();
+                        }
+                    } catch (e) { console.error(e); }
+                });
+            });
+        }
+
+        function wireUpUserActions() {
+            document.querySelectorAll('.roleBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const isPromoting = btn.dataset.role !== 'admin';
+                    if (!confirm(`Are you sure you want to ${isPromoting ? 'PROMOTE' : 'DEMOTE'} this user?`)) return;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/role`, { method: 'PUT' });
+                        if (res.ok) { self.renderAdmin(container); }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.suspendBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/suspend`, { method: 'PUT' });
+                        if (res.ok) { self.renderAdmin(container); }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.resetPwBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const newPw = prompt(`Enter new password for "${btn.dataset.name}":`);
+                    if (!newPw || newPw.length < 8) { if (newPw !== null) alert('Password must be at least 8 characters, with uppercase, lowercase, and a number.'); return; }
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/reset-password`, {
+                            method: 'POST',
+                            body: JSON.stringify({ newPassword: newPw })
+                        });
+                        if (res.ok) { alert(`Password reset for "${btn.dataset.name}".`); }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.delUserBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm(`Permanently delete user "${btn.dataset.name}"? This cannot be undone.`)) return;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/users/${btn.dataset.id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            users = users.filter(u => u.id != btn.dataset.id);
+                            renderUserTable();
+                        }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+        }
+
         container.innerHTML = `
             <div style="max-width: 1100px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
                 <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">\u{2699}\u{FE0F} Admin Panel</h2>
@@ -66,8 +275,8 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 ` : ''}
 
                 <!-- TOP RATED TOYS (login page showcase) -->
-                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">🏆 Top Rated Toys — Login Showcase (${topRated.length})</h3>
-                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">These appear on the login page. Figures need ≥ 2 reviews to qualify. Delete a figure to remove it entirely.</p>
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F3C6} Top Rated Toys \u{2014} Login Showcase (${topRated.length})</h3>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">These appear on the login page. Figures need \u{2265} 2 reviews to qualify. Delete a figure to remove it entirely.</p>
                 <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
                     ${topRated.length === 0 ? '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No figures with 2+ reviews yet.</div>' : `
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
@@ -93,7 +302,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                                     <td style="padding:0.6rem 1rem;"><span style="color:${gradeColor}; font-weight:700;">${fig.avgGrade}</span></td>
                                     <td style="padding:0.6rem 1rem;">${fig.submissions}</td>
                                     <td style="padding:0.6rem 1rem; text-align:right;">
-                                        <button class="delTopRatedBtn" data-id="${fig.id}" data-name="${escapeHTML(fig.name)}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">🗑️ Delete Figure</button>
+                                        <button class="delTopRatedBtn" data-id="${fig.id}" data-name="${escapeHTML(fig.name)}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">\u{1F5D1}\u{FE0F} Delete Figure</button>
                                     </td>
                                 </tr>`;
                             }).join('')}
@@ -102,8 +311,8 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     `}
                 </div>
 
-                <!-- FLAGGED BROADCASTS -->
                 ${flags.length > 0 ? `
+                <!-- FLAGGED BROADCASTS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--danger, #ef4444); margin-bottom:1rem; margin-top:2.5rem;">\u{1F6A9} Flagged Broadcasts (${flags.length})</h3>
                 <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
@@ -124,8 +333,10 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                                 <td style="padding:0.75rem 1rem; color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(f.reason || 'No reason given')}</td>
                                 <td style="padding:0.75rem 1rem; color:var(--text-muted); font-size:0.85rem;">${new Date(f.created_at).toLocaleDateString()}</td>
                                 <td style="padding:0.75rem 1rem; white-space:nowrap;">
-                                    <button class="adminDeleteFlaggedPost btn" data-postid="${f.postId}" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:var(--danger, #ef4444); border-color:var(--danger, #ef4444); margin-right:0.25rem;">Delete Post</button>
-                                    <button class="adminDismissFlag btn" data-flagid="${f.id}" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:var(--bg-surface); border-color:var(--border-light); color:var(--text-secondary);">Dismiss</button>
+                                    <div class="admin-action-btns">
+                                        <button class="adminDeleteFlaggedPost btn" data-postid="${f.postId}" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:var(--danger, #ef4444); border-color:var(--danger, #ef4444);">Delete Post</button>
+                                        <button class="adminDismissFlag btn" data-flagid="${f.id}" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:var(--bg-surface); border-color:var(--border-light); color:var(--text-secondary);">Dismiss</button>
+                                    </div>
                                 </td>
                             </tr>`).join('')}
                         </tbody>
@@ -134,7 +345,10 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 ` : ''}
 
                 <!-- FIGURE MANAGEMENT -->
-                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F3AF} Figure Management (${figures.length})</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">\u{1F3AF} Figure Management (<span id="adminFigCount">${figures.length}</span>)</h3>
+                    <input type="text" id="adminFigSearch" placeholder="Search figures by name, brand, line..." style="padding:0.5rem 0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.85rem; width:280px; max-width:100%;">
+                </div>
                 <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
                         <thead>
@@ -148,29 +362,18 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                                 <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${figures.map(f => `
-                                <tr style="border-top:1px solid var(--border-light);" id="figRow-${f.id}">
-                                    <td style="padding:0.6rem 1rem; color:var(--text-muted);">${f.id}</td>
-                                    <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(f.name)}</td>
-                                    <td style="padding:0.6rem 1rem;">${escapeHTML(f.brand)}</td>
-                                    <td style="padding:0.6rem 1rem;"><span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}" style="font-size:0.7rem;">${escapeHTML(f.classTie)}</span></td>
-                                    <td style="padding:0.6rem 1rem; color:var(--text-muted);">${escapeHTML(f.line)}</td>
-                                    <td style="padding:0.6rem 1rem; color:#10b981; font-weight:600;">${f.msrp ? '$' + parseFloat(f.msrp).toFixed(2) : '<span style="color:var(--text-muted); font-weight:400;">\u{2014}</span>'}</td>
-                                    <td style="padding:0.6rem 1rem; text-align:right; white-space:nowrap;">
-                                        <button class="editFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" data-brand="${escapeHTML(f.brand)}" data-class="${escapeHTML(f.classTie)}" data-line="${escapeHTML(f.line)}" data-msrp="${f.msrp || ''}" style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">\u{270F}\u{FE0F} Edit</button>
-                                        <button class="delFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">\u{1F5D1}\u{FE0F} Delete</button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
+                        <tbody id="adminFigTbody"></tbody>
                     </table>
+                    <div id="adminFigPagination"></div>
                 </div>
 
                 <!-- USER MANAGEMENT -->
-                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">\u{1F465} User Management (${users.length})</h3>
-                    <button id="addAdminUserBtn" style="background:none; border:1px solid #fbbf24; color:#fbbf24; cursor:pointer; padding:0.4rem 0.8rem; border-radius:4px; font-size:0.8rem; font-weight:700;">+ ADD USER</button>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.75rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">\u{1F465} User Management (<span id="adminUserCount">${users.length}</span>)</h3>
+                    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                        <input type="text" id="adminUserSearch" placeholder="Search users by name, email..." style="padding:0.5rem 0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.85rem; width:240px; max-width:100%;">
+                        <button id="addAdminUserBtn" style="background:none; border:1px solid #fbbf24; color:#fbbf24; cursor:pointer; padding:0.4rem 0.8rem; border-radius:4px; font-size:0.8rem; font-weight:700; white-space:nowrap;">+ ADD USER</button>
+                    </div>
                 </div>
                 <div class="card" style="padding:0; overflow:hidden;">
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
@@ -185,37 +388,51 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                                 <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${users.map(u => {
-            const isAdmin = u.role === 'admin';
-            const isSuspended = u.suspended;
-            const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Unknown';
-            return `
-                                    <tr style="border-top:1px solid var(--border-light); ${isSuspended ? 'opacity:0.5;' : ''}">
-                                        <td style="padding:0.6rem 1rem; color:var(--text-muted);">${u.id}</td>
-                                        <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(u.username)} ${isAdmin ? '<span style="color:#fbbf24; font-size:0.75rem;">\u{2605} ADMIN</span>' : ''}</td>
-                                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(u.email)}</td>
-                                        <td style="padding:0.6rem 1rem;"><span style="color:${isAdmin ? '#fbbf24' : 'var(--accent)'}; font-size:0.8rem; font-weight:600; text-transform:uppercase;">${escapeHTML(u.role || 'analyst')}</span></td>
-                                        <td style="padding:0.6rem 1rem;"><span style="color:${isSuspended ? 'var(--danger)' : 'var(--success)'}; font-size:0.8rem; font-weight:600;">${isSuspended ? '\u{26D4} SUSPENDED' : '\u{2705} ACTIVE'}</span></td>
-                                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${joined}</td>
-                                        <td style="padding:0.6rem 1rem; text-align:right; white-space:nowrap;">
-                                            ${u.username !== 'Prime Dynamixx' ? `
-                                                <button class="roleBtn" data-id="${u.id}" data-role="${u.role}" style="background:none; border:1px solid ${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isAdmin ? 'Demote' : 'Promote'}</button>
-                                                <button class="suspendBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="background:none; border:1px solid ${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">${isSuspended ? '\u{2705} Reinstate' : '\u{26A0}\u{FE0F} Suspend'}</button>
-                                                <button class="resetPwBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="background:none; border:1px solid var(--accent); color:var(--accent); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-right:0.25rem;">\u{1F511} Reset PW</button>
-                                                <button class="delUserBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="background:none; border:1px solid var(--danger); color:var(--danger); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">\u{1F5D1}\u{FE0F} Delete</button>
-                                            ` : '<span style="font-size:0.8rem; color:var(--text-muted);">Protected</span>'}
-                                        </td>
-                                    </tr>
-                                `;
-        }).join('')}
-                        </tbody>
+                        <tbody id="adminUserTbody"></tbody>
                     </table>
+                    <div id="adminUserPagination"></div>
                 </div>
             </div>
         `;
 
-        // Wire up admin action handlers (all use JWT auth via authFetch)
+        // Initial render of tables
+        renderFigureTable();
+        renderUserTable();
+
+        // Wire up search inputs
+        const figSearchInput = document.getElementById('adminFigSearch');
+        if (figSearchInput) {
+            figSearchInput.addEventListener('input', () => {
+                figSearch = figSearchInput.value.trim();
+                figPage = 1;
+                renderFigureTable();
+            });
+        }
+
+        const userSearchInput = document.getElementById('adminUserSearch');
+        if (userSearchInput) {
+            userSearchInput.addEventListener('input', () => {
+                userSearch = userSearchInput.value.trim();
+                userPage = 1;
+                renderUserTable();
+            });
+        }
+
+        // Pagination click delegation
+        container.addEventListener('click', (e) => {
+            const btn = e.target.closest('.fig-page-btn');
+            if (btn && !btn.disabled) {
+                figPage = parseInt(btn.dataset.page);
+                renderFigureTable();
+                return;
+            }
+            const ubtn = e.target.closest('.user-page-btn');
+            if (ubtn && !ubtn.disabled) {
+                userPage = parseInt(ubtn.dataset.page);
+                renderUserTable();
+                return;
+            }
+        });
 
         // Delete Top Rated figure
         document.querySelectorAll('.delTopRatedBtn').forEach(btn => {
@@ -230,6 +447,25 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                         const err = await res.json();
                         alert(err.error);
                     }
+                } catch (e) { console.error(e); }
+            });
+        });
+
+        // Flagged post admin actions
+        document.querySelectorAll('.adminDeleteFlaggedPost').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Delete this flagged broadcast?')) return;
+                try {
+                    const res = await this.authFetch(`${API_URL}/posts/${btn.dataset.postid}`, { method: 'DELETE' });
+                    if (res.ok) { this.renderAdmin(container); }
+                } catch (e) { console.error(e); }
+            });
+        });
+        document.querySelectorAll('.adminDismissFlag').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/flags/${btn.dataset.flagid}`, { method: 'DELETE' });
+                    if (res.ok) { this.renderAdmin(container); }
                 } catch (e) { console.error(e); }
             });
         });
@@ -251,123 +487,6 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 if (res.ok) { this.renderAdmin(container); }
                 else { const err = await res.json(); alert(err.error); }
             } catch (e) { console.error(e); }
-        });
-
-        // Toggle User Role
-        document.querySelectorAll('.roleBtn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const isPromoting = btn.dataset.role !== 'admin';
-                if (!confirm(`Are you sure you want to ${isPromoting ? 'PROMOTE' : 'DEMOTE'} this user?`)) return;
-                try {
-                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/role`, { method: 'PUT' });
-                    if (res.ok) { this.renderAdmin(container); }
-                    else { const err = await res.json(); alert(err.error); }
-                } catch (e) { console.error(e); }
-            });
-        });
-
-        // Delete figure
-        document.querySelectorAll('.delFigBtn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm(`Delete "${btn.dataset.name}" and ALL associated intel? This cannot be undone.`)) return;
-                try {
-                    const res = await this.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
-                        this.renderAdmin(container);
-                    } else {
-                        const err = await res.json();
-                        alert(err.error);
-                    }
-                } catch (e) { console.error(e); }
-            });
-        });
-
-        // Edit figure
-        // Flagged post admin actions
-        document.querySelectorAll('.adminDeleteFlaggedPost').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm('Delete this flagged broadcast?')) return;
-                try {
-                    const res = await this.authFetch(`${API_URL}/posts/${btn.dataset.postid}`, { method: 'DELETE' });
-                    if (res.ok) { this.renderAdmin(container); }
-                } catch (e) { console.error(e); }
-            });
-        });
-        document.querySelectorAll('.adminDismissFlag').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                try {
-                    const res = await this.authFetch(`${API_URL}/admin/flags/${btn.dataset.flagid}`, { method: 'DELETE' });
-                    if (res.ok) { this.renderAdmin(container); }
-                } catch (e) { console.error(e); }
-            });
-        });
-
-        document.querySelectorAll('.editFigBtn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const newName = prompt('Figure Name:', btn.dataset.name);
-                if (!newName) return;
-                const newBrand = prompt('Brand:', btn.dataset.brand);
-                if (!newBrand) return;
-                const newClass = prompt('Class Tier:', btn.dataset.class);
-                if (!newClass) return;
-                const newLine = prompt('Product Line:', btn.dataset.line);
-                if (!newLine) return;
-                const msrpStr = prompt('MSRP (leave blank to clear):', btn.dataset.msrp || '');
-                if (msrpStr === null) return;
-                const newMsrp = msrpStr.trim() !== '' ? parseFloat(msrpStr) : null;
-
-                try {
-                    const res = await this.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine, msrp: newMsrp })
-                    });
-                    if (res.ok) {
-                        const fig = MOCK_FIGURES.find(f => f.id == btn.dataset.id);
-                        if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; fig.msrp = newMsrp; }
-                        this.renderAdmin(container);
-                    }
-                } catch (e) { console.error(e); }
-            });
-        });
-
-        // Suspend user
-        document.querySelectorAll('.suspendBtn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                try {
-                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/suspend`, { method: 'PUT' });
-                    if (res.ok) { this.renderAdmin(container); }
-                    else { const err = await res.json(); alert(err.error); }
-                } catch (e) { console.error(e); }
-            });
-        });
-
-        // Delete user
-        document.querySelectorAll('.delUserBtn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm(`Permanently delete user "${btn.dataset.name}"? This cannot be undone.`)) return;
-                try {
-                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}`, { method: 'DELETE' });
-                    if (res.ok) { this.renderAdmin(container); }
-                    else { const err = await res.json(); alert(err.error); }
-                } catch (e) { console.error(e); }
-            });
-        });
-
-        // Admin Reset Password
-        document.querySelectorAll('.resetPwBtn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const newPw = prompt(`Enter new password for "${btn.dataset.name}":`);
-                if (!newPw || newPw.length < 8) { if (newPw !== null) alert('Password must be at least 8 characters, with uppercase, lowercase, and a number.'); return; }
-                try {
-                    const res = await this.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/reset-password`, {
-                        method: 'POST',
-                        body: JSON.stringify({ newPassword: newPw })
-                    });
-                    if (res.ok) { alert(`Password reset for "${btn.dataset.name}".`); }
-                    else { const err = await res.json(); alert(err.error); }
-                } catch (e) { console.error(e); }
-            });
         });
 };
 

@@ -29,8 +29,10 @@ function renderMentions(text) {
 }
 
 // Render @[Figure Name] as clickable figure links (runs AFTER escapeHTML + renderMentions)
+// Also auto-links bare figure names that exist in the catalog (longest match first)
 function renderFigureLinks(html) {
-    return html.replace(/@\[([^\]]+)\]/g, (match, rawName) => {
+    // Step 1: Handle explicit @[Figure Name] syntax
+    html = html.replace(/@\[([^\]]+)\]/g, (match, rawName) => {
         const name = rawName.trim();
         const figure = MOCK_FIGURES.find(f => f.name.toLowerCase() === name.toLowerCase());
         if (figure) {
@@ -40,6 +42,21 @@ function renderFigureLinks(html) {
             return `<span class="figure-link not-found" onclick="event.stopPropagation(); app.currentView='search'; app.renderApp(); setTimeout(()=>{const el=document.getElementById('searchInput');if(el){el.value='${safeName}';el.dispatchEvent(new Event('keyup'));}},100);" title="Search for this figure">${escapeHTML(name)}</span>`;
         }
     });
+
+    // Step 2: Auto-link bare figure names (longest match first to avoid partial replacements)
+    if (MOCK_FIGURES && MOCK_FIGURES.length > 0) {
+        const sorted = MOCK_FIGURES.slice().sort((a, b) => b.name.length - a.name.length);
+        for (const fig of sorted) {
+            if (fig.name.length < 4) continue; // skip very short names to avoid false matches
+            const escaped = fig.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(?<![\\w">])${escaped}(?![\\w<])`, 'gi');
+            html = html.replace(regex, (match) => {
+                return `<span class="figure-link found" onclick="event.stopPropagation(); app.selectTarget(${fig.id})" title="View scorecard">${match}</span>`;
+            });
+        }
+    }
+
+    return html;
 }
 
 // Auto-insert brackets + live autocomplete when typing @[...] for figure linking

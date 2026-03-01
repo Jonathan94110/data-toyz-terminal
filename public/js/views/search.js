@@ -20,7 +20,7 @@ TerminalApp.prototype.renderSearch = async function(container) {
         <div class="search-container animate-mount">
             <div style="margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
                 <div>
-                    <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">Acquire Target</h2>
+                    <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">Acquire Target <a onclick="app.currentView='docs'; app.renderApp(); setTimeout(()=>{const el=document.getElementById('doc-target-search');if(el)el.scrollIntoView({behavior:'smooth'});},200);" style="cursor:pointer; font-size:1rem; color:var(--text-muted); vertical-align:middle; margin-left:0.25rem;" title="View documentation">\u{1F4D6}</a></h2>
                     <p style="color:var(--text-secondary); font-size:1.1rem;">Search central database to initiate Trade Value Assessment.</p>
                 </div>
                 ${this.token ? `<button class="btn" style="padding: 0.75rem 1.5rem;" onclick="app.currentView='add_target'; app.renderApp();">+ Add New Target</button>` : ''}

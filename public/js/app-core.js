@@ -2,7 +2,7 @@
 
 class TerminalApp {
     get currentView() {
-        return sessionStorage.getItem('terminalView') || 'feed';
+        return sessionStorage.getItem('terminalView') || 'search';
     }
     set currentView(val) {
         sessionStorage.setItem('terminalView', val);
@@ -229,10 +229,12 @@ class TerminalApp {
                                 <span id="notifBadge" style="display:none; position:absolute; top:-2px; right:-2px; background:var(--danger); color:#fff; font-size:0.55rem; font-weight:800; padding:1px 4px; border-radius:10px; min-width:14px; text-align:center;"></span>
                                 <div id="notifDropdown" class="notif-dropdown" style="display:none;"></div>
                             </div>
+                            <div style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;" onclick="app.viewUserProfile(app.user.username)">
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${escapeHTML(this.user.username)}</div>
                                 <div style="font-size:0.75rem; color:${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '#fbbf24' : 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '★ Admin' : 'Analyst'}</div>
+                            </div>
                             </div>
                             <button id="logoutBtn" class="topbar-icon-btn" title="Sign Out" style="margin-left:0.5rem;">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>

@@ -3131,6 +3131,27 @@ textarea:focus {
     opacity: 1;
 }
 
+/* Admin panel action buttons — flex-wrap for narrow screens */
+.admin-action-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: flex-end;
+}
+.admin-action-btns button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+.admin-action-btns button:hover {
+    opacity: 0.8;
+}
+
 @media (max-width: 768px) {
     .market-tab {
         padding: 0.6rem 1rem;

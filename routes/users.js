@@ -198,6 +198,44 @@ router.get('/:id/follow-stats', async (req, res) => {
     }
 });
 
+// Get followers list
+router.get('/:id/followers', async (req, res) => {
+    const userId = parseInt(req.params.id);
+    try {
+        const result = await db.query(
+            `SELECT u.id, u.username, u.avatar
+             FROM Follows f
+             JOIN Users u ON f.follower_id = u.id
+             WHERE f.following_id = $1
+             ORDER BY f.created_at DESC`,
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        log.error('Get followers error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Get following list
+router.get('/:id/following', async (req, res) => {
+    const userId = parseInt(req.params.id);
+    try {
+        const result = await db.query(
+            `SELECT u.id, u.username, u.avatar
+             FROM Follows f
+             JOIN Users u ON f.following_id = u.id
+             WHERE f.follower_id = $1
+             ORDER BY f.created_at DESC`,
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        log.error('Get following error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Check if following
 router.get('/:id/is-following', requireAuth, async (req, res) => {
     try {

@@ -24,7 +24,7 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                 <button onclick="app.currentView='${this.previousView || 'feed'}'; app.renderApp();" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; margin-bottom:2rem; padding:0;">&larr; Back</button>
 
                 <div class="card" style="display:flex; align-items:center; gap:2rem; margin-bottom:2rem;">
-                    ${profile.avatar ? `<img src="${profile.avatar}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:80px; height:80px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${escapeHTML(profile.username).charAt(0).toUpperCase()}</div>`}
+                    ${profile.avatar ? `<img src="${profile.avatar}" style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:120px; height:120px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${escapeHTML(profile.username).charAt(0).toUpperCase()}</div>`}
                     <div style="flex:1;">
                         <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${escapeHTML(profile.username)}</h2>
                         <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
@@ -37,13 +37,25 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                         <div style="font-size:2rem; font-weight:900; background:var(--gradient-primary); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">${profile.submissionCount}</div>
                         <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Reports</div>
                     </div>
-                    <div style="text-align:center;">
+                    <div style="text-align:center; cursor:pointer;" onclick="document.getElementById('followerListPanel').style.display = document.getElementById('followerListPanel').style.display === 'none' ? 'block' : 'none'; if(document.getElementById('followerListPanel').style.display==='block') app.loadFollowList(${profile.userId}, 'followers');">
                         <div id="followerCount" style="font-size:2rem; font-weight:900; color:var(--text-primary);">-</div>
                         <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Followers</div>
                     </div>
-                    <div style="text-align:center;">
+                    <div style="text-align:center; cursor:pointer;" onclick="document.getElementById('followingListPanel').style.display = document.getElementById('followingListPanel').style.display === 'none' ? 'block' : 'none'; if(document.getElementById('followingListPanel').style.display==='block') app.loadFollowList(${profile.userId}, 'following');">
                         <div id="followingCount" style="font-size:2rem; font-weight:900; color:var(--text-primary);">-</div>
                         <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Following</div>
+                    </div>
+                </div>
+                <div id="followerListPanel" style="display:none; margin-bottom:1rem;">
+                    <div class="card" style="padding:1rem;">
+                        <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.75rem;">Followers</h4>
+                        <div id="followerListContent" style="color:var(--text-muted); font-size:0.85rem;">Loading...</div>
+                    </div>
+                </div>
+                <div id="followingListPanel" style="display:none; margin-bottom:1rem;">
+                    <div class="card" style="padding:1rem;">
+                        <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.75rem;">Following</h4>
+                        <div id="followingListContent" style="color:var(--text-muted); font-size:0.85rem;">Loading...</div>
                     </div>
                 </div>
 
@@ -139,6 +151,33 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
 
     } catch (e) {
         container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load profile.</div>`;
+        console.error(e);
+    }
+};
+
+TerminalApp.prototype.loadFollowList = async function(userId, type) {
+    const contentEl = document.getElementById(type === 'followers' ? 'followerListContent' : 'followingListContent');
+    if (!contentEl) return;
+    contentEl.innerHTML = '<span style="color:var(--text-muted);">Loading...</span>';
+
+    try {
+        const res = await fetch(`${API_URL}/users/${userId}/${type}`);
+        if (!res.ok) throw new Error('Failed to load');
+        const users = await res.json();
+
+        if (users.length === 0) {
+            contentEl.innerHTML = `<span style="color:var(--text-muted);">No ${type} yet.</span>`;
+            return;
+        }
+
+        contentEl.innerHTML = users.map(u => `
+            <div onclick="app.viewUserProfile('${escapeHTML(u.username).replace(/'/g, "\\'")}')" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0; cursor:pointer; border-bottom:1px solid var(--border-light);">
+                ${u.avatar ? `<img src="${u.avatar}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">` : `<div style="width:32px; height:32px; border-radius:50%; background:var(--bg-surface); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.8rem; border:1px solid var(--border);">${escapeHTML(u.username).charAt(0).toUpperCase()}</div>`}
+                <span style="font-weight:600; color:var(--text-primary);">${escapeHTML(u.username)}</span>
+            </div>
+        `).join('');
+    } catch (e) {
+        contentEl.innerHTML = '<span style="color:var(--danger);">Failed to load list.</span>';
         console.error(e);
     }
 };

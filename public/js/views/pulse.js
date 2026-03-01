@@ -344,7 +344,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
             <div style="text-align: center; border-top: 1px solid var(--border-light); padding-top: 3rem; margin-top:2rem;">
                 <h3 style="margin-bottom: 1rem;">Contribute Intelligence</h3>
                 <p style="color:var(--text-secondary); margin-bottom: 2rem;">Help stabilize the market pulse by adding your in-hand assessment.</p>
-                <button class="btn" style="max-width: 300px;" onclick="app.currentView='submission'; app.renderApp();">Execute Trade Scan</button>
+                <button class="btn" style="max-width: 300px;" onclick="app.currentView='submission'; app.renderApp();">Rate Figure</button>
             </div>
 
             <!-- MARKET ACTIVITY RECAP -->
