@@ -103,7 +103,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. The edit form allows updating the post text, changing the sentiment tag (\u{1F525} HOT / \u{1F937} FENCE / \u{1F9CA} NOT), and using figure linking with autocomplete. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
                         <li><strong>Delete Post</strong> &mdash; Authors can delete their own broadcasts via the \u{1F5D1}\u{FE0F} button. Admins can delete any broadcast.</li>
                         <li><strong>Share Post</strong> &mdash; Click \u{1F4CB} to copy a direct link to any broadcast. Shared links work as deep links &mdash; recipients are taken straight to that post after login.</li>
-                        <li><strong>Figure Linking</strong> &mdash; Reference any figure directly inside a post or comment using the <code>@[Figure Name]</code> syntax. See the step-by-step workflow below.</li>
+                        <li><strong>Figure Linking</strong> &mdash; Reference any figure directly inside a post or comment using the <code>@[Figure Name]</code> syntax (see workflow below). Additionally, <strong>bare figure names</strong> that match existing figures in the catalog are automatically linked &mdash; no special syntax required. Names shorter than 4 characters are excluded to avoid false matches.</li>
                     </ul>
 
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Linking &mdash; How It Works:</strong></p>
@@ -115,7 +115,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><kbd>Escape</kbd> dismisses the dropdown; blur auto-hides it</li>
                     </ol>
                     <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:0.5rem;">
-                        Works in the main post textarea, all reply inputs, and the edit post form. Known figures render as clickable chips that open the figure page. Unknown names render as dashed chips that open Score Figure with the name pre-filled. The dropdown cleans up on feed re-render so there are no orphaned elements.
+                        Works in the main post textarea, all reply inputs, and the edit post form. Known figures render as clickable chips that open the figure page. Unknown names render as dashed chips that open Score Figure with the name pre-filled. Bare figure names (without <code>@[]</code> syntax) are also auto-detected and linked when they match an existing catalog entry. The dropdown cleans up on feed re-render so there are no orphaned elements.
                     </p>
 
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
@@ -167,10 +167,22 @@ TerminalApp.prototype.renderDocs = function(container) {
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>How it works:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li><strong>Search</strong> &mdash; Type to instantly filter by figure name, brand, class tier, or product line</li>
+                        <li><strong>Minimum Grade Filter</strong> &mdash; Use the grade dropdown to filter figures by minimum average grade (50+, 60+, 70+, etc.)</li>
                         <li><strong>Class Tier Badges</strong> &mdash; Color-coded badges show the figure's class (Deluxe, Voyager, Leader, Commander, Masterpiece)</li>
                         <li><strong>Select a Target</strong> &mdash; Click any figure to view its full intel page with all submissions, charts, and gallery</li>
-                        <li><strong>Add New Target</strong> &mdash; Any authenticated operative can add a new figure to the catalog. The brand field offers dynamic suggestions pulled from all existing brands in the database, and you can also enter a new brand freely.</li>
+                        <li><strong>Add New Target</strong> &mdash; Any authenticated operative can register a new figure. The brand field is a dropdown populated from all admin-approved brands in the database. If you need a brand not yet in the list, select "Other" and enter the new brand name &mdash; it will be submitted for admin approval before the figure can be created.</li>
                     </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Brand Approval Process:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Admin-approved brands appear in the dropdown for all operatives</li>
+                        <li>When a non-admin operative uses a new brand, it is automatically submitted as a <strong>Pending Brand Request</strong> for admin review</li>
+                        <li>Admins can approve or reject pending brand requests from the Admin Panel</li>
+                        <li>Once approved, the brand becomes available in the dropdown for all future figure registrations</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>After Registration:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        When you successfully register a new figure, the app automatically navigates you to the figure's profile page so you can immediately submit your first intel report by clicking <strong>"Rate Figure"</strong>.
+                    </p>
                     <p style="color:var(--text-primary); line-height:1.8;">
                         <strong>Figure Data:</strong> Each target has a name, brand (Hasbro, Takara Tomy, etc.), class tier, and product line. Figures can also display a ranked list sorted by average community grade.
                     </p>
@@ -180,7 +192,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                 <div id="doc-trade-scan" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Trade Scan (Submissions)</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The Trade Scan is the core evaluation form. When you select a figure from Score Figure, you can "Execute Trade Scan" to submit a detailed intel report grading the figure across multiple dimensions.
+                        The Trade Scan is the core evaluation form. When you select a figure from Score Figure, click <strong>"Rate Figure"</strong> to submit a detailed intel report grading the figure across multiple dimensions.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>The 7-Section Evaluation Form:</strong></p>
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
@@ -367,7 +379,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Join Date</strong> &mdash; When the operative first registered</li>
                         <li><strong>Submission Count</strong> &mdash; Total number of intel reports filed</li>
                         <li><strong>Recent Intel</strong> &mdash; A list of their most recent submissions with grades</li>
-                        <li><strong>Follower / Following Counts</strong> &mdash; See how many operatives follow them and how many they follow</li>
+                        <li><strong>Follower / Following Counts</strong> &mdash; See how many operatives follow them and how many they follow. Click either count to expand an inline list showing usernames with avatars. Each name is clickable to visit that operative's dossier.</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Following:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
@@ -419,6 +431,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li>Edit figure details (name, brand, class tier, product line)</li>
                         <li>Delete figures and all associated intel reports</li>
+                        <li><strong>Search &amp; Pagination</strong> &mdash; Search bar to filter figures by name or brand, with paginated results (20 per page)</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>User Management:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
@@ -427,6 +440,21 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li>Suspend or reinstate user accounts</li>
                         <li>Reset a user's password (admin backup)</li>
                         <li>Delete user accounts permanently</li>
+                        <li><strong>Search &amp; Pagination</strong> &mdash; Search bar to filter users by username or email, with paginated results (20 per page)</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Pending Brand Requests:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>When a non-admin operative submits a figure with a new brand, it appears here for review</li>
+                        <li>Each request shows the brand name, requesting operative, associated figure name, and submission date</li>
+                        <li><strong>Approve</strong> &mdash; Adds the brand to the approved list so all operatives can use it</li>
+                        <li><strong>Reject</strong> &mdash; Removes the pending request without approving the brand</li>
+                        <li>This section only appears when there are pending requests</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Approved Brands:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>View and manage the full list of admin-approved brands</li>
+                        <li>Add new brands directly</li>
+                        <li>Remove brands that are no longer needed</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Flagged Posts Queue:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem;">
