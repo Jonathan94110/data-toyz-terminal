@@ -150,9 +150,16 @@ TerminalApp.prototype.submitNewTarget = async function(form) {
             body: JSON.stringify(data)
         });
         if (req.ok) {
-            alert(`${data.name} has been successfully added to the catalog.`);
+            const result = await req.json();
             await this.loadFigures(); // refresh the global array
-            this.currentView = 'search';
+            // Navigate directly to the new figure's profile
+            const newFigure = MOCK_FIGURES.find(f => f.id === result.id);
+            if (newFigure) {
+                this.currentTarget = newFigure;
+                this.currentView = 'pulse';
+            } else {
+                this.currentView = 'search';
+            }
             this.renderApp();
         } else {
             const err = await req.json().catch(() => ({}));
