@@ -36,7 +36,7 @@ function renderFigureLinks(html) {
         const name = rawName.trim();
         const figure = MOCK_FIGURES.find(f => f.name.toLowerCase() === name.toLowerCase());
         if (figure) {
-            return `<span class="figure-link found" onclick="event.stopPropagation(); app.selectTarget(${figure.id})" title="View scorecard">${escapeHTML(figure.name)}</span>`;
+            return `<span class="figure-link found" onclick="event.stopPropagation(); app.selectTarget(${figure.id})" title="View figure">${escapeHTML(figure.name)}</span>`;
         } else {
             const safeName = escapeHTML(name).replace(/'/g, "\\'");
             return `<span class="figure-link not-found" onclick="event.stopPropagation(); app.currentView='search'; app.renderApp(); setTimeout(()=>{const el=document.getElementById('searchInput');if(el){el.value='${safeName}';el.dispatchEvent(new Event('keyup'));}},100);" title="Search for this figure">${escapeHTML(name)}</span>`;
@@ -51,7 +51,7 @@ function renderFigureLinks(html) {
             const escaped = fig.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`(?<![\\w">])${escaped}(?![\\w<])`, 'gi');
             html = html.replace(regex, (match) => {
-                return `<span class="figure-link found" onclick="event.stopPropagation(); app.selectTarget(${fig.id})" title="View scorecard">${match}</span>`;
+                return `<span class="figure-link found" onclick="event.stopPropagation(); app.selectTarget(${fig.id})" title="View figure">${match}</span>`;
             });
         }
     }

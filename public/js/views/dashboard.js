@@ -103,7 +103,7 @@ TerminalApp.prototype.renderDashboard = async function (container) {
         const emptyTitle = q ? `No results matching "${escapeHTML(q)}"` : 'No intelligence logs yet';
         const emptyDesc = q
             ? 'Try a different search term.'
-            : 'Submit your first intelligence report by visiting the Score Card and assessing a target.';
+            : 'Submit your first intelligence report by visiting Score Figure and assessing a target.';
 
         contentHtml = `
             <div class="empty-state" style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md);">
@@ -143,7 +143,7 @@ TerminalApp.prototype.renderDashboard = async function (container) {
                     </td>
                     <td><span style="color:${gradeColor}; font-weight:700;">${grade}</span></td>
                     <td style="text-align: right; white-space:nowrap;">
-                        <button class="intel-action-btn" onclick="app.viewScorecard(${s.id}, ${s.targetId})" title="View scorecard">📄</button>
+                        <button class="intel-action-btn" onclick="app.viewScorecard(${s.id}, ${s.targetId})" title="View figure">📄</button>
                         <button class="intel-action-btn" onclick="app.editSubmission(${s.id}, ${s.targetId})" title="Edit">✏️</button>
                         <button class="intel-action-btn danger" onclick="app.deleteSubmission(${s.id})" title="Retract">Retract</button>
                     </td>

@@ -1,4 +1,4 @@
-// views/search.js — Score Card
+// views/search.js — Score Figure
 TerminalApp.prototype.renderSearch = async function(container) {
     container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('cards', 4)}</div>`;
 

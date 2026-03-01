@@ -232,7 +232,7 @@ TerminalApp.prototype._renderVolumeChart = function(data) {
             labels: shortLabels,
             datasets: [
                 {
-                    label: 'Score Cards',
+                    label: 'Score Figures',
                     data: data.submissions,
                     borderColor: '#ff2a5f',
                     backgroundColor: 'rgba(255,42,95,0.1)',
@@ -337,7 +337,7 @@ TerminalApp.prototype.renderMarketRankings = async function(container) {
                                 <th>Class</th>
                                 <th class="sort-header" onclick="app.sortRankings('price')" style="cursor:pointer;">Avg Price${sortArrow('price')}</th>
                                 <th class="sort-header" onclick="app.sortRankings('change')" style="cursor:pointer;">30d Change${sortArrow('change')}</th>
-                                <th class="sort-header" onclick="app.sortRankings('submissions')" style="cursor:pointer;">Score Cards${sortArrow('submissions')}</th>
+                                <th class="sort-header" onclick="app.sortRankings('submissions')" style="cursor:pointer;">Score Figures${sortArrow('submissions')}</th>
                                 <th class="sort-header" onclick="app.sortRankings('grade')" style="cursor:pointer;">Avg Grade${sortArrow('grade')}</th>
                             </tr>
                         </thead>
@@ -558,7 +558,7 @@ TerminalApp.prototype.runCompare = async function() {
 
                 <table class="data-table compare-table" style="margin-bottom:0;">
                     <tbody>
-                        ${metricRow('Score Cards', a.metrics.count, b.metrics.count)}
+                        ${metricRow('Score Figures', a.metrics.count, b.metrics.count)}
                         ${metricRow('Overall Grade', a.metrics.overallAvg, b.metrics.overallAvg)}
                         ${metricRow('MTS Score', a.metrics.mtsAvg, b.metrics.mtsAvg)}
                         ${metricRow('Approval Score', a.metrics.approvalAvg, b.metrics.approvalAvg)}

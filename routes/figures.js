@@ -111,7 +111,7 @@ router.get('/brands', async (req, res) => {
     }
 });
 
-// User edit figure name (creator, scorecard author, or admin) — MUST be before /:id
+// User edit figure name (creator, review author, or admin) — MUST be before /:id
 router.put('/name/:id', requireAuth, async (req, res) => {
     const { name } = req.body;
     if (!name || !name.trim()) {
@@ -128,17 +128,17 @@ router.put('/name/:id', requireAuth, async (req, res) => {
         const fig = figure.rows[0];
         const isCreator = fig.created_by && fig.created_by === req.user.username;
         const isAdmin = req.user.role === 'admin';
-        // Allow any user who has submitted a scorecard for this figure
-        let isScorecardAuthor = false;
+        // Allow any user who has submitted a review for this figure
+        let isReviewAuthor = false;
         if (!isCreator && !isAdmin) {
             const subCheck = await db.query(
                 "SELECT id FROM Submissions WHERE targetId = $1 AND author = $2 LIMIT 1",
                 [req.params.id, req.user.username]
             );
-            isScorecardAuthor = subCheck.rows.length > 0;
+            isReviewAuthor = subCheck.rows.length > 0;
         }
-        if (!isCreator && !isAdmin && !isScorecardAuthor) {
-            return res.status(403).json({ error: 'Only the creator, a scorecard author, or an admin can edit this figure name.' });
+        if (!isCreator && !isAdmin && !isReviewAuthor) {
+            return res.status(403).json({ error: 'Only the creator, a review author, or an admin can edit this figure name.' });
         }
         const existing = await db.query("SELECT id FROM Figures WHERE LOWER(name) = LOWER($1) AND id != $2", [name.trim(), req.params.id]);
         if (existing.rows.length > 0) {

@@ -124,9 +124,9 @@ TerminalApp.prototype.renderProfile = function(container) {
                             </div>
                         </div>
 
-                        <!-- Row: Breakout Room Messages -->
+                        <!-- Row: DM & Group Chat Messages -->
                         <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
-                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me of new messages in Breakout Rooms</span>
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me of new messages in DMs & Group Chats</span>
                             <div style="display:flex; gap:0; flex-shrink:0;">
                                 <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
                                     <input type="checkbox" class="notifPref notif-toggle" data-key="message_email">

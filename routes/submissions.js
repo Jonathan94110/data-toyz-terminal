@@ -79,7 +79,7 @@ router.get('/user/:username', async (req, res) => {
     }
 });
 
-// Get a single submission by ID (scorecard deep-link)
+// Get a single submission by ID (deep-link)
 router.get('/:id', requireAuth, async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM Submissions WHERE id = $1", [req.params.id]);

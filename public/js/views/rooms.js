@@ -1,4 +1,4 @@
-// views/rooms.js — Breakout Rooms, chat, DMs
+// views/rooms.js — DMs & Group Chats
 
 TerminalApp.prototype.renderRoomsList = async function(container) {
     container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('rooms', 5)}</div>`;
@@ -24,7 +24,7 @@ TerminalApp.prototype.renderRoomsList = async function(container) {
         <div class="rooms-container" style="max-width:700px; margin:0 auto; padding-bottom:3rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
                 <div>
-                    <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Breakout Rooms</h2>
+                    <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">DMs & Group Chats</h2>
                     <p style="color:var(--text-secondary); font-size:1.1rem;">Encrypted private channels for covert comms.</p>
                 </div>
                 <button id="newRoomBtn" class="btn" style="white-space:nowrap;">+ New Room</button>

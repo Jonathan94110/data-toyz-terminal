@@ -4,8 +4,8 @@ TerminalApp.prototype.renderDocs = function(container) {
             { id: 'overview', title: 'Platform Overview' },
             { id: 'navigation', title: 'Navigation Guide' },
             { id: 'community-feed', title: 'Community Feed' },
-            { id: 'breakout-rooms', title: 'Breakout Rooms' },
-            { id: 'target-search', title: 'Score Card & Catalog' },
+            { id: 'breakout-rooms', title: 'DMs & Group Chats' },
+            { id: 'target-search', title: 'Score Figure & Catalog' },
             { id: 'trade-scan', title: 'Trade Scan (Submissions)' },
             { id: 'grading', title: 'Grading System' },
             { id: 'market-pulse', title: 'Market Pulse Dashboard' },
@@ -69,9 +69,9 @@ TerminalApp.prototype.renderDocs = function(container) {
                         </thead>
                         <tbody>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Community Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Social timeline for posting updates, comments, and reactions</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Rooms</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Private encrypted channels for 1-on-1 DMs and group chats</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">DMs & Group Chats</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Private encrypted channels for 1-on-1 DMs and group chats</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Dashboard with market statistics, brand indexes, and top-rated figures</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Score Card</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Score Figure</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Browse and search the complete figure catalog with real-time filtering</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">My Intel History</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">View all your past intel report submissions</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Global Leaderboard</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Top operatives ranked by number of submissions</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Profile Settings</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Update your username, email, avatar, and password</td></tr>
@@ -103,19 +103,19 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Edit Post</strong> &mdash; Authors can edit their own broadcasts by clicking the \u{270F}\u{FE0F} button. The edit form allows updating the post text, changing the sentiment tag (\u{1F525} HOT / \u{1F937} FENCE / \u{1F9CA} NOT), and using figure linking with autocomplete. Edited posts display an <em>(edited)</em> tag next to the timestamp.</li>
                         <li><strong>Delete Post</strong> &mdash; Authors can delete their own broadcasts via the \u{1F5D1}\u{FE0F} button. Admins can delete any broadcast.</li>
                         <li><strong>Share Post</strong> &mdash; Click \u{1F4CB} to copy a direct link to any broadcast. Shared links work as deep links &mdash; recipients are taken straight to that post after login.</li>
-                        <li><strong>Figure Linking</strong> &mdash; Reference any scorecard directly inside a post or comment using the <code>@[Figure Name]</code> syntax. See the step-by-step workflow below.</li>
+                        <li><strong>Figure Linking</strong> &mdash; Reference any figure directly inside a post or comment using the <code>@[Figure Name]</code> syntax. See the step-by-step workflow below.</li>
                     </ul>
 
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Linking &mdash; How It Works:</strong></p>
                     <ol style="color:var(--text-secondary); line-height:2.2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li>Type <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@</code> &rarr; brackets auto-insert: <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@[]</code> with the cursor placed inside</li>
-                        <li>Start typing a figure name (e.g. <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@[Road</code>) &rarr; a dropdown appears searching the entire scorecard catalog in real time</li>
+                        <li>Start typing a figure name (e.g. <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@[Road</code>) &rarr; a dropdown appears searching the entire figure catalog in real time</li>
                         <li>Matching figures show their name + brand label (e.g. <strong>Roadking</strong> &mdash; <span style="color:var(--text-muted); text-transform:uppercase; font-size:0.8rem;">X-TRANSBOTS</span>)</li>
                         <li>Click a result or use <kbd>&uarr;</kbd><kbd>&darr;</kbd> arrow keys + <kbd>Enter</kbd>/<kbd>Tab</kbd> to select &mdash; the full name fills in and the cursor jumps past the closing bracket</li>
                         <li><kbd>Escape</kbd> dismisses the dropdown; blur auto-hides it</li>
                     </ol>
                     <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:0.5rem;">
-                        Works in the main post textarea, all reply inputs, and the edit post form. Known figures render as clickable chips that open the scorecard. Unknown names render as dashed chips that open Score Card with the name pre-filled. The dropdown cleans up on feed re-render so there are no orphaned elements.
+                        Works in the main post textarea, all reply inputs, and the edit post form. Known figures render as clickable chips that open the figure page. Unknown names render as dashed chips that open Score Figure with the name pre-filled. The dropdown cleans up on feed re-render so there are no orphaned elements.
                     </p>
 
                     <p style="color:var(--text-muted); font-size:0.85rem;">Posts appear in reverse chronological order (newest first). Images are uploaded as base64-encoded data.</p>
@@ -123,9 +123,9 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 04. BREAKOUT ROOMS -->
                 <div id="doc-breakout-rooms" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. Breakout Rooms</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. DMs & Group Chats</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        Breakout Rooms are encrypted private channels within the Community Feed. Unlike the public Community Feed, Breakout Rooms allow operatives to communicate in private &mdash; either one-on-one or in small groups.
+                        DMs & Group Chats are encrypted private channels within the Community Feed. Unlike the public Community Feed, DMs & Group Chats allow operatives to communicate in private &mdash; either one-on-one or in small groups.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Room Types:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
@@ -160,9 +160,9 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 05. TARGET SEARCH -->
                 <div id="doc-target-search" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Score Card & Catalog</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Score Figure & Catalog</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The Score Card page is the central figure catalog. Every Transformers figure in the database is listed here with real-time search and filtering.
+                        The Score Figure page is the central figure catalog. Every Transformers figure in the database is listed here with real-time search and filtering.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>How it works:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
@@ -180,7 +180,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                 <div id="doc-trade-scan" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Trade Scan (Submissions)</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The Trade Scan is the core evaluation form. When you select a figure from Score Card, you can "Execute Trade Scan" to submit a detailed intel report grading the figure across multiple dimensions.
+                        The Trade Scan is the core evaluation form. When you select a figure from Score Figure, you can "Execute Trade Scan" to submit a detailed intel report grading the figure across multiple dimensions.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>The 7-Section Evaluation Form:</strong></p>
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
@@ -258,11 +258,11 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Brand Indexes</strong> &mdash; Performance breakdown by brand and product line (avg grade, submission count)</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8;">
-                        When you click a figure from Score Card, you see a <strong>detailed intel page</strong> with: all submissions listed, a grade trend chart over time, a price trend chart, community recommendation votes, and a <strong>Field Evidence Gallery</strong> of uploaded photos.
+                        When you click a figure from Score Figure, you see a <strong>detailed intel page</strong> with: all submissions listed, a grade trend chart over time, a price trend chart, community recommendation votes, and a <strong>Field Evidence Gallery</strong> of uploaded photos.
                     </p>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Scorecard Title Editing:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Title Editing:</strong></p>
                     <p style="color:var(--text-secondary); line-height:1.8;">
-                        The operative who originally created a figure can rename it by clicking the \u{270F}\u{FE0F} button next to the scorecard title on the intel page. An inline editor appears to type the new name and save or cancel. Admins retain full editing authority over all scorecard titles regardless of who created them. Figures created before this feature was introduced can only be renamed by admins.
+                        The operative who originally created a figure can rename it by clicking the \u{270F}\u{FE0F} button next to the figure title on the intel page. An inline editor appears to type the new name and save or cancel. Admins retain full editing authority over all figure titles regardless of who created them. Figures created before this feature was introduced can only be renamed by admins.
                     </p>
                 </div>
 
@@ -333,7 +333,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Co-reviewer on same figure</strong> &mdash; When another operative submits an intel report on a figure you also reviewed</li>
                         <li><strong>New figure added to catalog</strong> &mdash; When an admin adds a new figure to the database</li>
                         <li><strong>Important updates from HQ</strong> &mdash; System-wide announcements from Terminal administrators</li>
-                        <li><strong>Breakout Room Messages</strong> &mdash; When a new message is sent in a Breakout Room you are a member of</li>
+                        <li><strong>DM & Group Chat Messages</strong> &mdash; When a new message is sent in a DM or Group Chat you are a member of</li>
                         <li><strong>@-Mention</strong> &mdash; When someone tags you with <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@yourusername</code> in a broadcast or comment</li>
                         <li><strong>New Follower</strong> &mdash; When another operative starts following you</li>
                         <li><strong>Flagged Post (Admin)</strong> &mdash; When a broadcast you manage is flagged for review (admin-only)</li>
@@ -378,7 +378,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                     <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
                         Your own dossier is accessible from Profile Settings or by clicking your username. Other operatives can see your public stats, submission history, and follower counts.
                     </p>
-                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: Click "Open Secure Channel" on any operative's profile to start a private Breakout Room DM with them.</p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: Click "Open Secure Channel" on any operative's profile to start a private DM with them.</p>
                 </div>
 
                 <!-- 14. FLAGGING A POST -->
@@ -586,9 +586,9 @@ TerminalApp.prototype.renderDocs = function(container) {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Trade Scan</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The evaluation form for grading a figure</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Community Feed</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The social timeline / news feed</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Broadcast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A post on the Community Feed</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Breakout Room</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A private encrypted channel (DM or group chat)</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">DM / Group Chat</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A private encrypted channel (DM or group chat)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Secure Channel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A direct message (DM) between two operatives</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Commander</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The owner/creator of a Breakout Room channel</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Commander</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The owner/creator of a DM or Group Chat channel</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Market Pulse</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The analytics dashboard showing market trends</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">DTS (Data Toyz Trading Score)</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The market sentiment portion of a grade (0&ndash;100)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Approval Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">The physical quality percentage (0&ndash;100)</td></tr>
