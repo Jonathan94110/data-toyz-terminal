@@ -395,6 +395,9 @@ router.get('/leaderboard', async (req, res) => {
         // Only include figures with at least 1 submission
         merged = merged.filter(f => f.submissions >= 1);
 
+        // Collect ALL brands before filtering (so dropdown always has full list)
+        const allBrands = [...new Set(merged.map(f => f.brand).filter(Boolean))].sort();
+
         // Apply brand filter
         if (brand) {
             merged = merged.filter(f => f.brand && f.brand.toLowerCase() === brand.toLowerCase());
@@ -431,8 +434,6 @@ router.get('/leaderboard', async (req, res) => {
         });
         merged = noOverrides;
 
-        // Collect brands for filter dropdown (before pagination)
-        const allBrands = [...new Set(merged.map(f => f.brand).filter(Boolean))].sort();
         const total = merged.length;
 
         // Paginate

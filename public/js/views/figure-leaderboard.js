@@ -195,7 +195,7 @@ TerminalApp.prototype.renderFigureLeaderboard = async function (container) {
 
     // --- Brand filter ---
     let brandFilterHtml = '';
-    if (allBrands.length > 1) {
+    if (allBrands.length > 0) {
         brandFilterHtml = `
             <div class="flb-brand-filter">
                 <select id="flbBrandSelect">
