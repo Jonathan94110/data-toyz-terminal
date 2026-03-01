@@ -8,12 +8,18 @@ class TerminalApp {
         const prev = sessionStorage.getItem('terminalView');
         sessionStorage.setItem('terminalView', val);
         // Push browser history for back/forward button support
-        if (!this._isPopState && this._historyReady && val !== prev) {
+        if (!this._isPopState && this._historyReady) {
             const state = { view: val };
             if (val === 'pulse' && this.currentTarget) state.targetId = this.currentTarget.id;
             if (val === 'user_profile') state.profileUser = sessionStorage.getItem('profileUser');
             if (val === 'room_chat') state.roomId = sessionStorage.getItem('activeRoomId');
-            history.pushState(state, '');
+            // Always push if context changed (e.g., different profile or figure), even if same view
+            const contextChanged = (val === 'user_profile' && state.profileUser !== (history.state && history.state.profileUser))
+                || (val === 'pulse' && state.targetId !== (history.state && history.state.targetId))
+                || (val === 'room_chat' && state.roomId !== (history.state && history.state.roomId));
+            if (val !== prev || contextChanged) {
+                history.pushState(state, '');
+            }
         }
     }
 

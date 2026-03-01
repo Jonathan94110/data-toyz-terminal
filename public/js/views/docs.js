@@ -163,7 +163,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Starting a DM:</strong></p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        You can open a direct channel with any operative by clicking the <strong>"Open Secure Channel"</strong> button on their profile dossier. This is accessible from any username link across the platform (Community Feed, Leaderboard, etc.).
+                        You can open a direct channel with any operative by clicking the <strong>"\u{1F4AC} Send Message"</strong> button on their profile dossier. This is accessible from any username link across the platform (Community Feed, Leaderboard, etc.). You can also start a DM from your own profile by clicking <strong>"\u{1F4AC} New Message"</strong> and searching for an operative.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Filter Tabs:</strong></p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">

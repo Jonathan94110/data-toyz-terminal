@@ -562,7 +562,7 @@ TerminalApp.prototype.startDM = async function(username) {
         this.currentView = 'room_chat';
         this.renderApp();
     } catch (e) {
-        alert('Failed to open secure channel.');
+        alert('Failed to send message. Please try again.');
         console.error(e);
     }
 };
