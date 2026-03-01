@@ -386,6 +386,17 @@ async function initDB() {
         }
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_figures_lb ON Figures(lb_hidden, lb_pinned)`);
 
+        // Migration: add ownership_status column to Submissions for Pop Count tracking
+        const ownershipStatusCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'submissions' AND column_name = 'ownership_status'
+        `);
+        if (ownershipStatusCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Submissions ADD COLUMN ownership_status TEXT DEFAULT 'in_hand'`);
+            await pool.query(`UPDATE Submissions SET ownership_status = 'in_hand' WHERE ownership_status IS NULL`);
+        }
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_ownership ON Submissions(targetId, ownership_status)`);
+
         // Migration: add price_type column to MarketTransactions for multi-type pricing
         const priceTypeCheck = await pool.query(`
             SELECT column_name FROM information_schema.columns

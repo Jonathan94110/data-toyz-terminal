@@ -199,6 +199,35 @@ TerminalApp.prototype.renderPulse = async function(container) {
             </div>`;
             })()}
 
+            <!-- COMMUNITY POP COUNT -->
+            ${communityMetrics && communityMetrics.popCount ? (() => {
+                const pc = communityMetrics.popCount;
+                return `
+            <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+                <h3 style="margin:0 0 1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">
+                    \u{1F465} Community Pop Count
+                </h3>
+                <div class="pop-count-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem; text-align:center;">
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:#10b981;">${pc.uniqueOwnerCount}</div>
+                        <div class="stat-label">Unique Owners</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem;">${pc.inHandCount}</div>
+                        <div class="stat-label">In-Hand Reports</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:var(--text-secondary);">${pc.digitalOnlyCount}</div>
+                        <div class="stat-label">Digital Reviews</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:var(--accent);">${pc.totalSubmissions}</div>
+                        <div class="stat-label">Total Submissions</div>
+                    </div>
+                </div>
+            </div>`;
+            })() : ''}
+
             <!-- COMMUNITY SCORE BREAKDOWN -->
             ${communityMetrics && communityMetrics.count > 0 ? (() => {
                 const hasEnough = figureSubs.length >= 3;
@@ -326,10 +355,14 @@ TerminalApp.prototype.renderPulse = async function(container) {
                     ${figureSubs.slice(0, 10).map(s => {
                         const grade = ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1);
                         const date = new Date(s.date).toLocaleDateString();
+                        const ownerStatus = (s.data && s.data.ownership_status) || s.ownership_status || 'in_hand';
+                        const ownerBadge = ownerStatus === 'digital_only'
+                            ? '<span style="font-size:0.65rem; padding:0.15rem 0.4rem; background:rgba(99,102,241,0.15); color:#818cf8; border-radius:4px; margin-left:0.5rem; font-weight:600;">DIGITAL</span>'
+                            : '<span style="font-size:0.65rem; padding:0.15rem 0.4rem; background:rgba(16,185,129,0.15); color:#10b981; border-radius:4px; margin-left:0.5rem; font-weight:600;">IN HAND</span>';
                         return `
                             <div class="card" style="padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; align-items:center; gap:1rem;">
-                                    <span class="user-link" onclick="app.viewUserProfile('${escapeHTML(s.author).replace(/'/g, "\\'")}')" style="font-weight:700;">${escapeHTML(s.author)}</span>
+                                <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                                    <span class="user-link" onclick="app.viewUserProfile('${escapeHTML(s.author).replace(/'/g, "\\'")}')" style="font-weight:700;">${escapeHTML(s.author)}</span>${ownerBadge}
                                     <span style="color:var(--text-muted); font-size:0.8rem;">${date}</span>
                                     ${s.editedAt ? '<span style="color:var(--text-muted); font-size:0.7rem; font-style:italic;">(edited)</span>' : ''}
                                 </div>

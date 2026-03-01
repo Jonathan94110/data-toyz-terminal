@@ -3320,7 +3320,7 @@ textarea:focus {
 
 .flb-table-header {
     display: grid;
-    grid-template-columns: 50px 2fr 1fr 70px 70px 90px 80px 50px;
+    grid-template-columns: 50px 2fr 1fr 70px 70px 50px 90px 80px 50px;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
     font-size: 0.7rem;
@@ -3333,7 +3333,7 @@ textarea:focus {
 
 .flb-row {
     display: grid;
-    grid-template-columns: 50px 2fr 1fr 70px 70px 90px 80px 50px;
+    grid-template-columns: 50px 2fr 1fr 70px 70px 50px 90px 80px 50px;
     gap: 0.5rem;
     padding: 0.85rem 1rem;
     align-items: center;
@@ -3403,6 +3403,12 @@ textarea:focus {
 
 .flb-col-trend {
     text-align: center;
+}
+
+.flb-col-pop {
+    text-align: center;
+    color: #10b981;
+    font-weight: 700;
 }
 
 /* Trend arrows */
@@ -3523,9 +3529,14 @@ textarea:focus {
     }
 
     .flb-col-reviews,
+    .flb-col-pop,
     .flb-col-price,
     .flb-col-msrp,
     .flb-col-trend {
         display: none;
+    }
+
+    .pop-count-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
     }
 }

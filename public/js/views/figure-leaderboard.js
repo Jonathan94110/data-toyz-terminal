@@ -128,6 +128,7 @@ TerminalApp.prototype.renderFigureLeaderboard = async function (container) {
                     <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:0.25rem;">${escapeHTML(fig.brand || '')}</div>
                     <div style="font-size:1.5rem; font-weight:800; color:${gradeColor(fig.avgGrade || 0)};">${fig.avgGrade !== null ? Math.round(fig.avgGrade) : '—'}</div>
                     <div style="font-size:0.7rem; color:var(--text-muted);">${fig.submissions || 0} reviews</div>
+                    <div style="font-size:0.7rem; color:#10b981; font-weight:600;">${fig.uniqueOwnerCount || 0} owners</div>
                     <span class="badge" style="background:transparent; border-color:${tier.color}; color:${tier.color}; font-size:0.65rem; margin-top:0.25rem;">${tier.label}</span>
                     ${fig.pinned ? '<span class="flb-pinned-badge">\u{1F4CC}</span>' : ''}
                 </div>
@@ -147,6 +148,7 @@ TerminalApp.prototype.renderFigureLeaderboard = async function (container) {
                     <span class="flb-col-brand">Brand</span>
                     <span class="flb-col-grade">Grade</span>
                     <span class="flb-col-reviews">Reviews</span>
+                    <span class="flb-col-pop">Pop</span>
                     <span class="flb-col-price">Last Price</span>
                     <span class="flb-col-msrp">vs MSRP</span>
                     <span class="flb-col-trend">30d</span>
@@ -164,6 +166,7 @@ TerminalApp.prototype.renderFigureLeaderboard = async function (container) {
                     <span class="flb-col-brand"><span class="badge" style="font-size:0.65rem;">${escapeHTML(fig.brand || '—')}</span></span>
                     <span class="flb-col-grade" style="color:${gradeColor(fig.avgGrade || 0)}; font-weight:700;">${fig.avgGrade !== null ? Math.round(fig.avgGrade) : '—'}</span>
                     <span class="flb-col-reviews">${fig.submissions || 0}</span>
+                    <span class="flb-col-pop">${fig.uniqueOwnerCount || 0}</span>
                     <span class="flb-col-price">${formatPrice(fig.latestPrice)}</span>
                     <span class="flb-col-msrp">${msrpDiffBadge(fig.msrpDiff)}</span>
                     <span class="flb-col-trend">${trendArrow(fig.trendDirection)}</span>

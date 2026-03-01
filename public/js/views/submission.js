@@ -253,6 +253,27 @@ TerminalApp.prototype.renderSubmission = function(container) {
             ` : ''}
 
             <form id="submissionForm">
+                <!-- OWNERSHIP STATUS (Mandatory) -->
+                <div class="card form-section">
+                    <div class="section-header">
+                        <h3>Ownership Status</h3>
+                        <p>Confirm your relationship with this figure.</p>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">
+                            Only <strong style="color:var(--success);">"In Hand"</strong> submissions contribute to the Community Pop Count.
+                        </p>
+                    </div>
+                    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; max-width:500px;">
+                        <label style="flex:1; min-width:180px; display:flex; align-items:center; gap:0.5rem; padding:0.85rem 1rem; border:1px solid ${!isEdit || ed.ownership_status === 'in_hand' || !ed.ownership_status ? 'var(--success)' : 'var(--border-light)'}; border-radius:var(--radius-sm); cursor:pointer; background:${!isEdit || ed.ownership_status === 'in_hand' || !ed.ownership_status ? 'rgba(16,185,129,0.1)' : 'transparent'}; transition:all 0.2s;">
+                            <input type="radio" name="ownership_status" value="in_hand" required ${!isEdit || ed.ownership_status === 'in_hand' || !ed.ownership_status ? 'checked' : ''}>
+                            <span style="font-weight:600; font-size:0.9rem;">In Hand (Physically Owned)</span>
+                        </label>
+                        <label style="flex:1; min-width:180px; display:flex; align-items:center; gap:0.5rem; padding:0.85rem 1rem; border:1px solid ${isEdit && ed.ownership_status === 'digital_only' ? 'var(--neutral)' : 'var(--border-light)'}; border-radius:var(--radius-sm); cursor:pointer; background:${isEdit && ed.ownership_status === 'digital_only' ? 'rgba(99,102,241,0.1)' : 'transparent'}; transition:all 0.2s;">
+                            <input type="radio" name="ownership_status" value="digital_only" required ${isEdit && ed.ownership_status === 'digital_only' ? 'checked' : ''}>
+                            <span style="font-weight:600; font-size:0.9rem;">Observed / Digital Review Only</span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- SECTION 1: DATA TOYZ TRADING SCORE -->
                 <div class="card form-section">
                     <div class="section-header">
@@ -543,6 +564,12 @@ TerminalApp.prototype.submitIntel = async function(form) {
     const originalBtnText = submitBtn.innerText;
 
     // Inline validation before submit
+    const ownershipCheck = form.querySelector('input[name="ownership_status"]:checked');
+    if (!ownershipCheck) {
+        this.showFormError('Please select your Ownership Status.');
+        form.querySelector('input[name="ownership_status"]').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
     const recommendation = form.querySelector('input[name="recommendation"]:checked');
     if (!recommendation) {
         this.showFormError('Please select a Community Recommendation (Yes or No).');

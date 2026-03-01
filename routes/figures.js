@@ -327,7 +327,9 @@ router.get('/leaderboard', async (req, res) => {
             SELECT f.id, f.name, f.brand, f.classTie, f.line, f.msrp,
                    f.lb_pinned, f.lb_rank_override, f.lb_category,
                    COUNT(s.id) as submission_count,
-                   AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+                   AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade,
+                   COUNT(CASE WHEN COALESCE(s.ownership_status, 'in_hand') = 'in_hand' THEN 1 END) as in_hand_count,
+                   COUNT(DISTINCT CASE WHEN COALESCE(s.ownership_status, 'in_hand') = 'in_hand' THEN s.author END) as unique_owner_count
             FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
             WHERE COALESCE(f.lb_hidden, false) = false
             GROUP BY f.id
@@ -388,7 +390,9 @@ router.get('/leaderboard', async (req, res) => {
                 trendDirection: priceChange30d > 0 ? 'up' : priceChange30d < 0 ? 'down' : 'flat',
                 pinned: r.lb_pinned || false,
                 rankOverride: r.lb_rank_override,
-                category: r.lb_category
+                category: r.lb_category,
+                inHandCount: parseInt(r.in_hand_count) || 0,
+                uniqueOwnerCount: parseInt(r.unique_owner_count) || 0
             };
         });
 
@@ -769,7 +773,7 @@ router.get('/:id/community-metrics', async (req, res) => {
     try {
         const figureId = req.params.id;
         const result = await db.query(
-            "SELECT jsondata, mtstotal, approvalscore FROM Submissions WHERE targetId = $1",
+            "SELECT jsondata, mtstotal, approvalscore, ownership_status, author FROM Submissions WHERE targetId = $1",
             [figureId]
         );
         const rows = result.rows;
@@ -786,8 +790,17 @@ router.get('/:id/community-metrics', async (req, res) => {
         let tradeRatingSum = 0, tradeRatingCount = 0;
         let yesVotes = 0, noVotes = 0;
         let mtsSum = 0, approvalSum = 0;
+        let inHandCount = 0, digitalOnlyCount = 0;
+        const inHandAuthors = new Set();
 
         for (const row of rows) {
+            const status = row.ownership_status || 'in_hand';
+            if (status === 'in_hand') {
+                inHandCount++;
+                inHandAuthors.add(row.author);
+            } else {
+                digitalOnlyCount++;
+            }
             mtsSum += parseFloat(row.mtstotal || 0);
             approvalSum += parseFloat(row.approvalscore || 0);
             try {
@@ -856,7 +869,13 @@ router.get('/:id/community-metrics', async (req, res) => {
                 } catch (e) { return null; }
             })(),
             tradeRating: tradeRatingCount > 0 ? parseFloat((tradeRatingSum / tradeRatingCount).toFixed(1)) : null,
-            recommendation: { yes: yesVotes, no: noVotes }
+            recommendation: { yes: yesVotes, no: noVotes },
+            popCount: {
+                totalSubmissions: n,
+                inHandCount,
+                digitalOnlyCount,
+                uniqueOwnerCount: inHandAuthors.size
+            }
         });
     } catch (err) {
         log.error('Community metrics error', { error: err.message || err });

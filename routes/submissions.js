@@ -117,13 +117,18 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
         submissionData.imagePath = 'data:' + req.file.mimetype + ';base64,' + req.file.buffer.toString('base64');
     }
 
+    // Extract and validate ownership status for Pop Count
+    const ownershipStatus = ['in_hand', 'digital_only'].includes(submissionData.ownership_status)
+        ? submissionData.ownership_status : 'in_hand';
+
     try {
         const result = await db.query(`INSERT INTO Submissions
-            (targetId, targetName, targetTier, author, mtsTotal, approvalScore, jsonData, date)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+            (targetId, targetName, targetTier, author, mtsTotal, approvalScore, jsonData, date, ownership_status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
             [
                 req.body.targetId, req.body.targetName, req.body.targetTier, req.user.username,
-                parseFloat(req.body.mtsTotal), parseFloat(req.body.approvalScore), JSON.stringify(submissionData), req.body.date
+                parseFloat(req.body.mtsTotal), parseFloat(req.body.approvalScore), JSON.stringify(submissionData), req.body.date,
+                ownershipStatus
             ]
         );
         const submissionId = result.rows[0].id;
@@ -212,10 +217,12 @@ router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
         const now = new Date().toISOString();
         const mtsTotal = parseFloat(req.body.mtsTotal);
         const approvalScore = parseFloat(req.body.approvalScore);
+        const editOwnership = ['in_hand', 'digital_only'].includes(submissionData.ownership_status)
+            ? submissionData.ownership_status : null;
 
         await db.query(
-            `UPDATE Submissions SET mtsTotal = $1, approvalScore = $2, jsonData = $3, edited_at = $4 WHERE id = $5`,
-            [mtsTotal, approvalScore, JSON.stringify(submissionData), now, req.params.id]
+            `UPDATE Submissions SET mtsTotal = $1, approvalScore = $2, jsonData = $3, edited_at = $4, ownership_status = COALESCE($6, ownership_status) WHERE id = $5`,
+            [mtsTotal, approvalScore, JSON.stringify(submissionData), now, req.params.id, editOwnership]
         );
 
         // Multi-type pricing: sync MarketTransactions per price_type
