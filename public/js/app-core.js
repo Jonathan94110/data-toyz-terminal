@@ -110,7 +110,7 @@ class TerminalApp {
         `;
     }
 
-    // Authenticated fetch helper
+    // Authenticated fetch helper — retries once on 401 to survive deploy blips
     async authFetch(url, options = {}) {
         if (!options.headers) options.headers = {};
         if (this.token && !(options.body instanceof FormData)) {
@@ -121,11 +121,28 @@ class TerminalApp {
         }
         const res = await fetch(url, options);
         if (res.status === 401) {
-            this.token = null;
-            this.user = null;
-            localStorage.removeItem('terminal_token');
-            this.renderLogin();
-            throw new Error('Session expired. Please log in again.');
+            // Retry once after a short delay — deploy blips can cause transient 401s
+            await new Promise(r => setTimeout(r, 2000));
+            const retryOpts = { ...options, headers: { ...options.headers } };
+            if (this.token) retryOpts.headers['Authorization'] = `Bearer ${this.token}`;
+            try {
+                const res2 = await fetch(url, retryOpts);
+                if (res2.status === 401) {
+                    // Confirmed auth failure — nuke the token
+                    const errBody = await res2.json().catch(() => ({}));
+                    console.warn('[Auth] Token rejected on retry:', res2.status, errBody.error || 'unknown');
+                    this.token = null;
+                    this.user = null;
+                    localStorage.removeItem('terminal_token');
+                    this.renderLogin();
+                    throw new Error('Session expired. Please log in again.');
+                }
+                return res2; // Retry succeeded — deploy blip survived
+            } catch (retryErr) {
+                if (retryErr.message === 'Session expired. Please log in again.') throw retryErr;
+                // Network error on retry — don't nuke token, just throw
+                throw retryErr;
+            }
         }
         return res;
     }
