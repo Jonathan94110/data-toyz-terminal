@@ -176,7 +176,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     try {
         const sub = await db.query("SELECT author FROM Submissions WHERE id = $1", [req.params.id]);
         if (!sub.rows[0]) return res.status(404).json({ error: 'Submission not found.' });
-        if (sub.rows[0].author !== req.user.username && req.user.role !== 'admin') {
+        if (sub.rows[0].author !== req.user.username && !['owner', 'admin'].includes(req.user.role)) {
             return res.status(403).json({ error: 'You can only retract your own intelligence.' });
         }
         await db.query("DELETE FROM Submissions WHERE id = $1", [req.params.id]);

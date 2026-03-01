@@ -2,25 +2,40 @@
 TerminalApp.prototype.renderAdmin = async function(container) {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Loading Admin Panel...</div>`;
 
-        let analytics = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [];
+        const userRole = this.user.role || 'analyst';
+        const isFullAdmin = ['owner', 'admin'].includes(userRole);
+        const isMod = userRole === 'moderator';
+
+        let analytics = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [], lbSettings = [];
 
         try {
-            const [aRes, uRes, fRes, flagRes, trRes, brRes, pbRes] = await Promise.all([
+            // All roles: analytics + flags + leaderboard settings
+            const promises = [
                 this.authFetch(`${API_URL}/admin/analytics`),
-                this.authFetch(`${API_URL}/admin/users`),
-                fetch(`${API_URL}/figures`),
                 this.authFetch(`${API_URL}/admin/flags`),
-                fetch(`${API_URL}/figures/top-rated`),
-                this.authFetch(`${API_URL}/admin/brands`),
-                this.authFetch(`${API_URL}/admin/pending-brands`)
-            ]);
-            if (aRes.ok) analytics = await aRes.json();
-            if (uRes.ok) users = await uRes.json();
-            if (fRes.ok) figures = await fRes.json();
-            if (flagRes.ok) flags = await flagRes.json();
-            if (trRes.ok) topRated = await trRes.json();
-            if (brRes.ok) approvedBrands = await brRes.json();
-            if (pbRes.ok) pendingBrands = await pbRes.json();
+                this.authFetch(`${API_URL}/admin/figures/leaderboard-settings`)
+            ];
+            // Admin-only: users, figures, top-rated, brands, pending brands
+            if (isFullAdmin) {
+                promises.push(
+                    this.authFetch(`${API_URL}/admin/users`),
+                    fetch(`${API_URL}/figures`),
+                    fetch(`${API_URL}/figures/top-rated`),
+                    this.authFetch(`${API_URL}/admin/brands`),
+                    this.authFetch(`${API_URL}/admin/pending-brands`)
+                );
+            }
+            const results = await Promise.all(promises);
+            if (results[0].ok) analytics = await results[0].json();
+            if (results[1].ok) flags = await results[1].json();
+            if (results[2].ok) lbSettings = await results[2].json();
+            if (isFullAdmin) {
+                if (results[3].ok) users = await results[3].json();
+                if (results[4].ok) figures = await results[4].json();
+                if (results[5].ok) topRated = await results[5].json();
+                if (results[6].ok) approvedBrands = await results[6].json();
+                if (results[7].ok) pendingBrands = await results[7].json();
+            }
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
             return;
@@ -113,26 +128,32 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             tbody.innerHTML = paged.length === 0
                 ? '<tr><td colspan="7" style="padding:1.5rem; text-align:center; color:var(--text-muted);">No users match your search.</td></tr>'
                 : paged.map(u => {
-                    const isAdmin = u.role === 'admin';
+                    const roleColors = { owner: '#a855f7', admin: '#fbbf24', moderator: '#3b82f6', analyst: 'var(--accent)' };
+                    const roleBadges = { owner: '\u{2B50} OWNER', admin: '\u{2605} ADMIN', moderator: '\u{1F6E1}\u{FE0F} MOD', analyst: 'ANALYST' };
+                    const uRole = u.role || 'analyst';
                     const isSuspended = u.suspended;
+                    const isProtected = uRole === 'owner';
                     const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Unknown';
+                    const assignableRoles = userRole === 'owner' ? ['analyst', 'moderator', 'admin'] : ['analyst', 'moderator'];
                     return `
                         <tr style="border-top:1px solid var(--border-light); ${isSuspended ? 'opacity:0.5;' : ''}">
                             <td style="padding:0.6rem 1rem; color:var(--text-muted);">${u.id}</td>
-                            <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(u.username)} ${isAdmin ? '<span style="color:#fbbf24; font-size:0.75rem;">\u{2605} ADMIN</span>' : ''}</td>
+                            <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(u.username)} ${uRole !== 'analyst' ? `<span style="color:${roleColors[uRole]}; font-size:0.75rem;">${roleBadges[uRole]}</span>` : ''}</td>
                             <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(u.email)}</td>
-                            <td style="padding:0.6rem 1rem;"><span style="color:${isAdmin ? '#fbbf24' : 'var(--accent)'}; font-size:0.8rem; font-weight:600; text-transform:uppercase;">${escapeHTML(u.role || 'analyst')}</span></td>
+                            <td style="padding:0.6rem 1rem;"><span style="color:${roleColors[uRole]}; font-size:0.8rem; font-weight:600; text-transform:uppercase;">${escapeHTML(uRole)}</span></td>
                             <td style="padding:0.6rem 1rem;"><span style="color:${isSuspended ? 'var(--danger)' : 'var(--success)'}; font-size:0.8rem; font-weight:600;">${isSuspended ? '\u{26D4} SUSPENDED' : '\u{2705} ACTIVE'}</span></td>
                             <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${joined}</td>
                             <td style="padding:0.6rem 1rem; text-align:right;">
-                                ${u.username !== 'Prime Dynamixx' ? `
+                                ${!isProtected ? `
                                 <div class="admin-action-btns">
-                                    <button class="roleBtn" data-id="${u.id}" data-role="${u.role}" style="border-color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'}; color:${isAdmin ? 'var(--text-muted)' : '#fbbf24'};">${isAdmin ? 'Demote' : 'Promote'}</button>
+                                    <select class="roleSelect" data-id="${u.id}" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); padding:0.3rem 0.4rem; border-radius:4px; font-size:0.8rem; cursor:pointer;">
+                                        ${assignableRoles.map(r => `<option value="${r}" ${r === uRole ? 'selected' : ''}>${r.charAt(0).toUpperCase() + r.slice(1)}</option>`).join('')}
+                                    </select>
                                     <button class="suspendBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'};">${isSuspended ? '\u{2705} Reinstate' : '\u{26A0}\u{FE0F} Suspend'}</button>
                                     <button class="resetPwBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:var(--accent); color:var(--accent);">\u{1F511} Reset PW</button>
                                     <button class="delUserBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:var(--danger); color:var(--danger);">\u{1F5D1}\u{FE0F} Delete</button>
                                 </div>
-                                ` : '<span style="font-size:0.8rem; color:var(--text-muted);">Protected</span>'}
+                                ` : '<span style="font-size:0.8rem; color:#a855f7; font-weight:600;">Owner \u{1F451}</span>'}
                             </td>
                         </tr>`;
                 }).join('');
@@ -231,14 +252,21 @@ TerminalApp.prototype.renderAdmin = async function(container) {
         }
 
         function wireUpUserActions() {
-            document.querySelectorAll('.roleBtn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const isPromoting = btn.dataset.role !== 'admin';
-                    if (!confirm(`Are you sure you want to ${isPromoting ? 'PROMOTE' : 'DEMOTE'} this user?`)) return;
+            document.querySelectorAll('.roleSelect').forEach(sel => {
+                sel.addEventListener('change', async () => {
+                    const newRole = sel.value;
+                    if (!confirm(`Change this user's role to ${newRole.toUpperCase()}?`)) {
+                        // Revert selection
+                        self.renderAdmin(container);
+                        return;
+                    }
                     try {
-                        const res = await self.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/role`, { method: 'PUT' });
+                        const res = await self.authFetch(`${API_URL}/admin/users/${sel.dataset.id}/role`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ role: newRole })
+                        });
                         if (res.ok) { self.renderAdmin(container); }
-                        else { const err = await res.json(); alert(err.error); }
+                        else { const err = await res.json(); alert(err.error); self.renderAdmin(container); }
                     } catch (e) { console.error(e); }
                 });
             });
@@ -445,8 +473,8 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 
         container.innerHTML = `
             <div style="max-width: 1100px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
-                <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">\u{2699}\u{FE0F} Admin Panel</h2>
-                <p style="color:var(--text-secondary); font-size:1rem; margin-bottom:2rem;">System management and analytics for <span style="color:#fbbf24; font-weight:700;">\u{2605} Admin</span></p>
+                <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">\u{2699}\u{FE0F} ${isMod ? 'Mod' : 'Admin'} Panel</h2>
+                <p style="color:var(--text-secondary); font-size:1rem; margin-bottom:2rem;">System management and analytics for <span style="color:${{owner:'#a855f7',admin:'#fbbf24',moderator:'#3b82f6'}[userRole]}; font-weight:700;">${{owner:'\u{2B50} Owner',admin:'\u{2605} Admin',moderator:'\u{1F6E1}\u{FE0F} Moderator'}[userRole]}</span></p>
 
                 <!-- SITE ANALYTICS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">\u{1F4CA} Site Analytics</h3>
@@ -486,6 +514,32 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 </div>
                 ` : ''}
 
+                <!-- LEADERBOARD CONTROLS -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F3C6} Leaderboard Controls (<span id="adminLbCount">${lbSettings.length}</span>)</h3>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Pin, hide, or override rank positions for figures on the leaderboard.${isMod ? ' As a moderator, you can toggle visibility.' : ''}</p>
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
+                    <div style="padding:0.75rem 1rem; border-bottom:1px solid var(--border-light); display:flex; gap:0.5rem; align-items:center;">
+                        <input type="text" id="adminLbSearch" placeholder="Search figures..." style="flex:1; padding:0.5rem 0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.85rem;">
+                    </div>
+                    <div style="max-height:400px; overflow-y:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                            <thead>
+                                <tr style="background:var(--bg-panel); text-align:left; position:sticky; top:0;">
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600;">Figure</th>
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600;">Brand</th>
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600; text-align:center;">Grade</th>
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600; text-align:center;">Visible</th>
+                                    ${isFullAdmin ? '<th style="padding:0.6rem 0.75rem; font-weight:600; text-align:center;">Pinned</th>' : ''}
+                                    ${isFullAdmin ? '<th style="padding:0.6rem 0.75rem; font-weight:600; text-align:center;">Rank Override</th>' : ''}
+                                    ${isFullAdmin ? '<th style="padding:0.6rem 0.75rem; font-weight:600;">Category</th>' : ''}
+                                </tr>
+                            </thead>
+                            <tbody id="adminLbTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                ${isFullAdmin ? `
                 <!-- TOP RATED TOYS (login page showcase) -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F3C6} Top Rated Toys \u{2014} Login Showcase (${topRated.length})</h3>
                 <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">These appear on the login page. Figures need \u{2265} 2 reviews to qualify. Delete a figure to remove it entirely.</p>
@@ -522,9 +576,10 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     </table>
                     `}
                 </div>
+                ` : ''}
 
                 <!-- PENDING BRAND REQUESTS -->
-                ${pendingBrands.length > 0 ? `
+                ${isFullAdmin && pendingBrands.length > 0 ? `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:#fbbf24; margin:0;">\u{23F3} Pending Brand Requests (<span id="pendingBrandCount">${pendingBrands.length}</span>)</h3>
                 </div>
@@ -534,6 +589,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 </div>
                 ` : ''}
 
+                ${isFullAdmin ? `
                 <!-- APPROVED BRANDS -->
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">\u{1F3F7}\u{FE0F} Approved Brands (<span id="adminBrandCount">${approvedBrands.length}</span>)</h3>
@@ -559,6 +615,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     </table>
                     <div id="adminBrandPagination"></div>
                 </div>
+                ` : ''}
 
                 ${flags.length > 0 ? `
                 <!-- FLAGGED BROADCASTS -->
@@ -593,6 +650,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 </div>
                 ` : ''}
 
+                ${isFullAdmin ? `
                 <!-- FIGURE MANAGEMENT -->
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">\u{1F3AF} Figure Management (<span id="adminFigCount">${figures.length}</span>)</h3>
@@ -641,14 +699,142 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     </table>
                     <div id="adminUserPagination"></div>
                 </div>
+                ` : ''}
             </div>
         `;
 
-        // Initial render of tables
-        renderFigureTable();
-        renderUserTable();
-        renderBrandTable();
-        renderPendingBrands();
+        // Leaderboard controls table render
+        let lbSearch = '';
+        function renderLbTable() {
+            const tbody = document.getElementById('adminLbTbody');
+            if (!tbody) return;
+            const q = lbSearch.toLowerCase();
+            const filtered = q ? lbSettings.filter(f => f.name.toLowerCase().includes(q) || (f.brand || '').toLowerCase().includes(q)) : lbSettings;
+            const countEl = document.getElementById('adminLbCount');
+            if (countEl) countEl.textContent = filtered.length;
+            tbody.innerHTML = filtered.length === 0
+                ? `<tr><td colspan="${isFullAdmin ? 7 : 4}" style="padding:1.5rem; text-align:center; color:var(--text-muted);">No figures match your search.</td></tr>`
+                : filtered.map(f => {
+                    const gradeColor = f.avgGrade >= 80 ? '#22c55e' : f.avgGrade >= 60 ? '#f59e0b' : '#ef4444';
+                    return `
+                    <tr style="border-top:1px solid var(--border-light); ${f.lbHidden ? 'opacity:0.5;' : ''}">
+                        <td style="padding:0.5rem 0.75rem; font-weight:600; font-size:0.85rem;">${escapeHTML(f.name)}</td>
+                        <td style="padding:0.5rem 0.75rem; font-size:0.8rem; color:var(--text-muted);">${escapeHTML(f.brand || '')}</td>
+                        <td style="padding:0.5rem 0.75rem; text-align:center; font-weight:700; color:${gradeColor};">${f.avgGrade !== null ? Math.round(f.avgGrade) : '\u{2014}'}</td>
+                        <td style="padding:0.5rem 0.75rem; text-align:center;">
+                            <button class="lbVisBtn" data-id="${f.id}" data-hidden="${f.lbHidden}" style="background:none; border:1px solid ${f.lbHidden ? 'var(--danger)' : 'var(--success)'}; color:${f.lbHidden ? 'var(--danger)' : 'var(--success)'}; cursor:pointer; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem;">${f.lbHidden ? '\u{1F6AB} Hidden' : '\u{1F441}\u{FE0F} Visible'}</button>
+                        </td>
+                        ${isFullAdmin ? `
+                        <td style="padding:0.5rem 0.75rem; text-align:center;">
+                            <button class="lbPinBtn" data-id="${f.id}" data-pinned="${f.lbPinned}" style="background:none; border:1px solid ${f.lbPinned ? '#fbbf24' : 'var(--border)'}; color:${f.lbPinned ? '#fbbf24' : 'var(--text-muted)'}; cursor:pointer; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem;">${f.lbPinned ? '\u{1F4CC} Pinned' : 'Pin'}</button>
+                        </td>
+                        <td style="padding:0.5rem 0.75rem; text-align:center;">
+                            <input class="lbRankInput" data-id="${f.id}" type="number" min="1" placeholder="\u{2014}" value="${f.lbRankOverride || ''}" style="width:50px; padding:0.2rem 0.3rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:4px; font-size:0.8rem; text-align:center;">
+                        </td>
+                        <td style="padding:0.5rem 0.75rem;">
+                            <select class="lbCatSelect" data-id="${f.id}" style="padding:0.2rem 0.3rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:4px; font-size:0.8rem;">
+                                <option value="">None</option>
+                                <option value="rising" ${f.lbCategory === 'rising' ? 'selected' : ''}>Rising</option>
+                                <option value="sleeper" ${f.lbCategory === 'sleeper' ? 'selected' : ''}>Sleeper</option>
+                            </select>
+                        </td>
+                        ` : ''}
+                    </tr>`;
+                }).join('');
+            wireLbActions();
+        }
+
+        function wireLbActions() {
+            // Visibility toggle (moderators + admins)
+            document.querySelectorAll('.lbVisBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const newHidden = btn.dataset.hidden !== 'true';
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}/visibility`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ hidden: newHidden })
+                        });
+                        if (res.ok) {
+                            const fig = lbSettings.find(f => f.id == btn.dataset.id);
+                            if (fig) fig.lbHidden = newHidden;
+                            renderLbTable();
+                        } else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            if (!isFullAdmin) return;
+
+            // Pin toggle (admin only)
+            document.querySelectorAll('.lbPinBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const fig = lbSettings.find(f => f.id == btn.dataset.id);
+                    if (!fig) return;
+                    const newPinned = !fig.lbPinned;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}/leaderboard`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ lb_pinned: newPinned, lb_hidden: fig.lbHidden, lb_rank_override: fig.lbRankOverride, lb_category: fig.lbCategory })
+                        });
+                        if (res.ok) { fig.lbPinned = newPinned; renderLbTable(); }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            // Rank override (admin only) — debounced on blur
+            document.querySelectorAll('.lbRankInput').forEach(input => {
+                input.addEventListener('change', async () => {
+                    const fig = lbSettings.find(f => f.id == input.dataset.id);
+                    if (!fig) return;
+                    const val = input.value.trim() ? parseInt(input.value) : null;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/figures/${input.dataset.id}/leaderboard`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ lb_pinned: fig.lbPinned, lb_hidden: fig.lbHidden, lb_rank_override: val, lb_category: fig.lbCategory })
+                        });
+                        if (res.ok) { fig.lbRankOverride = val; }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            // Category select (admin only)
+            document.querySelectorAll('.lbCatSelect').forEach(sel => {
+                sel.addEventListener('change', async () => {
+                    const fig = lbSettings.find(f => f.id == sel.dataset.id);
+                    if (!fig) return;
+                    const cat = sel.value || null;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/figures/${sel.dataset.id}/leaderboard`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ lb_pinned: fig.lbPinned, lb_hidden: fig.lbHidden, lb_rank_override: fig.lbRankOverride, lb_category: cat })
+                        });
+                        if (res.ok) { fig.lbCategory = cat; }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+        }
+
+        renderLbTable();
+
+        // Leaderboard search
+        const lbSearchInput = document.getElementById('adminLbSearch');
+        if (lbSearchInput) {
+            lbSearchInput.addEventListener('input', () => {
+                lbSearch = lbSearchInput.value.trim();
+                renderLbTable();
+            });
+        }
+
+        // Initial render of tables (admin-only)
+        if (isFullAdmin) {
+            renderFigureTable();
+            renderUserTable();
+            renderBrandTable();
+            renderPendingBrands();
+        }
 
         // Wire up search inputs
         const figSearchInput = document.getElementById('adminFigSearch');
@@ -757,24 +943,29 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             } catch (e) { console.error(e); }
         });
 
-        // Add User
-        document.getElementById('addAdminUserBtn').addEventListener('click', async () => {
-            const username = prompt("Enter new username:");
-            if (!username) return;
-            const password = prompt("Enter new password:");
-            if (!password) return;
-            const email = username.toLowerCase().replace(/[^a-z0-9]/g, '') + '@datatoyz.net';
-            const role = confirm("Should this user be an Admin? (OK for Admin, Cancel for Analyst)") ? 'admin' : 'analyst';
+        // Add User (admin-only)
+        const addUserBtn = document.getElementById('addAdminUserBtn');
+        if (addUserBtn) {
+            addUserBtn.addEventListener('click', async () => {
+                const username = prompt("Enter new username:");
+                if (!username) return;
+                const password = prompt("Enter new password:");
+                if (!password) return;
+                const email = username.toLowerCase().replace(/[^a-z0-9]/g, '') + '@datatoyz.net';
+                const roleChoice = prompt("Enter role (analyst / moderator / admin):", "analyst");
+                if (!roleChoice) return;
+                const role = ['analyst', 'moderator', 'admin'].includes(roleChoice.toLowerCase().trim()) ? roleChoice.toLowerCase().trim() : 'analyst';
 
-            try {
-                const res = await this.authFetch(`${API_URL}/admin/users`, {
-                    method: 'POST',
-                    body: JSON.stringify({ username, email, password, role })
-                });
-                if (res.ok) { this.renderAdmin(container); }
-                else { const err = await res.json(); alert(err.error); }
-            } catch (e) { console.error(e); }
-        });
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/users`, {
+                        method: 'POST',
+                        body: JSON.stringify({ username, email, password, role })
+                    });
+                    if (res.ok) { this.renderAdmin(container); }
+                    else { const err = await res.json(); alert(err.error); }
+                } catch (e) { console.error(e); }
+            });
+        }
 };
 
 TerminalApp.prototype.editSubmission = async function(submissionId, targetId) {

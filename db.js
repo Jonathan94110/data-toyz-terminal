@@ -104,9 +104,9 @@ async function initDB() {
             await pool.query(`ALTER TABLE Users ADD COLUMN password_changed_at TEXT`);
         }
 
-        // PI-2: Configurable admin username from env
+        // PI-2: Configurable admin username from env — promote to owner (highest role)
         const adminUsername = process.env.ADMIN_USERNAME || 'Prime Dynamixx';
-        await pool.query(`UPDATE Users SET role = 'admin' WHERE username = $1`, [adminUsername]);
+        await pool.query(`UPDATE Users SET role = 'owner' WHERE username = $1`, [adminUsername]);
 
         // Create Posts Table (Community Feed)
         await pool.query(`CREATE TABLE IF NOT EXISTS Posts (

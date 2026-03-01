@@ -17,7 +17,7 @@ TerminalApp.prototype.renderLeaderboards = async function (container) {
     });
 
     const sortedAuthors = Object.entries(authorCounts).sort((a, b) => b[1] - a[1]);
-    const isAdmin = this.user.role === 'admin' || this.user.username === 'Prime Dynamixx';
+    const isAdmin = ['owner', 'admin'].includes(this.user.role);
 
     function getTitle(count) {
         if (count >= 15) return { title: 'Prime Intel Officer', color: '#a855f7' };

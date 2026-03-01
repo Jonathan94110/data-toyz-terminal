@@ -51,7 +51,7 @@ router.post('/', requireAuth, async (req, res) => {
         }
 
         // Brand approval check: non-admin users must use an approved brand
-        const isAdmin = req.user.role === 'admin' || req.user.username === 'Prime Dynamixx';
+        const isAdmin = ['owner', 'admin'].includes(req.user.role);
         try {
             const brandCheck = await db.query("SELECT id FROM ApprovedBrands WHERE LOWER(name) = LOWER($1)", [brand]);
             if (brandCheck.rows.length === 0) {
@@ -138,7 +138,7 @@ router.put('/name/:id', requireAuth, async (req, res) => {
         }
         const fig = figure.rows[0];
         const isCreator = fig.created_by && fig.created_by === req.user.username;
-        const isAdmin = req.user.role === 'admin';
+        const isAdmin = ['owner', 'admin', 'moderator'].includes(req.user.role);
         // Allow any user who has submitted a review for this figure
         let isReviewAuthor = false;
         if (!isCreator && !isAdmin) {

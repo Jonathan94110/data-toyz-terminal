@@ -7,7 +7,7 @@ const { ADMIN_USERNAME } = require('../helpers/config');
 const { validatePassword } = require('../helpers/validation');
 const { normalizeRows } = require('../helpers/normalize');
 const { auditLog } = require('../helpers/audit');
-const { requireAuth, requireAdmin, invalidateUserCache } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireRole, invalidateUserCache, getRoleLevel } = require('../middleware/auth');
 
 // Reset user password
 router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
@@ -18,10 +18,10 @@ router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, 
     if (pwError) return res.status(400).json({ error: pwError });
 
     try {
-        const user = await db.query("SELECT username FROM Users WHERE id = $1", [req.params.id]);
+        const user = await db.query("SELECT username, role FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: 'User not found.' });
-        if (user.rows[0].username === ADMIN_USERNAME && req.user.username !== ADMIN_USERNAME) {
-            return res.status(403).json({ error: 'Cannot reset primary admin password.' });
+        if (user.rows[0].role === 'owner' || getRoleLevel(user.rows[0].role) >= getRoleLevel(req.user.role)) {
+            return res.status(403).json({ error: 'Cannot reset password for a user of equal or higher rank.' });
         }
         const hash = await bcrypt.hash(newPassword, 10);
         const now = new Date().toISOString();
@@ -77,20 +77,30 @@ router.post('/users', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
-// Toggle user role
+// Set user role (admin can assign analyst/moderator/admin; owner cannot be modified)
 router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+    const { role } = req.body;
+    const ASSIGNABLE_ROLES = ['analyst', 'moderator', 'admin'];
+    if (!role || !ASSIGNABLE_ROLES.includes(role)) {
+        return res.status(400).json({ error: 'Valid role required: analyst, moderator, or admin.' });
+    }
     try {
         const user = await db.query("SELECT username, role FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
+        if (user.rows[0].role === 'owner') return res.status(403).json({ error: "Cannot modify the owner role." });
         if (user.rows[0].username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot modify the primary admin." });
 
-        const newRole = user.rows[0].role === 'admin' ? 'analyst' : 'admin';
-        await db.query("UPDATE Users SET role = $1 WHERE id = $2", [newRole, req.params.id]);
+        // Non-owner admins cannot promote to admin (only owner can)
+        if (role === 'admin' && req.user.role !== 'owner') {
+            return res.status(403).json({ error: 'Only the owner can promote users to admin.' });
+        }
+
+        await db.query("UPDATE Users SET role = $1 WHERE id = $2", [role, req.params.id]);
         invalidateUserCache(parseInt(req.params.id));
 
-        await auditLog('ADMIN_ROLE_CHANGE', req.user.username, user.rows[0].username, `Role changed to ${newRole}`, req.ip);
+        await auditLog('ADMIN_ROLE_CHANGE', req.user.username, user.rows[0].username, `Role changed from ${user.rows[0].role} to ${role}`, req.ip);
 
-        res.json({ message: `Role updated to ${newRole}.`, role: newRole });
+        res.json({ message: `Role updated to ${role}.`, role });
     } catch (err) {
         log.error('Admin role change error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
@@ -100,9 +110,10 @@ router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
 // Suspend/unsuspend user
 router.put('/users/:id/suspend', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const user = await db.query("SELECT username, suspended FROM Users WHERE id = $1", [req.params.id]);
+        const user = await db.query("SELECT username, role, suspended FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
-        if (user.rows[0].username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot suspend the primary admin." });
+        if (user.rows[0].role === 'owner') return res.status(403).json({ error: "Cannot suspend the owner." });
+        if (getRoleLevel(user.rows[0].role) >= getRoleLevel(req.user.role)) return res.status(403).json({ error: "Cannot suspend a user of equal or higher rank." });
 
         const newStatus = !user.rows[0].suspended;
         await db.query("UPDATE Users SET suspended = $1 WHERE id = $2", [newStatus, req.params.id]);
@@ -120,9 +131,10 @@ router.put('/users/:id/suspend', requireAuth, requireAdmin, async (req, res) => 
 // Delete user (with transaction)
 router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const user = await db.query("SELECT username FROM Users WHERE id = $1", [req.params.id]);
+        const user = await db.query("SELECT username, role FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
-        if (user.rows[0].username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot delete the primary admin." });
+        if (user.rows[0].role === 'owner') return res.status(403).json({ error: "Cannot delete the owner." });
+        if (getRoleLevel(user.rows[0].role) >= getRoleLevel(req.user.role)) return res.status(403).json({ error: "Cannot delete a user of equal or higher rank." });
 
         const username = user.rows[0].username;
 
@@ -352,8 +364,8 @@ router.delete('/brands/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
-// Site analytics
-router.get('/analytics', requireAuth, requireAdmin, async (req, res) => {
+// Site analytics (moderators can view)
+router.get('/analytics', requireAuth, requireRole('moderator'), async (req, res) => {
     try {
         const totalUsers = await db.query("SELECT COUNT(*) as count FROM Users");
         const totalFigures = await db.query("SELECT COUNT(*) as count FROM Figures");
@@ -376,8 +388,8 @@ router.get('/analytics', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
-// Flagged posts
-router.get('/flags', requireAuth, requireAdmin, async (req, res) => {
+// Flagged posts (moderators can view + dismiss)
+router.get('/flags', requireAuth, requireRole('moderator'), async (req, res) => {
     try {
         const result = await db.query(`
             SELECT f.id, f.post_id, f.flagged_by, f.reason, f.created_at,
@@ -393,8 +405,8 @@ router.get('/flags', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
-// Dismiss flag
-router.delete('/flags/:id', requireAuth, requireAdmin, async (req, res) => {
+// Dismiss flag (moderators can dismiss)
+router.delete('/flags/:id', requireAuth, requireRole('moderator'), async (req, res) => {
     try {
         await db.query("DELETE FROM Flags WHERE id = $1", [req.params.id]);
         res.json({ message: "Flag dismissed." });
@@ -438,6 +450,82 @@ router.delete('/cleanup', requireAuth, requireAdmin, async (req, res) => {
         });
     } catch (err) {
         log.error('Admin cleanup error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// --- Leaderboard Controls --- //
+
+// Update leaderboard settings for a figure (admin: full control)
+router.put('/figures/:id/leaderboard', requireAuth, requireAdmin, async (req, res) => {
+    const { lb_pinned, lb_hidden, lb_rank_override, lb_category } = req.body;
+    try {
+        const fig = await db.query("SELECT id, name FROM Figures WHERE id = $1", [req.params.id]);
+        if (!fig.rows[0]) return res.status(404).json({ error: 'Figure not found.' });
+
+        const rankVal = (lb_rank_override !== null && lb_rank_override !== undefined && lb_rank_override !== '')
+            ? parseInt(lb_rank_override) : null;
+        const catVal = lb_category && lb_category.trim() ? lb_category.trim() : null;
+
+        await db.query(
+            "UPDATE Figures SET lb_pinned = $1, lb_hidden = $2, lb_rank_override = $3, lb_category = $4 WHERE id = $5",
+            [!!lb_pinned, !!lb_hidden, rankVal, catVal, req.params.id]
+        );
+
+        await auditLog('ADMIN_LB_UPDATE', req.user.username, fig.rows[0].name,
+            `Leaderboard: pinned=${!!lb_pinned}, hidden=${!!lb_hidden}, rank=${rankVal}, category=${catVal}`, req.ip);
+
+        res.json({ message: `Leaderboard settings updated for "${fig.rows[0].name}".` });
+    } catch (err) {
+        log.error('Admin leaderboard update error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Toggle figure visibility on leaderboard (moderators can hide/unhide)
+router.put('/figures/:id/visibility', requireAuth, requireRole('moderator'), async (req, res) => {
+    const { hidden } = req.body;
+    try {
+        const fig = await db.query("SELECT id, name FROM Figures WHERE id = $1", [req.params.id]);
+        if (!fig.rows[0]) return res.status(404).json({ error: 'Figure not found.' });
+
+        await db.query("UPDATE Figures SET lb_hidden = $1 WHERE id = $2", [!!hidden, req.params.id]);
+
+        await auditLog('MOD_LB_VISIBILITY', req.user.username, fig.rows[0].name,
+            `Leaderboard visibility: ${hidden ? 'hidden' : 'visible'}`, req.ip);
+
+        res.json({ message: `"${fig.rows[0].name}" ${hidden ? 'hidden from' : 'restored to'} leaderboard.` });
+    } catch (err) {
+        log.error('Moderator visibility toggle error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Get leaderboard-manageable figures (for admin panel)
+router.get('/figures/leaderboard-settings', requireAuth, requireRole('moderator'), async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT f.id, f.name, f.brand, f.lb_pinned, f.lb_hidden, f.lb_rank_override, f.lb_category,
+                   COUNT(s.id) as submission_count,
+                   AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+            FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+            GROUP BY f.id
+            HAVING COUNT(s.id) >= 1
+            ORDER BY f.name ASC
+        `);
+        res.json(result.rows.map(r => ({
+            id: r.id,
+            name: r.name,
+            brand: r.brand,
+            lbPinned: r.lb_pinned || false,
+            lbHidden: r.lb_hidden || false,
+            lbRankOverride: r.lb_rank_override,
+            lbCategory: r.lb_category,
+            submissions: parseInt(r.submission_count) || 0,
+            avgGrade: r.avg_grade ? parseFloat(parseFloat(r.avg_grade).toFixed(1)) : null
+        })));
+    } catch (err) {
+        log.error('Admin leaderboard settings error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });

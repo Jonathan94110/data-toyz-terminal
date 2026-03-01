@@ -277,10 +277,10 @@ class TerminalApp {
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                             <span class="nav-label">Documentation</span>
                         </div>
-                        ${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? `
+                        ${['owner', 'admin', 'moderator'].includes(this.user.role) ? `
                         <div class="nav-item ${this.currentView === 'admin' ? 'active' : ''}" data-view="admin" style="margin-top:1rem; border-top:1px solid var(--border-light); padding-top:1rem;">
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                            <span class="nav-label">Admin Panel</span>
+                            <span class="nav-label">${this.user.role === 'moderator' ? 'Mod Panel' : 'Admin Panel'}</span>
                         </div>
                         ` : ''}
                         <div id="pwaInstallBtn" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; display:${deferredInstallPrompt ? 'flex' : 'none'}; color:var(--accent);">
@@ -316,7 +316,7 @@ class TerminalApp {
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${escapeHTML(this.user.username)}</div>
-                                <div style="font-size:0.75rem; color:${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '#fbbf24' : 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '★ Admin' : 'Analyst'}</div>
+                                <div style="font-size:0.75rem; color:${{'owner':'#a855f7','admin':'#fbbf24','moderator':'#3b82f6'}[this.user.role] || 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${{'owner':'\u{2B50} Owner','admin':'\u{2605} Admin','moderator':'\u{1F6E1}\u{FE0F} Moderator'}[this.user.role] || 'Analyst'}</div>
                                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">View Profile</div>
                             </div>
                             </div>
@@ -467,7 +467,7 @@ class TerminalApp {
         else if (this.currentView === 'profile') this.renderProfile(contentArea);
         else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
         else if (this.currentView === 'docs') this.renderDocs(contentArea);
-        else if (this.currentView === 'admin' && (this.user.role === 'admin' || this.user.username === 'Prime Dynamixx')) this.renderAdmin(contentArea);
+        else if (this.currentView === 'admin' && ['owner', 'admin', 'moderator'].includes(this.user.role)) this.renderAdmin(contentArea);
     }
 }
 

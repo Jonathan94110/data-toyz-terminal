@@ -164,9 +164,9 @@ TerminalApp.prototype.renderProfile = function(container) {
                         </div>
 
                         <!-- Row: Flagged Posts (Admin Only) -->
-                        ${this.user.role === 'admin' ? `
+                        ${['owner', 'admin', 'moderator'].includes(this.user.role) ? `
                         <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
-                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when posts are flagged <span style="color:#fbbf24; font-size:0.75rem;">★ Admin</span></span>
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when posts are flagged <span style="color:${{owner:'#a855f7',admin:'#fbbf24',moderator:'#3b82f6'}[this.user.role]}; font-size:0.75rem;">${{owner:'\u{2B50} Owner',admin:'\u{2605} Admin',moderator:'\u{1F6E1}\u{FE0F} Mod'}[this.user.role]}</span></span>
                             <div style="display:flex; gap:0; flex-shrink:0;">
                                 <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
                                     <input type="checkbox" class="notifPref notif-toggle" data-key="flag_email">

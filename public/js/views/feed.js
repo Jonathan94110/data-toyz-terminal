@@ -144,7 +144,7 @@ TerminalApp.prototype.renderFeed = async function (container) {
 
             const isSharedPost = sharedPostId && p.id == sharedPostId;
             const isMyPost = p.author === this.user.username;
-            const isAdmin = this.user.role === 'admin';
+            const isAdmin = ['owner', 'admin', 'moderator'].includes(this.user.role);
 
             // Post action buttons (edit/delete for author, admin delete, flag, share)
             let postActionsHtml = '<div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">';

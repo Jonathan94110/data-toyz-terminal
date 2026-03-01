@@ -1,6 +1,6 @@
 // views/docs.js — Documentation
 TerminalApp.prototype.renderDocs = function(container) {
-        const isAdmin = this.user && this.user.role === 'admin';
+        const isAdmin = this.user && ['owner', 'admin'].includes(this.user.role);
         const sections = [
             { id: 'overview', title: 'Platform Overview' },
             { id: 'navigation', title: 'Navigation Guide' },

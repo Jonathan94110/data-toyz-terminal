@@ -2,6 +2,10 @@ const jwt = require('jsonwebtoken');
 const db = require('../db.js');
 const { JWT_SECRET } = require('../helpers/config');
 
+// --- Role hierarchy: owner > admin > moderator > analyst --- //
+const ROLE_HIERARCHY = { owner: 4, admin: 3, moderator: 2, analyst: 1 };
+function getRoleLevel(role) { return ROLE_HIERARCHY[role] || 1; }
+
 // --- LRU user cache (15-second TTL) to avoid DB hit on every request --- //
 const userCache = new Map();
 const USER_CACHE_TTL = 15000;
@@ -68,10 +72,23 @@ async function requireAuth(req, res, next) {
     }
 }
 
+// Granular role gate: requireRole('moderator') allows moderator, admin, and owner
+function requireRole(minRole) {
+    return function(req, res, next) {
+        if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
+        if (getRoleLevel(req.user.role) < getRoleLevel(minRole)) {
+            return res.status(403).json({ error: 'Insufficient clearance level.' });
+        }
+        next();
+    };
+}
+
 function requireAdmin(req, res, next) {
     if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Insufficient clearance level.' });
+    if (getRoleLevel(req.user.role) < getRoleLevel('admin')) {
+        return res.status(403).json({ error: 'Insufficient clearance level.' });
+    }
     next();
 }
 
-module.exports = { requireAuth, requireAdmin, invalidateUserCache };
+module.exports = { requireAuth, requireAdmin, requireRole, invalidateUserCache, getRoleLevel, ROLE_HIERARCHY };

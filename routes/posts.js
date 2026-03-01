@@ -45,7 +45,7 @@ router.get('/', async (req, res) => {
                 const token = authHeader.split(' ')[1];
                 const decoded = jwt.verify(token, JWT_SECRET);
                 const userResult = await db.query("SELECT role FROM Users WHERE id = $1", [decoded.id]);
-                if (userResult.rows[0] && userResult.rows[0].role === 'admin') {
+                if (userResult.rows[0] && ['owner', 'admin', 'moderator'].includes(userResult.rows[0].role)) {
                     const flagsRes = await db.query("SELECT post_id, COUNT(*) as flag_count FROM Flags GROUP BY post_id");
                     const flagMap = {};
                     flagsRes.rows.forEach(f => { flagMap[f.post_id] = parseInt(f.flag_count); });
@@ -219,7 +219,7 @@ router.delete('/:postId', requireAuth, async (req, res) => {
         if (!post.rows[0]) return res.status(404).json({ error: "Broadcast not found." });
 
         const isAuthor = post.rows[0].author === req.user.username;
-        const isAdmin = req.user.role === 'admin';
+        const isAdmin = ['owner', 'admin', 'moderator'].includes(req.user.role);
 
         if (!isAuthor && !isAdmin) {
             return res.status(403).json({ error: "You can only delete your own broadcasts." });

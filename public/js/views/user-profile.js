@@ -30,7 +30,7 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                             <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${escapeHTML(profile.username)}</h2>
                             <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
                                 <span style="color:${titleColors[profile.title] || 'var(--text-muted)'}; font-weight:700; font-size:0.9rem; border:1px solid; padding:0.2rem 0.6rem; border-radius:4px;">${escapeHTML(profile.title)}</span>
-                                ${profile.role === 'admin' ? '<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">\u2605 ADMIN</span>' : ''}
+                                ${{'owner':'<span style="color:#a855f7; font-weight:700; font-size:0.8rem;">\u{2B50} OWNER</span>','admin':'<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">\u2605 ADMIN</span>','moderator':'<span style="color:#3b82f6; font-weight:700; font-size:0.8rem;">\u{1F6E1}\u{FE0F} MOD</span>'}[profile.role] || ''}
                                 <span style="color:var(--text-muted); font-size:0.85rem;">Joined ${new Date(profile.joinDate).toLocaleDateString()}</span>
                             </div>
                         </div>
