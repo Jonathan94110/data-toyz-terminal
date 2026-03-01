@@ -82,7 +82,18 @@ TerminalApp.prototype.renderDocs = function(container) {
                             <tr><td style="padding:0.6rem 1rem; font-weight:600;">Admin Panel</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Admin-only: manage users, figures, and view analytics</td></tr>
                         </tbody>
                     </table>
-                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The theme toggle at the bottom switches between Dark Mode and Light Mode. Your current view is preserved across page reloads.</p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-top:1rem; margin-bottom:0.75rem;"><strong>Topbar:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Global Search</strong> &mdash; Search across targets, users, and intel from the top search bar</li>
+                        <li><strong>Notifications</strong> &mdash; Bell icon shows unread count; click to expand the notifications panel</li>
+                        <li><strong>View Profile</strong> &mdash; Click your avatar or username in the top-right corner to open your operative dossier</li>
+                        <li><strong>Sign Out</strong> &mdash; Log out of the terminal via the exit icon</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Browser Navigation:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        The terminal supports browser back and forward buttons. Navigating between views creates browser history entries, so you can use your browser's back/forward buttons (or swipe gestures on mobile) to move between previously visited pages within the app.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">The theme toggle at the bottom switches between Dark Mode and Light Mode. The sidebar can be collapsed for more screen space. Your current view is preserved across page reloads.</p>
                 </div>
 
                 <!-- 03. COMMS FEED -->
@@ -384,16 +395,20 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Recent Intel</strong> &mdash; A list of their most recent submissions with grades</li>
                         <li><strong>Follower / Following Counts</strong> &mdash; See how many operatives follow them and how many they follow. Click either count to expand an inline list showing usernames with avatars. Each name is clickable to visit that operative's dossier.</li>
                     </ul>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Following:</strong></p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Following & Messaging:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li><strong>Follow</strong> &mdash; Click the "Follow" button on any operative's dossier to follow them. You will be notified when they post new intel.</li>
-                        <li><strong>Unfollow</strong> &mdash; Click "Unfollow" to stop receiving notifications about their activity.</li>
+                        <li><strong>Unfollow</strong> &mdash; Click "Following" to unfollow and stop receiving notifications about their activity.</li>
+                        <li><strong>\u{1F4AC} Send Message</strong> &mdash; Click "Send Message" on any operative's dossier to start a private DM conversation with them.</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Your Profile:</strong></p>
                     <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
-                        Your own dossier is accessible from Profile Settings or by clicking your username. Other operatives can see your public stats, submission history, and follower counts.
+                        Your own dossier is accessible by clicking your avatar or username in the top-right corner of the topbar. It shows your stats, submission history, and follower counts.
                     </p>
-                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: Click "Open Secure Channel" on any operative's profile to start a private DM with them.</p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>\u{1F4AC} New Message</strong> &mdash; On your own profile, click "New Message" to search for an operative by username and start a DM conversation directly from your dossier.</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Tip: You can also start DMs from the "DMs & Group Chats" section, or click any operative's username anywhere on the platform to visit their dossier and message them.</p>
                 </div>
 
                 <!-- 14. FLAGGING A POST -->
