@@ -1,12 +1,24 @@
 # Data Toyz Terminal — Developer Roadmap
 
 **Issued:** 2026-02-27
-**Updated:** 2026-02-28
+**Updated:** 2026-03-01
 **Priority:** High — User concurrency is scaling and the platform needs both feature parity and infrastructure hardening before the next growth wave.
 
 ---
 
 ## Changelog
+
+### 2026-03-01 — Leaderboard System + Permission Roles + Pop Count
+- **Figure Leaderboard page**: New dedicated leaderboard for figures with 4 modes (Top Rated, Rising, Most Reviewed, Sleepers), brand filtering, podium display, pagination, and price/grade/pop data columns
+- **Permission Roles (4-tier hierarchy)**: `Owner > Admin > Moderator > Analyst` with `requireRole()` middleware, numeric level comparison via `getRoleLevel()`, and role-aware UI across all views
+- **Admin Leaderboard Controls**: Pin/unpin figures to top, hide/show from leaderboard, manual rank override, category assignment — all accessible from the admin panel with role-appropriate permissions
+- **Community Pop Count**: New `ownership_status` field on submissions ("In Hand" / "Digital Only"), unique owner tracking per figure, Pop Count cards on figure detail pages, owner counts on leaderboard
+- **Moderator role access**: Limited admin panel with analytics dashboard, flag management, and leaderboard visibility toggles
+- **Admin panel overhaul**: Role dropdown for user management (replaces toggle), dynamic role badges, protected Owner account, conditional section rendering based on role
+- **In-app documentation**: Updated docs for Figure Leaderboard, Pop Count, and Permission Roles system
+- **Code cleanup**: Extracted shared helpers in `routes/figures.js` (DRY price map builders, date ranges, query functions)
+- **Backend**: 3 new admin endpoints for leaderboard control; updated all role checks from `=== 'admin'` to hierarchy-based; batch notification inserts for figure creation
+- **Database**: `ownership_status` column + index on Submissions, `owner` role migration for admin user
 
 ### 2026-02-28 — UI Refresh & Market Pulse
 - **Sidebar redesign**: All nav items now use SVG icons + labels; sidebar is collapsible (persisted in localStorage)
@@ -314,8 +326,13 @@ Completed (not in original roadmap):
   - UI Refresh (icons, collapsible sidebar, login)  ← DONE (2026-02-28)
   - Auth brute-force rate limiter                   ← DONE (2026-02-28)
   - Vercel/SW cleanup                               ← DONE (2026-02-28)
+  - Figure Leaderboard (modes, filtering, podium)   ← DONE (2026-03-01)
+  - Permission Roles (owner>admin>mod>analyst)       ← DONE (2026-03-01)
+  - Admin Leaderboard Controls (pin/hide/rank/cat)   ← DONE (2026-03-01)
+  - Community Pop Count (ownership + unique owners)  ← DONE (2026-03-01)
+  - Code cleanup (DRY figures.js, docs update)       ← DONE (2026-03-01)
 ```
 
 ---
 
-*Generated from codebase analysis on 2026-02-27. Updated 2026-02-28 with completion status. All file references and query patterns verified against the live repository.*
+*Generated from codebase analysis on 2026-02-27. Updated 2026-03-01 with completion status. All file references and query patterns verified against the live repository.*

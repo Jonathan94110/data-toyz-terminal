@@ -6,6 +6,47 @@ const { normalizeRows } = require('../helpers/normalize');
 const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
 
+// Shared helpers for market data endpoints
+function getDateRanges() {
+    const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const d60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+    return { d30, d60 };
+}
+
+function latestPriceQuery() {
+    return db.query(`
+        SELECT DISTINCT ON (figure_id) figure_id, price_avg as latest_price
+        FROM MarketTransactions
+        WHERE price_type = 'secondary_market'
+        ORDER BY figure_id, created_at DESC
+    `);
+}
+
+function priceChangeQuery(d30, d60) {
+    return db.query(`
+        SELECT figure_id,
+               AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_30d,
+               AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_30d
+        FROM MarketTransactions
+        WHERE price_type = 'secondary_market'
+        GROUP BY figure_id
+    `, [d30, d60]);
+}
+
+function buildPriceMaps(priceRows, changeRows) {
+    const priceMap = {};
+    for (const row of priceRows) priceMap[row.figure_id] = parseFloat(row.latest_price);
+    const changeMap = {};
+    for (const row of changeRows) {
+        const avg30 = row.avg_30d ? parseFloat(row.avg_30d) : null;
+        const avgPrior = row.avg_prior_30d ? parseFloat(row.avg_prior_30d) : null;
+        changeMap[row.figure_id] = (avg30 !== null && avgPrior !== null && avgPrior !== 0)
+            ? parseFloat((((avg30 - avgPrior) / avgPrior) * 100).toFixed(1))
+            : null;
+    }
+    return { priceMap, changeMap };
+}
+
 // Get all figures
 router.get('/', async (req, res) => {
     try {
@@ -229,51 +270,21 @@ router.get('/market-ranked', async (req, res) => {
         const order = req.query.order === 'asc' ? 'asc' : 'desc';
         const brand = req.query.brand || null;
 
-        const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const d60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+        const { d30, d60 } = getDateRanges();
 
-        // Query 1: Figures + submission aggregates
-        const q1 = db.query(`
-            SELECT f.id, f.name, f.brand, f.classTie, f.line,
-                   COUNT(s.id) as submission_count,
-                   AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
-            FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
-            GROUP BY f.id, f.name, f.brand, f.classTie, f.line
-        `);
+        const [r1, r2, r3] = await Promise.all([
+            db.query(`
+                SELECT f.id, f.name, f.brand, f.classTie, f.line,
+                       COUNT(s.id) as submission_count,
+                       AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+                FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+                GROUP BY f.id, f.name, f.brand, f.classTie, f.line
+            `),
+            latestPriceQuery(),
+            priceChangeQuery(d30, d60)
+        ]);
 
-        // Query 2: Latest secondary market price per figure
-        const q2 = db.query(`
-            SELECT DISTINCT ON (figure_id) figure_id, price_avg as latest_price, created_at
-            FROM MarketTransactions
-            WHERE price_type = 'secondary_market'
-            ORDER BY figure_id, created_at DESC
-        `);
-
-        // Query 3: 30-day avg and prior-30-day avg per figure
-        const q3 = db.query(`
-            SELECT figure_id,
-                   AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_30d,
-                   AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_30d
-            FROM MarketTransactions
-            WHERE price_type = 'secondary_market'
-            GROUP BY figure_id
-        `, [d30, d60]);
-
-        const [r1, r2, r3] = await Promise.all([q1, q2, q3]);
-
-        // Build lookup maps for query 2 and 3 by figure_id
-        const priceMap = {};
-        for (const row of r2.rows) {
-            priceMap[row.figure_id] = parseFloat(row.latest_price);
-        }
-        const changeMap = {};
-        for (const row of r3.rows) {
-            const avg30 = row.avg_30d ? parseFloat(row.avg_30d) : null;
-            const avgPrior = row.avg_prior_30d ? parseFloat(row.avg_prior_30d) : null;
-            changeMap[row.figure_id] = (avg30 !== null && avgPrior !== null && avgPrior !== 0)
-                ? parseFloat((((avg30 - avgPrior) / avgPrior) * 100).toFixed(1))
-                : null;
-        }
+        const { priceMap, changeMap } = buildPriceMaps(r2.rows, r3.rows);
 
         // Merge all by figure id
         let merged = r1.rows.map(r => ({
@@ -319,53 +330,25 @@ router.get('/leaderboard', async (req, res) => {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 25));
 
-        const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const d60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+        const { d30, d60 } = getDateRanges();
 
-        // Query 1: Figures + submission aggregates (exclude hidden)
-        const q1 = db.query(`
-            SELECT f.id, f.name, f.brand, f.classTie, f.line, f.msrp,
-                   f.lb_pinned, f.lb_rank_override, f.lb_category,
-                   COUNT(s.id) as submission_count,
-                   AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade,
-                   COUNT(CASE WHEN COALESCE(s.ownership_status, 'in_hand') = 'in_hand' THEN 1 END) as in_hand_count,
-                   COUNT(DISTINCT CASE WHEN COALESCE(s.ownership_status, 'in_hand') = 'in_hand' THEN s.author END) as unique_owner_count
-            FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
-            WHERE COALESCE(f.lb_hidden, false) = false
-            GROUP BY f.id
-        `);
+        const [r1, r2, r3] = await Promise.all([
+            db.query(`
+                SELECT f.id, f.name, f.brand, f.classTie, f.line, f.msrp,
+                       f.lb_pinned, f.lb_rank_override, f.lb_category,
+                       COUNT(s.id) as submission_count,
+                       AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade,
+                       COUNT(CASE WHEN COALESCE(s.ownership_status, 'in_hand') = 'in_hand' THEN 1 END) as in_hand_count,
+                       COUNT(DISTINCT CASE WHEN COALESCE(s.ownership_status, 'in_hand') = 'in_hand' THEN s.author END) as unique_owner_count
+                FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+                WHERE COALESCE(f.lb_hidden, false) = false
+                GROUP BY f.id
+            `),
+            latestPriceQuery(),
+            priceChangeQuery(d30, d60)
+        ]);
 
-        // Query 2: Latest secondary market price per figure
-        const q2 = db.query(`
-            SELECT DISTINCT ON (figure_id) figure_id, price_avg as latest_price
-            FROM MarketTransactions
-            WHERE price_type = 'secondary_market'
-            ORDER BY figure_id, created_at DESC
-        `);
-
-        // Query 3: 30-day vs prior-30-day price averages
-        const q3 = db.query(`
-            SELECT figure_id,
-                   AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_30d,
-                   AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_30d
-            FROM MarketTransactions
-            WHERE price_type = 'secondary_market'
-            GROUP BY figure_id
-        `, [d30, d60]);
-
-        const [r1, r2, r3] = await Promise.all([q1, q2, q3]);
-
-        // Build lookup maps
-        const priceMap = {};
-        for (const row of r2.rows) priceMap[row.figure_id] = parseFloat(row.latest_price);
-        const changeMap = {};
-        for (const row of r3.rows) {
-            const avg30 = row.avg_30d ? parseFloat(row.avg_30d) : null;
-            const avgPrior = row.avg_prior_30d ? parseFloat(row.avg_prior_30d) : null;
-            changeMap[row.figure_id] = (avg30 !== null && avgPrior !== null && avgPrior !== 0)
-                ? parseFloat((((avg30 - avgPrior) / avgPrior) * 100).toFixed(1))
-                : null;
-        }
+        const { priceMap, changeMap } = buildPriceMaps(r2.rows, r3.rows);
 
         // Merge all data
         let merged = r1.rows.map(r => {

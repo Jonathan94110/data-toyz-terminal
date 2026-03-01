@@ -12,6 +12,7 @@ TerminalApp.prototype.renderDocs = function(container) {
             { id: 'market-pulse', title: 'Market Pulse Dashboard' },
             { id: 'intel-history', title: 'My Intel History' },
             { id: 'leaderboards', title: 'Global Leaderboard & Ranks' },
+            { id: 'figure-leaderboard', title: 'Figure Leaderboard' },
             { id: 'profile', title: 'Profile Settings' },
             { id: 'notifications', title: 'Notifications' },
             { id: 'profiles-following', title: 'User Profiles & Following' },
@@ -231,6 +232,17 @@ TerminalApp.prototype.renderDocs = function(container) {
                     <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
                         After submitting, you can edit any of your own reports from <strong>My Intel History</strong>. Click \u{270F}\u{FE0F} Edit &mdash; the form reopens pre-populated with your original data. Update any fields (DTS scores, risk forecasting, physical quality, evidence image, market price, recommendation, star rating) and save. Edited reports display an <em>(edited)</em> indicator next to the submission date.
                     </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Ownership Status &amp; Pop Count:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        At the top of every Trade Scan form, you must declare your ownership status:
+                    </p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong style="color:#10b981;">In Hand (Physically Owned)</strong> &mdash; You physically possess this figure. Your submission counts toward the figure's <strong>Community Pop Count</strong> (unique verified owners).</li>
+                        <li><strong style="color:#6366f1;">Observed / Digital Review Only</strong> &mdash; You are reviewing based on online research or photos. This does not count toward the Pop Count.</li>
+                    </ul>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        The Pop Count appears on each figure's Market Pulse detail page as a 4-stat card: <strong>Unique Owners</strong>, <strong>In-Hand Reports</strong>, <strong>Digital Reviews</strong>, and <strong>Total Submissions</strong>. It also appears as an owner count on the Figure Leaderboard. This community-driven metric provides rarity and demand intelligence.
+                    </p>
                     <p style="color:var(--text-muted); font-size:0.85rem;">Each submission is recorded and visible to the entire community. You can edit or retract your own submissions from My Intel History.</p>
                 </div>
 
@@ -328,6 +340,31 @@ TerminalApp.prototype.renderDocs = function(container) {
                             <tr><td style="padding:0.6rem 1rem;">15+</td><td style="padding:0.6rem 1rem; font-weight:600; color:#a78bfa;">Prime Intel Officer</td></tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- 10b. FIGURE LEADERBOARD -->
+                <div id="doc-figure-leaderboard" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">10b. Figure Leaderboard</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The Figure Leaderboard ranks action figures by community data. Access it from the sidebar under <strong>Figure Leaderboard</strong>. The top 3 figures display on a podium with medals.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Leaderboard Modes:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Top Rated</strong> &mdash; Sorted by average community grade (default)</li>
+                        <li><strong>Rising</strong> &mdash; Figures with positive 30-day price momentum</li>
+                        <li><strong>Most Reviewed</strong> &mdash; Sorted by total submission count</li>
+                        <li><strong>Sleepers</strong> &mdash; Under-reviewed figures (1&ndash;5 submissions) with high grades (&ge;70)</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Data Columns:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Grade</strong> &mdash; Average DTS + Physical Quality score</li>
+                        <li><strong>Price</strong> &mdash; Latest secondary market price</li>
+                        <li><strong>MSRP Diff</strong> &mdash; Percentage above or below retail MSRP</li>
+                        <li><strong>30d Change</strong> &mdash; Price trend over the last 30 days</li>
+                        <li><strong>Pop</strong> &mdash; Unique verified owners (Community Pop Count)</li>
+                        <li><strong>Reviews</strong> &mdash; Total intel submissions</li>
+                    </ul>
+                    <p style="color:var(--text-secondary); line-height:1.8;">Use the brand filter dropdown to narrow results by manufacturer. Results are paginated (25 per page).</p>
                 </div>
 
                 <!-- 11. PROFILE SETTINGS -->
@@ -439,50 +476,73 @@ TerminalApp.prototype.renderDocs = function(container) {
                 <div id="doc-admin" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Admin Panel</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The Admin Panel is only visible to operatives with the <strong>admin</strong> role. It provides full control over the platform:
+                        The Admin Panel is visible to operatives with the <strong>Owner</strong>, <strong>Admin</strong>, or <strong>Moderator</strong> role. Access and capabilities depend on your permission level.
                     </p>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Analytics Dashboard:</strong></p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Permission Roles:</strong></p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Role</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Access Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600; color:#a855f7;">&#11088; Owner</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Full platform control. Can promote users to Admin. Protected from demotion or deletion.</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600; color:#fbbf24;">&#9733; Admin</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Full panel access: users, figures, brands, analytics, flags, leaderboard controls. Can assign Analyst and Moderator roles.</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600; color:#3b82f6;">&#128737;&#65039; Moderator</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Analytics dashboard, flag management, and leaderboard visibility toggles. Cannot manage users, figures, or brands.</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; font-weight:600; color:var(--accent);">Analyst</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Standard operative. No admin panel access.</td></tr>
+                        </tbody>
+                    </table>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Analytics Dashboard:</strong> <span style="color:var(--text-muted); font-size:0.85rem;">(All staff roles)</span></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
                         <li>Total figures, users, submissions, and posts at a glance</li>
                         <li>Top contributors ranked by submission count</li>
                     </ul>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Management:</strong></p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Leaderboard Controls:</strong> <span style="color:var(--text-muted); font-size:0.85rem;">(Moderator+)</span></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li>Edit figure details (name, brand, class tier, product line)</li>
-                        <li>Delete figures and all associated intel reports</li>
-                        <li><strong>Search &amp; Pagination</strong> &mdash; Search bar to filter figures by name or brand, with paginated results (20 per page)</li>
+                        <li><strong>Visibility Toggle</strong> &mdash; Hide or show figures on the public Figure Leaderboard (Moderator+)</li>
+                        <li><strong>Pin Toggle</strong> &mdash; Pin figures to the top of the leaderboard (Admin only)</li>
+                        <li><strong>Rank Override</strong> &mdash; Manually set a figure's leaderboard position (Admin only)</li>
+                        <li><strong>Category</strong> &mdash; Assign figures to leaderboard categories like "rising" or "sleeper" (Admin only)</li>
+                        <li>Searchable table with all figures and their current leaderboard settings</li>
                     </ul>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>User Management:</strong></p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Flagged Posts Queue:</strong> <span style="color:var(--text-muted); font-size:0.85rem;">(Moderator+)</span></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li>Add new users manually</li>
-                        <li>Promote or demote users (Analyst / Admin)</li>
-                        <li>Suspend or reinstate user accounts</li>
-                        <li>Reset a user's password (admin backup)</li>
-                        <li>Delete user accounts permanently</li>
-                        <li><strong>Search &amp; Pagination</strong> &mdash; Search bar to filter users by username or email, with paginated results (20 per page)</li>
-                    </ul>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Pending Brand Requests:</strong></p>
-                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li>When a non-admin operative submits a figure with a new brand, it appears here for review</li>
-                        <li>Each request shows the brand name, requesting operative, associated figure name, and submission date</li>
-                        <li><strong>Approve</strong> &mdash; Adds the brand to the approved list so all operatives can use it</li>
-                        <li><strong>Reject</strong> &mdash; Removes the pending request without approving the brand</li>
-                        <li>This section only appears when there are pending requests</li>
-                    </ul>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Approved Brands:</strong></p>
-                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
-                        <li>View and manage the full list of admin-approved brands</li>
-                        <li>Add new brands directly</li>
-                        <li>Remove brands that are no longer needed</li>
-                    </ul>
-                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Flagged Posts Queue:</strong></p>
-                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem;">
                         <li>Review broadcasts reported by the community</li>
                         <li>View the post content, flag count, and reporter reasons</li>
                         <li>Dismiss flags if the content is acceptable</li>
                         <li>Delete the flagged broadcast if it violates community guidelines</li>
                     </ul>
-                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The primary admin account (Prime Dynamixx) is protected and cannot be demoted, suspended, or deleted.</p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Management:</strong> <span style="color:var(--text-muted); font-size:0.85rem;">(Admin only)</span></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Edit figure details (name, brand, class tier, product line, MSRP)</li>
+                        <li>Merge duplicate figures</li>
+                        <li>Delete figures and all associated intel reports</li>
+                        <li><strong>Search &amp; Pagination</strong> &mdash; Search bar to filter figures by name or brand, with paginated results (20 per page)</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>User Management:</strong> <span style="color:var(--text-muted); font-size:0.85rem;">(Admin only)</span></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Add new users manually with a selected role</li>
+                        <li>Assign roles via dropdown: Analyst, Moderator, or Admin (only Owner can promote to Admin)</li>
+                        <li>Suspend or reinstate user accounts</li>
+                        <li>Reset a user's password (admin backup)</li>
+                        <li>Delete user accounts permanently</li>
+                        <li>Higher-ranked users are protected from actions by lower-ranked users</li>
+                        <li><strong>Search &amp; Pagination</strong> &mdash; Search bar to filter users by username or email, with paginated results (20 per page)</li>
+                    </ul>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Brand Management:</strong> <span style="color:var(--text-muted); font-size:0.85rem;">(Admin only)</span></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Pending Requests</strong> &mdash; Approve or reject brand submissions from non-admin operatives</li>
+                        <li><strong>Approved Brands</strong> &mdash; View, rename, add, or remove brands from the approved list</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:1rem;">The Owner account is protected and cannot be demoted, suspended, or deleted through the admin panel.</p>
                 </div>
 
                 <!-- 16. SECURITY & AUTHENTICATION -->
