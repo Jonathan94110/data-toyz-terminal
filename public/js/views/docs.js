@@ -1,5 +1,6 @@
 // views/docs.js — Documentation
 TerminalApp.prototype.renderDocs = function(container) {
+        const isAdmin = this.user && this.user.role === 'admin';
         const sections = [
             { id: 'overview', title: 'Platform Overview' },
             { id: 'navigation', title: 'Navigation Guide' },
@@ -15,9 +16,11 @@ TerminalApp.prototype.renderDocs = function(container) {
             { id: 'notifications', title: 'Notifications' },
             { id: 'profiles-following', title: 'User Profiles & Following' },
             { id: 'flagging', title: 'Flagging a Post' },
-            { id: 'admin', title: 'Admin Panel' },
-            { id: 'security', title: 'Security & Authentication' },
-            { id: 'soc2', title: 'SOC 2 Alignment' },
+            ...(isAdmin ? [
+                { id: 'admin', title: 'Admin Panel' },
+                { id: 'security', title: 'Security & Authentication' },
+                { id: 'soc2', title: 'SOC 2 Alignment' },
+            ] : []),
             { id: 'glossary', title: 'Glossary' }
         ];
 
@@ -25,7 +28,7 @@ TerminalApp.prototype.renderDocs = function(container) {
             <div style="max-width:860px; margin:0 auto; padding-bottom:4rem;">
                 <div style="margin-bottom:2.5rem; text-align:center;">
                     <h2 style="font-size:2.5rem; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Data Toyz Documentation</h2>
-                    <p style="color:var(--text-secondary); font-size:1.1rem;">Comprehensive field manual for all Data Toyz operations.</p>
+                    <p style="color:var(--text-secondary); font-size:1.1rem;">Comprehensive field manual for all Data Toyz operations.${isAdmin ? ' <span style="color:var(--accent); font-weight:600;">[Admin View]</span>' : ''}</p>
                 </div>
 
                 <!-- TABLE OF CONTENTS -->
@@ -416,6 +419,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                     <p style="color:var(--text-muted); font-size:0.85rem;">Please flag responsibly. Flagging is meant for content that genuinely violates community standards.</p>
                 </div>
 
+                ${isAdmin ? `
                 <!-- 15. ADMIN PANEL -->
                 <div id="doc-admin" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Admin Panel</h3>
@@ -593,10 +597,11 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li>No third-party tracking or analytics</li>
                     </ul>
                 </div>
+                ` : ''}
 
-                <!-- 18. GLOSSARY -->
+                <!-- GLOSSARY -->
                 <div id="doc-glossary" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">18. Glossary</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">${isAdmin ? '18' : '15'}. Glossary</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Data Toyz Terminal uses intelligence/spy-themed terminology throughout the platform:
                     </p>
