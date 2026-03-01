@@ -19,7 +19,8 @@ router.get('/', async (req, res) => {
 
 // Create new figure
 router.post('/', requireAuth, async (req, res) => {
-    const { name, brand, classTie, line } = req.body;
+    const { name, classTie, line } = req.body;
+    const brand = (req.body.brand || '').trim();
     if (!name || !brand || !classTie || !line) {
         return res.status(400).json({ error: "Missing required figure fields." });
     }

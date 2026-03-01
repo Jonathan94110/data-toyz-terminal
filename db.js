@@ -419,10 +419,14 @@ async function initDB() {
             UNIQUE(name)
         )`);
 
+        // Trim trailing/leading whitespace from brand names in Figures and ApprovedBrands
+        await pool.query(`UPDATE Figures SET brand = TRIM(brand) WHERE brand != TRIM(brand)`);
+        await pool.query(`UPDATE ApprovedBrands SET name = TRIM(name) WHERE name != TRIM(name)`);
+
         // Remove duplicate brand rows (keep lowest id per case-insensitive name)
         await pool.query(`
             DELETE FROM ApprovedBrands a USING ApprovedBrands b
-            WHERE a.id > b.id AND LOWER(a.name) = LOWER(b.name)
+            WHERE a.id > b.id AND LOWER(TRIM(a.name)) = LOWER(TRIM(b.name))
         `);
 
         // Ensure unique index exists (CREATE TABLE IF NOT EXISTS won't add constraints to existing tables)
@@ -433,8 +437,8 @@ async function initDB() {
         if (parseInt(abCheck.rows[0].c, 10) === 0) {
             await pool.query(`
                 INSERT INTO ApprovedBrands (name, approved_by, created_at)
-                SELECT DISTINCT brand, 'system', '${new Date().toISOString()}'
-                FROM Figures WHERE brand IS NOT NULL AND brand != ''
+                SELECT DISTINCT TRIM(brand), 'system', '${new Date().toISOString()}'
+                FROM Figures WHERE brand IS NOT NULL AND TRIM(brand) != ''
                 ON CONFLICT (name) DO NOTHING
             `);
         }

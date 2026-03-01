@@ -13,7 +13,7 @@ TerminalApp.prototype.renderSearch = async function(container) {
     let currentTier = '';
     let currentGradeMin = 0;
     let currentBrand = '';
-    const uniqueBrands = [...new Set(rankedFigures.map(f => f.brand))].sort();
+    const uniqueBrands = [...new Set(rankedFigures.map(f => (f.brand || '').trim()))].filter(Boolean).sort();
     const uniqueTiers = [...new Set(rankedFigures.map(f => f.classTie).filter(Boolean))].sort();
 
     container.innerHTML = `
@@ -92,7 +92,7 @@ TerminalApp.prototype.renderSearch = async function(container) {
 
         // Brand filter
         if (currentBrand) {
-            results = results.filter(f => f.brand === currentBrand);
+            results = results.filter(f => (f.brand || '').trim() === currentBrand);
         }
 
         // Tier filter
