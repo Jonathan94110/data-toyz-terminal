@@ -103,7 +103,7 @@ TerminalApp.prototype.renderDashboard = async function (container) {
         const emptyTitle = q ? `No results matching "${escapeHTML(q)}"` : 'No intelligence logs yet';
         const emptyDesc = q
             ? 'Try a different search term.'
-            : 'Submit your first intelligence report by visiting Score Figure and assessing a target.';
+            : 'Submit your first intelligence report by visiting Action Figure Registration and assessing a target.';
 
         contentHtml = `
             <div class="empty-state" style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md);">

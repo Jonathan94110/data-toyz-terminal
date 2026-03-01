@@ -200,13 +200,13 @@ class TerminalApp {
         this.appEl.innerHTML = `
             <div class="app-layout animate-mount">
                 <aside class="sidebar${sidebarCollapsed ? ' collapsed' : ''}">
-                    <div class="sidebar-brand" style="cursor:pointer; display: flex; flex-direction: column; align-items: center; text-align: center;" onclick="app.currentView='feed'; app.renderApp();">
+                    <div class="sidebar-brand" style="cursor:pointer; display: flex; flex-direction: column; align-items: center; text-align: center;" onclick="app.currentView='search'; app.renderApp();">
                         <img src="logo.png" alt="Data Toyz Logo" class="sidebar-logo" style="max-height: 120px; width: auto; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));">
                     </div>
                     <nav class="sidebar-nav">
                         <div class="nav-item ${this.currentView === 'search' ? 'active' : ''}" data-view="search">
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                            <span class="nav-label">Score Figure</span>
+                            <span class="nav-label">Action Figure Registration</span>
                         </div>
                         <div class="nav-item ${this.currentView === 'feed' ? 'active' : ''}" data-view="feed">
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
