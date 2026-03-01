@@ -57,7 +57,7 @@ TerminalApp.prototype.renderAddTarget = function(container) {
         try {
             const res = await fetch(`${API_URL}/figures/brands`);
             if (res.ok) {
-                const brands = await res.json();
+                const brands = [...new Set(await res.json())];
                 const sel = document.getElementById('brandSelect');
                 if (sel) {
                     brands.forEach(b => {

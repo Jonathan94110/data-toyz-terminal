@@ -419,6 +419,15 @@ async function initDB() {
             UNIQUE(name)
         )`);
 
+        // Remove duplicate brand rows (keep lowest id per case-insensitive name)
+        await pool.query(`
+            DELETE FROM ApprovedBrands a USING ApprovedBrands b
+            WHERE a.id > b.id AND LOWER(a.name) = LOWER(b.name)
+        `);
+
+        // Ensure unique index exists (CREATE TABLE IF NOT EXISTS won't add constraints to existing tables)
+        await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_approvedbrands_name_unique ON ApprovedBrands (name)`);
+
         // Seed approved brands from existing figures (one-time migration)
         const abCheck = await pool.query("SELECT COUNT(*) as c FROM ApprovedBrands");
         if (parseInt(abCheck.rows[0].c, 10) === 0) {

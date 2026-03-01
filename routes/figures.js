@@ -107,7 +107,7 @@ router.post('/', requireAuth, async (req, res) => {
 // Get approved brands for dropdown
 router.get('/brands', async (req, res) => {
     try {
-        const result = await db.query("SELECT name FROM ApprovedBrands ORDER BY name ASC");
+        const result = await db.query("SELECT DISTINCT name FROM ApprovedBrands ORDER BY name ASC");
         res.json(result.rows.map(r => r.name));
     } catch (err) {
         // Fallback: if ApprovedBrands table doesn't exist yet, use distinct from Figures

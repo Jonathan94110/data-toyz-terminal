@@ -290,7 +290,7 @@ router.delete('/pending-brands/:id', requireAuth, requireAdmin, async (req, res)
 // Get approved brands list
 router.get('/brands', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const result = await db.query("SELECT * FROM ApprovedBrands ORDER BY name ASC");
+        const result = await db.query("SELECT DISTINCT ON (LOWER(name)) * FROM ApprovedBrands ORDER BY LOWER(name) ASC, id ASC");
         res.json(result.rows);
     } catch (err) {
         log.error('Admin get brands error', { error: err.message || err });
