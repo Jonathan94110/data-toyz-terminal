@@ -49,39 +49,63 @@ class TerminalApp {
             return;
         }
 
-        try {
-            const res = await fetch(`${API_URL}/auth/me`, {
-                headers: { 'Authorization': `Bearer ${this.token}` }
-            });
-            if (!res.ok) throw new Error('Session expired');
-            this.user = await res.json();
-            await this.loadFigures();
+        // Validate token with retry (survives brief server restarts during deploys)
+        const maxRetries = 3;
+        let lastErr = null;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const res = await fetch(`${API_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${this.token}` }
+                });
+                if (res.status === 401 || res.status === 403) {
+                    // Definitive auth failure — token is invalid, clear it
+                    this.token = null;
+                    this.user = null;
+                    localStorage.removeItem('terminal_token');
+                    this.renderLogin();
+                    return;
+                }
+                if (!res.ok) throw new Error('Server error');
+                this.user = await res.json();
+                await this.loadFigures();
 
-            // Deep-link support: ?figure=ID
-            const figureParam = urlParams.get('figure');
-            if (figureParam) {
-                const fId = parseInt(figureParam);
-                const target = MOCK_FIGURES.find(f => f.id == fId);
-                if (target) {
-                    this.currentTarget = target;
-                    this.currentView = 'pulse';
+                // Deep-link support: ?figure=ID
+                const figureParam = urlParams.get('figure');
+                if (figureParam) {
+                    const fId = parseInt(figureParam);
+                    const target = MOCK_FIGURES.find(f => f.id == fId);
+                    if (target) {
+                        this.currentTarget = target;
+                        this.currentView = 'pulse';
+                    }
+                }
+
+                // Deep-link support: ?post=ID (shared post link)
+                const postParam = urlParams.get('post');
+                if (postParam) {
+                    sessionStorage.setItem('sharedPostId', postParam);
+                    this.currentView = 'feed';
+                }
+
+                this.renderApp();
+                return;
+            } catch (e) {
+                lastErr = e;
+                // Network error or server error — wait and retry (server may be restarting)
+                if (attempt < maxRetries - 1) {
+                    await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
                 }
             }
-
-            // Deep-link support: ?post=ID (shared post link)
-            const postParam = urlParams.get('post');
-            if (postParam) {
-                sessionStorage.setItem('sharedPostId', postParam);
-                this.currentView = 'feed';
-            }
-
-            this.renderApp();
-        } catch (e) {
-            this.token = null;
-            this.user = null;
-            localStorage.removeItem('terminal_token');
-            this.renderLogin();
         }
+        // All retries exhausted — network is down, but keep the token for next reload
+        console.warn('Could not reach server after retries:', lastErr);
+        this.appEl.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:center; height:100vh; flex-direction:column; gap:1rem; color:var(--text-secondary);">
+                <h2 style="color:var(--accent);">Server Unavailable</h2>
+                <p>The server may be updating. Your session is preserved.</p>
+                <button class="btn" onclick="location.reload()">Retry</button>
+            </div>
+        `;
     }
 
     // Authenticated fetch helper
