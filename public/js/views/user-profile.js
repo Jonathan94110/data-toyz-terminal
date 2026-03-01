@@ -56,7 +56,15 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                             \u{1F4AC} Send Message
                         </button>
                     </div>
-                    ` : ''}
+                    ` : `
+                    <div style="margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border-light);">
+                        <button class="btn" id="newMsgBtn" style="width:100%; padding:0.85rem; font-size:0.95rem;">\u{1F4AC} New Message</button>
+                        <div id="dmSearchPanel" style="display:none; margin-top:1rem;">
+                            <input id="dmSearchInput" type="text" placeholder="Search operative..." style="width:100%; padding:0.75rem 1rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:8px; color:var(--text-primary); font-size:0.9rem; outline:none;">
+                            <div id="dmSearchResults" style="display:none; margin-top:0.5rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:8px; max-height:200px; overflow-y:auto;"></div>
+                        </div>
+                    </div>
+                    `}
                 </div>
                 <div id="followerListPanel" style="display:none; margin-bottom:1rem;">
                     <div class="card" style="padding:1rem;">
@@ -109,6 +117,52 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                 if (followingEl) followingEl.textContent = stats.following;
             }
         } catch (e) { /* silent */ }
+
+        // Set up New Message search (own profile)
+        if (profile.username === this.user.username) {
+            const newMsgBtn = document.getElementById('newMsgBtn');
+            const dmPanel = document.getElementById('dmSearchPanel');
+            const dmInput = document.getElementById('dmSearchInput');
+            const dmResults = document.getElementById('dmSearchResults');
+            if (newMsgBtn && dmPanel && dmInput) {
+                newMsgBtn.addEventListener('click', () => {
+                    dmPanel.style.display = dmPanel.style.display === 'none' ? 'block' : 'none';
+                    if (dmPanel.style.display === 'block') dmInput.focus();
+                });
+                let dmTimeout = null;
+                dmInput.addEventListener('input', () => {
+                    clearTimeout(dmTimeout);
+                    const q = dmInput.value.trim();
+                    if (q.length < 1) { dmResults.style.display = 'none'; return; }
+                    dmTimeout = setTimeout(async () => {
+                        try {
+                            const res = await this.authFetch(`${API_URL}/users/search?q=${encodeURIComponent(q)}`);
+                            const users = await res.json();
+                            const filtered = users.filter(u => u.username !== this.user.username);
+                            if (filtered.length === 0) {
+                                dmResults.style.display = 'block';
+                                dmResults.innerHTML = '<div style="padding:0.75rem 1rem; color:var(--text-muted); font-size:0.85rem;">No operatives found</div>';
+                                return;
+                            }
+                            dmResults.style.display = 'block';
+                            dmResults.innerHTML = filtered.map(u => `
+                                <div class="dm-search-item" data-username="${escapeHTML(u.username)}" style="display:flex; align-items:center; gap:0.75rem; padding:0.6rem 1rem; cursor:pointer; border-bottom:1px solid var(--border-light); transition:background 0.15s;">
+                                    ${u.avatar ? `<img src="${u.avatar}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">` : `<div style="width:32px; height:32px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:0.85rem;">${escapeHTML(u.username).charAt(0).toUpperCase()}</div>`}
+                                    <span style="font-weight:600; color:var(--text-primary);">${escapeHTML(u.username)}</span>
+                                </div>
+                            `).join('');
+                            dmResults.querySelectorAll('.dm-search-item').forEach(item => {
+                                item.addEventListener('mouseenter', () => { item.style.background = 'var(--bg-hover)'; });
+                                item.addEventListener('mouseleave', () => { item.style.background = ''; });
+                                item.addEventListener('click', () => {
+                                    app.startDM(item.dataset.username);
+                                });
+                            });
+                        } catch (e) { dmResults.style.display = 'none'; }
+                    }, 300);
+                });
+            }
+        }
 
         // Set up follow button
         if (profile.username !== this.user.username) {
