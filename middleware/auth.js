@@ -35,9 +35,18 @@ async function requireAuth(req, res, next) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Authentication required. Please log in.' });
     }
+
+    // Step 1: Verify JWT signature & expiry (auth error → 401)
+    let decoded;
     try {
         const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, JWT_SECRET);
+        decoded = jwt.verify(token, JWT_SECRET);
+    } catch (jwtErr) {
+        return res.status(401).json({ error: 'Invalid or expired token. Please log in again.' });
+    }
+
+    // Step 2: Look up user in DB (DB error → 500 so client retries, not 401 which logs out)
+    try {
         const user = await getCachedUser(decoded.id);
         if (!user) return res.status(401).json({ error: 'Account no longer exists.' });
         if (user.suspended) return res.status(403).json({ error: 'Your account has been suspended.' });
@@ -53,8 +62,9 @@ async function requireAuth(req, res, next) {
 
         req.user = { id: user.id, username: user.username, role: user.role || 'analyst' };
         next();
-    } catch (err) {
-        return res.status(401).json({ error: 'Invalid or expired token. Please log in again.' });
+    } catch (dbErr) {
+        // Database/internal error — return 500 so the client retries instead of nuking the token
+        return res.status(500).json({ error: 'Server temporarily unavailable. Please try again.' });
     }
 }
 

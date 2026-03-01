@@ -59,6 +59,8 @@ class TerminalApp {
                 });
                 if (res.status === 401 || res.status === 403) {
                     // Definitive auth failure — token is invalid, clear it
+                    const errBody = await res.json().catch(() => ({}));
+                    console.warn('[Auth] Token rejected:', res.status, errBody.error || 'unknown');
                     this.token = null;
                     this.user = null;
                     localStorage.removeItem('terminal_token');
