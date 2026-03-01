@@ -68,7 +68,7 @@ TerminalApp.prototype.renderAddTarget = function(container) {
                     });
                     const otherOpt = document.createElement('option');
                     otherOpt.value = '__other__';
-                    otherOpt.textContent = '+ Other (type manually)';
+                    otherOpt.textContent = '+ Other (requires admin approval)';
                     sel.appendChild(otherOpt);
 
                     sel.addEventListener('change', () => {

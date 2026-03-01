@@ -25,9 +25,50 @@ router.post('/', requireAuth, async (req, res) => {
     }
 
     try {
+        // Exact duplicate check
         const existing = await db.query("SELECT id, name FROM Figures WHERE LOWER(name) = LOWER($1)", [name]);
         if (existing.rows.length > 0) {
             return res.status(409).json({ error: `"${existing.rows[0].name}" already exists in the catalog. Search for it and submit your intel there!` });
+        }
+
+        // Fuzzy duplicate check: strip spaces, dashes, dots, underscores, version suffixes
+        const normalize = s => s.toLowerCase().replace(/[\s\-_.]/g, '').replace(/v?\d+(\.\d+)?$/g, '').replace(/(version|ver|v\d)$/gi, '');
+        const normInput = normalize(name);
+        if (normInput.length >= 4) {
+            const allFigs = await db.query("SELECT id, name FROM Figures");
+            const fuzzyMatch = allFigs.rows.find(f => {
+                const normExisting = normalize(f.name);
+                return normExisting.includes(normInput) || normInput.includes(normExisting);
+            });
+            if (fuzzyMatch) {
+                return res.status(409).json({
+                    error: `A similar figure "${fuzzyMatch.name}" already exists (ID: ${fuzzyMatch.id}). If this is the same figure, please submit your intel there instead. If it's truly different, contact an admin.`,
+                    similarId: fuzzyMatch.id,
+                    similarName: fuzzyMatch.name
+                });
+            }
+        }
+
+        // Brand approval check: non-admin users must use an approved brand
+        const isAdmin = req.user.role === 'admin' || req.user.username === 'Prime Dynamixx';
+        try {
+            const brandCheck = await db.query("SELECT id FROM ApprovedBrands WHERE LOWER(name) = LOWER($1)", [brand]);
+            if (brandCheck.rows.length === 0) {
+                if (!isAdmin) {
+                    return res.status(400).json({
+                        error: `Brand "${brand}" has not been approved yet. Please select an existing brand from the dropdown, or contact an admin to add a new brand.`,
+                        unapprovedBrand: true
+                    });
+                }
+                // Admin creating with new brand — auto-approve it
+                await db.query(
+                    "INSERT INTO ApprovedBrands (name, approved_by, created_at) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING",
+                    [brand, req.user.username, new Date().toISOString()]
+                );
+            }
+        } catch (brandErr) {
+            // If ApprovedBrands table doesn't exist yet, skip check
+            log.error('Brand check error (non-fatal)', { error: brandErr.message || brandErr });
         }
 
         const result = await db.query("INSERT INTO Figures (name, brand, classTie, line, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id",
@@ -53,14 +94,20 @@ router.post('/', requireAuth, async (req, res) => {
     }
 });
 
-// Get distinct brands for dynamic datalist
+// Get approved brands for dropdown
 router.get('/brands', async (req, res) => {
     try {
-        const result = await db.query("SELECT DISTINCT brand FROM Figures ORDER BY brand ASC");
-        res.json(result.rows.map(r => r.brand));
+        const result = await db.query("SELECT name FROM ApprovedBrands ORDER BY name ASC");
+        res.json(result.rows.map(r => r.name));
     } catch (err) {
-        log.error('Get brands error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        // Fallback: if ApprovedBrands table doesn't exist yet, use distinct from Figures
+        try {
+            const fallback = await db.query("SELECT DISTINCT brand FROM Figures ORDER BY brand ASC");
+            res.json(fallback.rows.map(r => r.brand));
+        } catch (e) {
+            log.error('Get brands error', { error: err.message || err });
+            res.status(500).json({ error: 'An internal error occurred.' });
+        }
     }
 });
 

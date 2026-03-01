@@ -158,6 +158,42 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// Merge two figures: moves all data from sourceId to targetId, then deletes sourceId
+router.post('/figures/merge', requireAuth, requireAdmin, async (req, res) => {
+    const { sourceId, targetId } = req.body;
+    if (!sourceId || !targetId || sourceId === targetId) {
+        return res.status(400).json({ error: "Must provide different sourceId and targetId." });
+    }
+
+    try {
+        // Verify both exist
+        const source = await db.query("SELECT id, name FROM Figures WHERE id = $1", [sourceId]);
+        const target = await db.query("SELECT id, name FROM Figures WHERE id = $1", [targetId]);
+        if (!source.rows[0]) return res.status(404).json({ error: `Source figure ID ${sourceId} not found.` });
+        if (!target.rows[0]) return res.status(404).json({ error: `Target figure ID ${targetId} not found.` });
+
+        // Move submissions
+        const subResult = await db.query("UPDATE Submissions SET targetId = $1 WHERE targetId = $2", [targetId, sourceId]);
+        // Move market transactions
+        const mtResult = await db.query("UPDATE MarketTransactions SET figure_id = $1 WHERE figure_id = $2", [targetId, sourceId]);
+        // Move figure comments
+        const fcResult = await db.query("UPDATE FigureComments SET figure_id = $1 WHERE figure_id = $2", [targetId, sourceId]);
+        // Update notifications
+        await db.query("UPDATE Notifications SET link_id = $1 WHERE link_type = 'figure' AND link_id = $2", [targetId, sourceId]);
+
+        // Delete the source figure (now has no references)
+        await db.query("DELETE FROM Figures WHERE id = $1", [sourceId]);
+
+        log.info('Figures merged', { sourceId, targetId, sourceName: source.rows[0].name, targetName: target.rows[0].name });
+        res.json({
+            message: `Merged "${source.rows[0].name}" into "${target.rows[0].name}". ${subResult.rowCount} submissions, ${mtResult.rowCount} market transactions, ${fcResult.rowCount} comments moved.`
+        });
+    } catch (err) {
+        log.error('Admin merge figures error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Delete figure
 router.delete('/figures/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
@@ -179,6 +215,45 @@ router.put('/figures/:id', requireAuth, requireAdmin, async (req, res) => {
         res.json({ message: "Target updated successfully." });
     } catch (err) {
         log.error('Admin edit figure error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Get approved brands list
+router.get('/brands', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await db.query("SELECT * FROM ApprovedBrands ORDER BY name ASC");
+        res.json(result.rows);
+    } catch (err) {
+        log.error('Admin get brands error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Add approved brand
+router.post('/brands', requireAuth, requireAdmin, async (req, res) => {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: "Brand name required." });
+    try {
+        await db.query(
+            "INSERT INTO ApprovedBrands (name, approved_by, created_at) VALUES ($1, $2, $3)",
+            [name.trim(), req.user.username, new Date().toISOString()]
+        );
+        res.status(201).json({ message: `Brand "${name.trim()}" approved.` });
+    } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: "Brand already exists." });
+        log.error('Admin add brand error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Delete approved brand
+router.delete('/brands/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        await db.query("DELETE FROM ApprovedBrands WHERE id = $1", [req.params.id]);
+        res.json({ message: "Brand removed from approved list." });
+    } catch (err) {
+        log.error('Admin delete brand error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });

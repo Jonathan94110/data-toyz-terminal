@@ -401,6 +401,25 @@ async function initDB() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_figurecomments_figureid ON FigureComments(figure_id)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_msgreactions_msgid ON MessageReactions(message_id)`);
 
+        // Approved Brands table (admin-managed brand whitelist)
+        await pool.query(`CREATE TABLE IF NOT EXISTS ApprovedBrands (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            approved_by TEXT,
+            created_at TEXT NOT NULL
+        )`);
+
+        // Seed approved brands from existing figures (one-time migration)
+        const abCheck = await pool.query("SELECT COUNT(*) as c FROM ApprovedBrands");
+        if (parseInt(abCheck.rows[0].c, 10) === 0) {
+            await pool.query(`
+                INSERT INTO ApprovedBrands (name, approved_by, created_at)
+                SELECT DISTINCT brand, 'system', '${new Date().toISOString()}'
+                FROM Figures WHERE brand IS NOT NULL AND brand != ''
+                ON CONFLICT (name) DO NOTHING
+            `);
+        }
+
         // --- Market analytics indexes ---
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_date ON Submissions(date)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_created_at ON MarketTransactions(created_at)`);

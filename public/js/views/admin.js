@@ -2,21 +2,23 @@
 TerminalApp.prototype.renderAdmin = async function(container) {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Loading Admin Panel...</div>`;
 
-        let analytics = {}, users = [], figures = [], flags = [], topRated = [];
+        let analytics = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [];
 
         try {
-            const [aRes, uRes, fRes, flagRes, trRes] = await Promise.all([
+            const [aRes, uRes, fRes, flagRes, trRes, brRes] = await Promise.all([
                 this.authFetch(`${API_URL}/admin/analytics`),
                 this.authFetch(`${API_URL}/admin/users`),
                 fetch(`${API_URL}/figures`),
                 this.authFetch(`${API_URL}/admin/flags`),
-                fetch(`${API_URL}/figures/top-rated`)
+                fetch(`${API_URL}/figures/top-rated`),
+                this.authFetch(`${API_URL}/admin/brands`)
             ]);
             if (aRes.ok) analytics = await aRes.json();
             if (uRes.ok) users = await uRes.json();
             if (fRes.ok) figures = await fRes.json();
             if (flagRes.ok) flags = await flagRes.json();
             if (trRes.ok) topRated = await trRes.json();
+            if (brRes.ok) approvedBrands = await brRes.json();
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
             return;
@@ -79,6 +81,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                         <td style="padding:0.6rem 1rem; text-align:right;">
                             <div class="admin-action-btns">
                                 <button class="editFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" data-brand="${escapeHTML(f.brand)}" data-class="${escapeHTML(f.classTie)}" data-line="${escapeHTML(f.line)}" data-msrp="${f.msrp || ''}">\u{270F}\u{FE0F} Edit</button>
+                                <button class="mergeFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" style="border-color:#fbbf24; color:#fbbf24;">\u{1F500} Merge</button>
                                 <button class="delFigBtn" data-id="${f.id}" data-name="${escapeHTML(f.name)}" style="border-color:var(--danger); color:var(--danger);">\u{1F5D1}\u{FE0F} Delete</button>
                             </div>
                         </td>
@@ -174,6 +177,46 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                             renderFigureTable();
                         }
                     } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.mergeFigBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const sourceId = btn.dataset.id;
+                    const sourceName = btn.dataset.name;
+                    // Build list of other figures for merge target selection
+                    const otherFigs = figures.filter(f => f.id != sourceId);
+                    if (otherFigs.length === 0) { alert('No other figures to merge with.'); return; }
+
+                    const targetIdStr = prompt(
+                        `Merge "${sourceName}" (ID: ${sourceId}) INTO which figure?\n\n` +
+                        `All submissions, market data, and comments will be moved to the target figure, then "${sourceName}" will be deleted.\n\n` +
+                        `Enter the target figure ID:\n` +
+                        otherFigs.slice(0, 15).map(f => `  ${f.id}: ${f.name}`).join('\n')
+                    );
+                    if (!targetIdStr) return;
+                    const targetId = parseInt(targetIdStr);
+                    const targetFig = figures.find(f => f.id === targetId);
+                    if (!targetFig) { alert(`Figure ID ${targetId} not found.`); return; }
+
+                    if (!confirm(`Merge "${sourceName}" → "${targetFig.name}"?\n\nAll intel will be moved to "${targetFig.name}" and "${sourceName}" will be permanently deleted.`)) return;
+
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/figures/merge`, {
+                            method: 'POST',
+                            body: JSON.stringify({ sourceId: parseInt(sourceId), targetId })
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            alert(data.message);
+                            MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != sourceId);
+                            figures = figures.filter(f => f.id != sourceId);
+                            renderFigureTable();
+                        } else {
+                            const err = await res.json();
+                            alert(err.error || 'Merge failed.');
+                        }
+                    } catch (e) { console.error(e); alert('Connection error.'); }
                 });
             });
         }
@@ -309,6 +352,27 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                         </tbody>
                     </table>
                     `}
+                </div>
+
+                <!-- APPROVED BRANDS -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin:0;">\u{1F3F7}\u{FE0F} Approved Brands (${approvedBrands.length})</h3>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="text" id="newBrandInput" placeholder="New brand name..." style="padding:0.5rem 0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.85rem; width:200px;">
+                        <button id="addBrandBtn" style="background:none; border:1px solid var(--success); color:var(--success); cursor:pointer; padding:0.4rem 0.8rem; border-radius:4px; font-size:0.8rem; font-weight:700; white-space:nowrap;">+ Add Brand</button>
+                    </div>
+                </div>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Only approved brands appear in the figure creation dropdown. Non-admin users cannot use unapproved brands.</p>
+                <div class="card" style="padding:1rem; margin-bottom:2.5rem;">
+                    <div style="display:flex; flex-wrap:wrap; gap:0.5rem;" id="approvedBrandsList">
+                        ${approvedBrands.length === 0 ? '<span style="color:var(--text-muted);">No brands approved yet. Brands will be seeded from existing figures on next server restart.</span>' :
+                            approvedBrands.map(b => `
+                                <div style="display:inline-flex; align-items:center; gap:0.4rem; background:var(--bg-surface); border:1px solid var(--border); border-radius:4px; padding:0.3rem 0.6rem; font-size:0.85rem;">
+                                    <span>${escapeHTML(b.name)}</span>
+                                    <button class="delBrandBtn" data-id="${b.id}" data-name="${escapeHTML(b.name)}" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:0.7rem; padding:0 0.2rem;" title="Remove brand">\u{2716}</button>
+                                </div>
+                            `).join('')}
+                    </div>
                 </div>
 
                 ${flags.length > 0 ? `
@@ -466,6 +530,33 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 try {
                     const res = await this.authFetch(`${API_URL}/admin/flags/${btn.dataset.flagid}`, { method: 'DELETE' });
                     if (res.ok) { this.renderAdmin(container); }
+                } catch (e) { console.error(e); }
+            });
+        });
+
+        // Add Brand
+        document.getElementById('addBrandBtn').addEventListener('click', async () => {
+            const input = document.getElementById('newBrandInput');
+            const name = input.value.trim();
+            if (!name) { alert('Enter a brand name.'); return; }
+            try {
+                const res = await this.authFetch(`${API_URL}/admin/brands`, {
+                    method: 'POST',
+                    body: JSON.stringify({ name })
+                });
+                if (res.ok) { input.value = ''; this.renderAdmin(container); }
+                else { const err = await res.json(); alert(err.error); }
+            } catch (e) { console.error(e); }
+        });
+
+        // Delete Brand
+        document.querySelectorAll('.delBrandBtn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm(`Remove brand "${btn.dataset.name}" from approved list? Existing figures with this brand won't be affected, but users won't be able to create new figures with this brand.`)) return;
+                try {
+                    const res = await this.authFetch(`${API_URL}/admin/brands/${btn.dataset.id}`, { method: 'DELETE' });
+                    if (res.ok) { this.renderAdmin(container); }
+                    else { const err = await res.json(); alert(err.error); }
                 } catch (e) { console.error(e); }
             });
         });
