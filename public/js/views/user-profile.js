@@ -23,28 +23,40 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
             <div style="max-width:800px; margin:0 auto;">
                 <button onclick="app.currentView='${this.previousView || 'feed'}'; app.renderApp();" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; margin-bottom:2rem; padding:0;">&larr; Back</button>
 
-                <div class="card" style="display:flex; align-items:center; gap:2rem; margin-bottom:2rem;">
-                    ${profile.avatar ? `<img src="${profile.avatar}" style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:120px; height:120px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${escapeHTML(profile.username).charAt(0).toUpperCase()}</div>`}
-                    <div style="flex:1;">
-                        <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${escapeHTML(profile.username)}</h2>
-                        <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-                            <span style="color:${titleColors[profile.title] || 'var(--text-muted)'}; font-weight:700; font-size:0.9rem; border:1px solid; padding:0.2rem 0.6rem; border-radius:4px;">${escapeHTML(profile.title)}</span>
-                            ${profile.role === 'admin' ? '<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">\u2605 ADMIN</span>' : ''}
-                            <span style="color:var(--text-muted); font-size:0.85rem;">Joined ${new Date(profile.joinDate).toLocaleDateString()}</span>
+                <div class="card" style="margin-bottom:2rem;">
+                    <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+                        ${profile.avatar ? `<img src="${profile.avatar}" style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:3px solid var(--border-light);">` : `<div style="width:120px; height:120px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff;">${escapeHTML(profile.username).charAt(0).toUpperCase()}</div>`}
+                        <div style="flex:1; min-width:200px;">
+                            <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${escapeHTML(profile.username)}</h2>
+                            <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                                <span style="color:${titleColors[profile.title] || 'var(--text-muted)'}; font-weight:700; font-size:0.9rem; border:1px solid; padding:0.2rem 0.6rem; border-radius:4px;">${escapeHTML(profile.title)}</span>
+                                ${profile.role === 'admin' ? '<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">\u2605 ADMIN</span>' : ''}
+                                <span style="color:var(--text-muted); font-size:0.85rem;">Joined ${new Date(profile.joinDate).toLocaleDateString()}</span>
+                            </div>
                         </div>
                     </div>
-                    <div style="text-align:center;">
-                        <div style="font-size:2rem; font-weight:900; background:var(--gradient-primary); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">${profile.submissionCount}</div>
-                        <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Reports</div>
+                    <div style="display:flex; gap:1.5rem; margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border-light); justify-content:center; flex-wrap:wrap;">
+                        <div style="text-align:center; min-width:70px;">
+                            <div style="font-size:1.75rem; font-weight:900; background:var(--gradient-primary); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">${profile.submissionCount}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Reports</div>
+                        </div>
+                        <div style="text-align:center; min-width:70px; cursor:pointer;" onclick="document.getElementById('followerListPanel').style.display = document.getElementById('followerListPanel').style.display === 'none' ? 'block' : 'none'; if(document.getElementById('followerListPanel').style.display==='block') app.loadFollowList(${profile.userId}, 'followers');">
+                            <div id="followerCount" style="font-size:1.75rem; font-weight:900; color:var(--text-primary);">-</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Followers</div>
+                        </div>
+                        <div style="text-align:center; min-width:70px; cursor:pointer;" onclick="document.getElementById('followingListPanel').style.display = document.getElementById('followingListPanel').style.display === 'none' ? 'block' : 'none'; if(document.getElementById('followingListPanel').style.display==='block') app.loadFollowList(${profile.userId}, 'following');">
+                            <div id="followingCount" style="font-size:1.75rem; font-weight:900; color:var(--text-primary);">-</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Following</div>
+                        </div>
                     </div>
-                    <div style="text-align:center; cursor:pointer;" onclick="document.getElementById('followerListPanel').style.display = document.getElementById('followerListPanel').style.display === 'none' ? 'block' : 'none'; if(document.getElementById('followerListPanel').style.display==='block') app.loadFollowList(${profile.userId}, 'followers');">
-                        <div id="followerCount" style="font-size:2rem; font-weight:900; color:var(--text-primary);">-</div>
-                        <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Followers</div>
+                    ${profile.username !== this.user.username ? `
+                    <div style="display:flex; gap:1rem; margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border-light);">
+                        <button class="btn" id="followBtn" data-userid="${profile.userId}" style="flex:1; padding:0.85rem; font-size:0.95rem;">Loading...</button>
+                        <button class="btn" onclick="app.startDM('${escapeHTML(profile.username).replace(/'/g, "\\'")}')" style="flex:1; padding:0.85rem; font-size:0.95rem;">
+                            \u{1F4AC} Send Message
+                        </button>
                     </div>
-                    <div style="text-align:center; cursor:pointer;" onclick="document.getElementById('followingListPanel').style.display = document.getElementById('followingListPanel').style.display === 'none' ? 'block' : 'none'; if(document.getElementById('followingListPanel').style.display==='block') app.loadFollowList(${profile.userId}, 'following');">
-                        <div id="followingCount" style="font-size:2rem; font-weight:900; color:var(--text-primary);">-</div>
-                        <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Following</div>
-                    </div>
+                    ` : ''}
                 </div>
                 <div id="followerListPanel" style="display:none; margin-bottom:1rem;">
                     <div class="card" style="padding:1rem;">
@@ -58,15 +70,6 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                         <div id="followingListContent" style="color:var(--text-muted); font-size:0.85rem;">Loading...</div>
                     </div>
                 </div>
-
-                ${profile.username !== this.user.username ? `
-                <div style="display:flex; gap:1rem; margin-bottom:2rem;">
-                    <button class="btn" id="followBtn" data-userid="${profile.userId}" style="flex:1; padding:0.85rem; font-size:0.95rem;">Loading...</button>
-                    <button class="btn" onclick="app.startDM('${escapeHTML(profile.username).replace(/'/g, "\\'")}')" style="flex:1; padding:0.85rem; font-size:0.95rem;">
-                        \u{1F4AC} Send Message
-                    </button>
-                </div>
-                ` : ''}
 
                 ${profile.recentSubmissions.length > 0 ? `
                 <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">Recent Intel Reports</h3>
