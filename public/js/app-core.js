@@ -307,6 +307,7 @@ class TerminalApp {
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${escapeHTML(this.user.username)}</div>
                                 <div style="font-size:0.75rem; color:${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '#fbbf24' : 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${(this.user.role === 'admin' || this.user.username === 'Prime Dynamixx') ? '★ Admin' : 'Analyst'}</div>
+                                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">View Profile</div>
                             </div>
                             </div>
                             <button id="logoutBtn" class="topbar-icon-btn" title="Sign Out" style="margin-left:0.5rem;">

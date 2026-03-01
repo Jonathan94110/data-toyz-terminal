@@ -63,7 +63,7 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                 <div style="display:flex; gap:1rem; margin-bottom:2rem;">
                     <button class="btn" id="followBtn" data-userid="${profile.userId}" style="flex:1; padding:0.85rem; font-size:0.95rem;">Loading...</button>
                     <button class="btn" onclick="app.startDM('${escapeHTML(profile.username).replace(/'/g, "\\'")}')" style="flex:1; padding:0.85rem; font-size:0.95rem;">
-                        \u{1F512} Open Secure Channel
+                        \u{1F4AC} Send Message
                     </button>
                 </div>
                 ` : ''}
