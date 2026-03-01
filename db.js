@@ -409,6 +409,16 @@ async function initDB() {
             created_at TEXT NOT NULL
         )`);
 
+        // Pending brand requests (user-submitted brands awaiting admin approval)
+        await pool.query(`CREATE TABLE IF NOT EXISTS PendingBrands (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            requested_by TEXT NOT NULL,
+            figure_name TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(name)
+        )`);
+
         // Seed approved brands from existing figures (one-time migration)
         const abCheck = await pool.query("SELECT COUNT(*) as c FROM ApprovedBrands");
         if (parseInt(abCheck.rows[0].c, 10) === 0) {

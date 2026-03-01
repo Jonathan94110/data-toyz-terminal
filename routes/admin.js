@@ -165,32 +165,49 @@ router.post('/figures/merge', requireAuth, requireAdmin, async (req, res) => {
         return res.status(400).json({ error: "Must provide different sourceId and targetId." });
     }
 
+    let client;
     try {
+        client = await db.connect();
+        await client.query("BEGIN");
+
         // Verify both exist
-        const source = await db.query("SELECT id, name FROM Figures WHERE id = $1", [sourceId]);
-        const target = await db.query("SELECT id, name FROM Figures WHERE id = $1", [targetId]);
-        if (!source.rows[0]) return res.status(404).json({ error: `Source figure ID ${sourceId} not found.` });
-        if (!target.rows[0]) return res.status(404).json({ error: `Target figure ID ${targetId} not found.` });
+        const source = await client.query("SELECT id, name FROM Figures WHERE id = $1", [sourceId]);
+        const target = await client.query("SELECT id, name FROM Figures WHERE id = $1", [targetId]);
+        if (!source.rows[0]) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: `Source figure ID ${sourceId} not found.` });
+        }
+        if (!target.rows[0]) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: `Target figure ID ${targetId} not found.` });
+        }
 
         // Move submissions
-        const subResult = await db.query("UPDATE Submissions SET targetId = $1 WHERE targetId = $2", [targetId, sourceId]);
+        const subResult = await client.query("UPDATE Submissions SET targetId = $1 WHERE targetId = $2", [targetId, sourceId]);
         // Move market transactions
-        const mtResult = await db.query("UPDATE MarketTransactions SET figure_id = $1 WHERE figure_id = $2", [targetId, sourceId]);
+        const mtResult = await client.query("UPDATE MarketTransactions SET figure_id = $1 WHERE figure_id = $2", [targetId, sourceId]);
         // Move figure comments
-        const fcResult = await db.query("UPDATE FigureComments SET figure_id = $1 WHERE figure_id = $2", [targetId, sourceId]);
+        const fcResult = await client.query("UPDATE FigureComments SET figure_id = $1 WHERE figure_id = $2", [targetId, sourceId]);
         // Update notifications
-        await db.query("UPDATE Notifications SET link_id = $1 WHERE link_type = 'figure' AND link_id = $2", [targetId, sourceId]);
+        await client.query("UPDATE Notifications SET link_id = $1 WHERE link_type = 'figure' AND link_id = $2", [targetId, sourceId]);
 
         // Delete the source figure (now has no references)
-        await db.query("DELETE FROM Figures WHERE id = $1", [sourceId]);
+        await client.query("DELETE FROM Figures WHERE id = $1", [sourceId]);
+
+        await client.query("COMMIT");
 
         log.info('Figures merged', { sourceId, targetId, sourceName: source.rows[0].name, targetName: target.rows[0].name });
         res.json({
             message: `Merged "${source.rows[0].name}" into "${target.rows[0].name}". ${subResult.rowCount} submissions, ${mtResult.rowCount} market transactions, ${fcResult.rowCount} comments moved.`
         });
     } catch (err) {
+        if (client) {
+            try { await client.query("ROLLBACK"); } catch (_) { /* ignore rollback error */ }
+        }
         log.error('Admin merge figures error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -215,6 +232,57 @@ router.put('/figures/:id', requireAuth, requireAdmin, async (req, res) => {
         res.json({ message: "Target updated successfully." });
     } catch (err) {
         log.error('Admin edit figure error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Get pending brand requests
+router.get('/pending-brands', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await db.query("SELECT * FROM PendingBrands ORDER BY created_at DESC");
+        res.json(result.rows);
+    } catch (err) {
+        log.error('Admin get pending brands error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Approve a pending brand (move to ApprovedBrands, delete from PendingBrands)
+router.post('/pending-brands/:id/approve', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const pending = await db.query("SELECT * FROM PendingBrands WHERE id = $1", [req.params.id]);
+        if (!pending.rows[0]) return res.status(404).json({ error: "Pending brand not found." });
+
+        const brandName = pending.rows[0].name;
+
+        // Add to approved brands
+        await db.query(
+            "INSERT INTO ApprovedBrands (name, approved_by, created_at) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING",
+            [brandName, req.user.username, new Date().toISOString()]
+        );
+
+        // Remove from pending
+        await db.query("DELETE FROM PendingBrands WHERE id = $1", [req.params.id]);
+
+        log.info('Pending brand approved', { brand: brandName, approvedBy: req.user.username });
+        res.json({ message: `Brand "${brandName}" approved and added to the catalog.` });
+    } catch (err) {
+        log.error('Admin approve pending brand error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Reject a pending brand
+router.delete('/pending-brands/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const pending = await db.query("SELECT name FROM PendingBrands WHERE id = $1", [req.params.id]);
+        if (!pending.rows[0]) return res.status(404).json({ error: "Pending brand not found." });
+
+        await db.query("DELETE FROM PendingBrands WHERE id = $1", [req.params.id]);
+        log.info('Pending brand rejected', { brand: pending.rows[0].name, rejectedBy: req.user.username });
+        res.json({ message: `Brand "${pending.rows[0].name}" rejected.` });
+    } catch (err) {
+        log.error('Admin reject pending brand error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });

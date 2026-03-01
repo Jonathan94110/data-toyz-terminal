@@ -2,16 +2,17 @@
 TerminalApp.prototype.renderAdmin = async function(container) {
         container.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">Loading Admin Panel...</div>`;
 
-        let analytics = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [];
+        let analytics = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [];
 
         try {
-            const [aRes, uRes, fRes, flagRes, trRes, brRes] = await Promise.all([
+            const [aRes, uRes, fRes, flagRes, trRes, brRes, pbRes] = await Promise.all([
                 this.authFetch(`${API_URL}/admin/analytics`),
                 this.authFetch(`${API_URL}/admin/users`),
                 fetch(`${API_URL}/figures`),
                 this.authFetch(`${API_URL}/admin/flags`),
                 fetch(`${API_URL}/figures/top-rated`),
-                this.authFetch(`${API_URL}/admin/brands`)
+                this.authFetch(`${API_URL}/admin/brands`),
+                this.authFetch(`${API_URL}/admin/pending-brands`)
             ]);
             if (aRes.ok) analytics = await aRes.json();
             if (uRes.ok) users = await uRes.json();
@@ -19,6 +20,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             if (flagRes.ok) flags = await flagRes.json();
             if (trRes.ok) topRated = await trRes.json();
             if (brRes.ok) approvedBrands = await brRes.json();
+            if (pbRes.ok) pendingBrands = await pbRes.json();
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
             return;
@@ -357,6 +359,90 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             });
         }
 
+        function renderPendingBrands() {
+            const el = document.getElementById('pendingBrandsSection');
+            if (!el) return;
+
+            if (pendingBrands.length === 0) {
+                el.innerHTML = '<div style="padding:1.5rem; text-align:center; color:var(--text-muted);">No pending brand requests.</div>';
+            } else {
+                el.innerHTML = `
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--bg-panel); text-align:left;">
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Brand Name</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Requested By</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">For Figure</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Date</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pendingBrands.map(pb => `
+                                <tr style="border-top:1px solid var(--border-light);">
+                                    <td style="padding:0.6rem 1rem; font-weight:600; color:#fbbf24;">${escapeHTML(pb.name)}</td>
+                                    <td style="padding:0.6rem 1rem;">${escapeHTML(pb.requested_by)}</td>
+                                    <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(pb.figure_name || '\u2014')}</td>
+                                    <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${pb.created_at ? new Date(pb.created_at).toLocaleDateString() : '\u2014'}</td>
+                                    <td style="padding:0.6rem 1rem; text-align:right;">
+                                        <div class="admin-action-btns">
+                                            <button class="approvePendingBtn" data-id="${pb.id}" data-name="${escapeHTML(pb.name)}" style="border-color:var(--success); color:var(--success);">\u2705 Approve</button>
+                                            <button class="rejectPendingBtn" data-id="${pb.id}" data-name="${escapeHTML(pb.name)}" style="border-color:var(--danger); color:var(--danger);">\u274C Reject</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+            wireUpPendingBrandActions();
+
+            // Update the count badge
+            const countEl = document.getElementById('pendingBrandCount');
+            if (countEl) countEl.textContent = pendingBrands.length;
+        }
+
+        function wireUpPendingBrandActions() {
+            document.querySelectorAll('.approvePendingBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/pending-brands/${btn.dataset.id}/approve`, { method: 'POST' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            alert(data.message);
+                            // Move from pending to approved locally
+                            pendingBrands = pendingBrands.filter(pb => pb.id != btn.dataset.id);
+                            // Re-fetch approved brands to get the new entry
+                            const brRes = await self.authFetch(`${API_URL}/admin/brands`);
+                            if (brRes.ok) approvedBrands = await brRes.json();
+                            renderPendingBrands();
+                            renderBrandTable();
+                        } else {
+                            const err = await res.json();
+                            alert(err.error);
+                        }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.rejectPendingBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm(`Reject brand "${btn.dataset.name}"? The user will need to select an approved brand instead.`)) return;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/pending-brands/${btn.dataset.id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            pendingBrands = pendingBrands.filter(pb => pb.id != btn.dataset.id);
+                            renderPendingBrands();
+                        } else {
+                            const err = await res.json();
+                            alert(err.error);
+                        }
+                    } catch (e) { console.error(e); }
+                });
+            });
+        }
+
         container.innerHTML = `
             <div style="max-width: 1100px; margin: 0 auto; padding-bottom: 3rem;" class="animate-mount">
                 <h2 style="font-size:2.5rem; margin-bottom:0.5rem;">\u{2699}\u{FE0F} Admin Panel</h2>
@@ -436,6 +522,17 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     </table>
                     `}
                 </div>
+
+                <!-- PENDING BRAND REQUESTS -->
+                ${pendingBrands.length > 0 ? `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:#fbbf24; margin:0;">\u{23F3} Pending Brand Requests (<span id="pendingBrandCount">${pendingBrands.length}</span>)</h3>
+                </div>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Users have submitted these brands for approval. Approve to add them to the catalog or reject to deny.</p>
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem; border:1px solid rgba(251,191,36,0.3);">
+                    <div id="pendingBrandsSection"></div>
+                </div>
+                ` : ''}
 
                 <!-- APPROVED BRANDS -->
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
@@ -551,6 +648,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
         renderFigureTable();
         renderUserTable();
         renderBrandTable();
+        renderPendingBrands();
 
         // Wire up search inputs
         const figSearchInput = document.getElementById('adminFigSearch');

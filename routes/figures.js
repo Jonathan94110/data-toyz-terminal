@@ -55,9 +55,19 @@ router.post('/', requireAuth, async (req, res) => {
             const brandCheck = await db.query("SELECT id FROM ApprovedBrands WHERE LOWER(name) = LOWER($1)", [brand]);
             if (brandCheck.rows.length === 0) {
                 if (!isAdmin) {
+                    // Save as pending brand request for admin approval
+                    try {
+                        await db.query(
+                            "INSERT INTO PendingBrands (name, requested_by, figure_name, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO NOTHING",
+                            [brand, req.user.username, name, new Date().toISOString()]
+                        );
+                    } catch (pendingErr) {
+                        log.error('Pending brand save error (non-fatal)', { error: pendingErr.message || pendingErr });
+                    }
                     return res.status(400).json({
-                        error: `Brand "${brand}" has not been approved yet. Please select an existing brand from the dropdown, or contact an admin to add a new brand.`,
-                        unapprovedBrand: true
+                        error: `Brand "${brand}" has been submitted for admin approval. You'll be able to use it once an admin approves it.`,
+                        unapprovedBrand: true,
+                        pendingApproval: true
                     });
                 }
                 // Admin creating with new brand — auto-approve it
