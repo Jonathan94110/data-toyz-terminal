@@ -311,6 +311,147 @@ router.get('/market-ranked', async (req, res) => {
     }
 });
 
+// Public figure leaderboard with filtering, sorting, and admin overrides
+router.get('/leaderboard', async (req, res) => {
+    try {
+        const mode = ['top_rated', 'rising', 'most_reviewed', 'sleepers'].includes(req.query.mode) ? req.query.mode : 'top_rated';
+        const brand = req.query.brand || null;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 25));
+
+        const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const d60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+
+        // Query 1: Figures + submission aggregates (exclude hidden)
+        const q1 = db.query(`
+            SELECT f.id, f.name, f.brand, f.classTie, f.line, f.msrp,
+                   f.lb_pinned, f.lb_rank_override, f.lb_category,
+                   COUNT(s.id) as submission_count,
+                   AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+            FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+            WHERE COALESCE(f.lb_hidden, false) = false
+            GROUP BY f.id
+        `);
+
+        // Query 2: Latest secondary market price per figure
+        const q2 = db.query(`
+            SELECT DISTINCT ON (figure_id) figure_id, price_avg as latest_price
+            FROM MarketTransactions
+            WHERE price_type = 'secondary_market'
+            ORDER BY figure_id, created_at DESC
+        `);
+
+        // Query 3: 30-day vs prior-30-day price averages
+        const q3 = db.query(`
+            SELECT figure_id,
+                   AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_30d,
+                   AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_30d
+            FROM MarketTransactions
+            WHERE price_type = 'secondary_market'
+            GROUP BY figure_id
+        `, [d30, d60]);
+
+        const [r1, r2, r3] = await Promise.all([q1, q2, q3]);
+
+        // Build lookup maps
+        const priceMap = {};
+        for (const row of r2.rows) priceMap[row.figure_id] = parseFloat(row.latest_price);
+        const changeMap = {};
+        for (const row of r3.rows) {
+            const avg30 = row.avg_30d ? parseFloat(row.avg_30d) : null;
+            const avgPrior = row.avg_prior_30d ? parseFloat(row.avg_prior_30d) : null;
+            changeMap[row.figure_id] = (avg30 !== null && avgPrior !== null && avgPrior !== 0)
+                ? parseFloat((((avg30 - avgPrior) / avgPrior) * 100).toFixed(1))
+                : null;
+        }
+
+        // Merge all data
+        let merged = r1.rows.map(r => {
+            const latestPrice = priceMap[r.id] !== undefined ? priceMap[r.id] : null;
+            const msrp = r.msrp ? parseFloat(r.msrp) : null;
+            const msrpDiff = (latestPrice !== null && msrp !== null && msrp !== 0)
+                ? parseFloat((((latestPrice - msrp) / msrp) * 100).toFixed(1))
+                : null;
+            const priceChange30d = changeMap[r.id] !== undefined ? changeMap[r.id] : null;
+            return {
+                id: r.id,
+                name: r.name,
+                brand: (r.brand || '').trim(),
+                classTie: r.classtie,
+                line: r.line,
+                submissions: parseInt(r.submission_count) || 0,
+                avgGrade: r.avg_grade ? parseFloat(parseFloat(r.avg_grade).toFixed(1)) : null,
+                latestPrice,
+                msrp,
+                msrpDiff,
+                priceChange30d,
+                trendDirection: priceChange30d > 0 ? 'up' : priceChange30d < 0 ? 'down' : 'flat',
+                pinned: r.lb_pinned || false,
+                rankOverride: r.lb_rank_override,
+                category: r.lb_category
+            };
+        });
+
+        // Only include figures with at least 1 submission
+        merged = merged.filter(f => f.submissions >= 1);
+
+        // Apply brand filter
+        if (brand) {
+            merged = merged.filter(f => f.brand && f.brand.toLowerCase() === brand.toLowerCase());
+        }
+
+        // Mode-specific filtering and sorting
+        switch (mode) {
+            case 'rising':
+                merged = merged.filter(f => (f.priceChange30d !== null && f.priceChange30d > 0) || f.category === 'rising');
+                merged.sort((a, b) => (b.priceChange30d || 0) - (a.priceChange30d || 0));
+                break;
+            case 'most_reviewed':
+                merged.sort((a, b) => b.submissions - a.submissions);
+                break;
+            case 'sleepers':
+                merged = merged.filter(f => (f.submissions >= 1 && f.submissions <= 5 && f.avgGrade !== null && f.avgGrade >= 70) || f.category === 'sleeper');
+                merged.sort((a, b) => (b.avgGrade || 0) - (a.avgGrade || 0));
+                break;
+            default: // top_rated
+                merged.sort((a, b) => (b.avgGrade || 0) - (a.avgGrade || 0));
+        }
+
+        // Apply admin overrides: pinned items first, then manual rank overrides
+        const pinned = merged.filter(f => f.pinned);
+        const unpinned = merged.filter(f => !f.pinned);
+        merged = [...pinned, ...unpinned];
+
+        // Apply manual rank overrides
+        const overrides = merged.filter(f => f.rankOverride !== null && f.rankOverride !== undefined);
+        const noOverrides = merged.filter(f => f.rankOverride === null || f.rankOverride === undefined);
+        overrides.forEach(f => {
+            const pos = Math.max(0, Math.min(noOverrides.length, f.rankOverride - 1));
+            noOverrides.splice(pos, 0, f);
+        });
+        merged = noOverrides;
+
+        // Collect brands for filter dropdown (before pagination)
+        const allBrands = [...new Set(merged.map(f => f.brand).filter(Boolean))].sort();
+        const total = merged.length;
+
+        // Paginate
+        const startIdx = (page - 1) * limit;
+        const paged = merged.slice(startIdx, startIdx + limit);
+
+        // Assign ranks
+        const figures = paged.map((f, i) => ({
+            rank: startIdx + i + 1,
+            ...f
+        }));
+
+        res.json({ figures, total, page, pageSize: limit, brands: allBrands });
+    } catch (err) {
+        log.error('Figure leaderboard error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Compare two figures — MUST be before /:id
 router.get('/compare', async (req, res) => {
     try {

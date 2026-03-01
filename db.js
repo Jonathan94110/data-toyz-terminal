@@ -373,6 +373,19 @@ async function initDB() {
             await pool.query(`ALTER TABLE Figures ADD COLUMN created_by TEXT`);
         }
 
+        // Migration: add leaderboard control columns to Figures
+        const lbHiddenCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'figures' AND column_name = 'lb_hidden'
+        `);
+        if (lbHiddenCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Figures ADD COLUMN lb_hidden BOOLEAN DEFAULT false`);
+            await pool.query(`ALTER TABLE Figures ADD COLUMN lb_pinned BOOLEAN DEFAULT false`);
+            await pool.query(`ALTER TABLE Figures ADD COLUMN lb_rank_override INTEGER`);
+            await pool.query(`ALTER TABLE Figures ADD COLUMN lb_category TEXT`);
+        }
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_figures_lb ON Figures(lb_hidden, lb_pinned)`);
+
         // Migration: add price_type column to MarketTransactions for multi-type pricing
         const priceTypeCheck = await pool.query(`
             SELECT column_name FROM information_schema.columns

@@ -87,6 +87,7 @@ TerminalApp.prototype.renderLogin = function () {
                         <div id="loginTopRated">
                             <div class="showcase-loading">Loading top rated toys...</div>
                         </div>
+                        <a href="#" id="viewFullLeaderboardLink" style="display:block; text-align:center; margin-top:1rem; color:var(--accent); font-size:0.9rem; font-weight:600; text-decoration:none; opacity:0.85; transition:opacity 0.2s;">View Full Leaderboard &rarr;</a>
                     </div>
                 </div>
 
@@ -159,6 +160,12 @@ TerminalApp.prototype.renderLogin = function () {
     // --- Fetch and render live public data for the showcase ---
     this._loadLoginShowcase();
 
+    document.getElementById('viewFullLeaderboardLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        sessionStorage.setItem('postLoginView', 'figure_leaderboard');
+        document.getElementById('loginUsername').focus();
+    });
+
     document.getElementById('showRegisterBtn').addEventListener('click', (e) => {
         e.preventDefault();
         document.getElementById('loginSection').style.display = 'none';
@@ -215,6 +222,13 @@ TerminalApp.prototype.renderLogin = function () {
             if (postParam) {
                 sessionStorage.setItem('sharedPostId', postParam);
                 this.currentView = 'feed';
+            }
+
+            // Check for post-login view redirect (e.g. "View Full Leaderboard" link)
+            const postLoginView = sessionStorage.getItem('postLoginView');
+            if (postLoginView) {
+                this.currentView = postLoginView;
+                sessionStorage.removeItem('postLoginView');
             }
 
             this.renderApp();
