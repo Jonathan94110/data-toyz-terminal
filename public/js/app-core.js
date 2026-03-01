@@ -5,7 +5,16 @@ class TerminalApp {
         return sessionStorage.getItem('terminalView') || 'search';
     }
     set currentView(val) {
+        const prev = sessionStorage.getItem('terminalView');
         sessionStorage.setItem('terminalView', val);
+        // Push browser history for back/forward button support
+        if (!this._isPopState && this._historyReady && val !== prev) {
+            const state = { view: val };
+            if (val === 'pulse' && this.currentTarget) state.targetId = this.currentTarget.id;
+            if (val === 'user_profile') state.profileUser = sessionStorage.getItem('profileUser');
+            if (val === 'room_chat') state.roomId = sessionStorage.getItem('activeRoomId');
+            history.pushState(state, '');
+        }
     }
 
     get currentTarget() {
@@ -28,6 +37,24 @@ class TerminalApp {
         this.user = null;
         this.previousView = null;
         this.editingSubmission = null;
+        this._isPopState = false;
+        this._historyReady = false;
+
+        // Browser back/forward button support
+        window.addEventListener('popstate', (e) => {
+            if (!this.user || !e.state || !e.state.view) return;
+            this._isPopState = true;
+            // Restore view context
+            if (e.state.targetId) {
+                const target = MOCK_FIGURES.find(f => f.id == e.state.targetId);
+                if (target) this.currentTarget = target;
+            }
+            if (e.state.profileUser) sessionStorage.setItem('profileUser', e.state.profileUser);
+            if (e.state.roomId) sessionStorage.setItem('activeRoomId', e.state.roomId);
+            this.currentView = e.state.view;
+            this.renderApp();
+            this._isPopState = false;
+        });
 
         // Clean up old storage format
         localStorage.removeItem('terminal_user');
@@ -90,6 +117,9 @@ class TerminalApp {
                 }
 
                 this.renderApp();
+                // Set initial browser history state (so back doesn't leave the app on first nav)
+                history.replaceState({ view: this.currentView }, '');
+                this._historyReady = true;
                 return;
             } catch (e) {
                 lastErr = e;
