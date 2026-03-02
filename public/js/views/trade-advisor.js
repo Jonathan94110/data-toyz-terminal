@@ -376,6 +376,16 @@ TerminalApp.prototype._renderTradeResults = function(container, data) {
             <div class="ta-verdict-confidence">Data Confidence: ${confidenceBadge(data.confidence)}</div>
         </div>
 
+        ${(baseCode === 'sweetener' || baseCode === 'unbalanced' || baseCode === 'pass') ? `
+            <div class="ta-sweetener-tip">
+                <div class="ta-sweetener-icon">💡</div>
+                <div class="ta-sweetener-msg">
+                    <strong>Tip:</strong> Try adding more figures to ${bd.dollarDelta >= 0 ? 'your' : 'their'} side to balance the trade.
+                    You can add up to ${5 - (bd.dollarDelta >= 0 ? data.yourSide.figures.length : data.theirSide.figures.length)} more figure${(5 - (bd.dollarDelta >= 0 ? data.yourSide.figures.length : data.theirSide.figures.length)) !== 1 ? 's' : ''} to sweeten the deal.
+                </div>
+            </div>
+        ` : ''}
+
         ${data.warnings.length > 0 ? `
             <div class="ta-warnings">
                 ${data.warnings.map(w => `<div class="ta-warning">⚠️ ${escapeHTML(w)}</div>`).join('')}
