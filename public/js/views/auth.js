@@ -114,10 +114,6 @@ TerminalApp.prototype.renderLogin = function () {
                                 <a href="#" id="showRegisterBtn" style="color:var(--accent); text-decoration:none;">Register Account</a>
                                 <a href="#" id="showForgotBtn" style="color:var(--text-muted); text-decoration:none;">Forgot Password?</a>
                             </div>
-                            <div style="margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border-light); text-align:center;">
-                                <button type="button" id="demoModeBtn" class="btn" style="width:100%; background:linear-gradient(135deg, #6366f1, #a855f7);">Try Demo Mode</button>
-                                <p style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted);">Explore all features with sample data. No account needed &mdash; nothing is saved.</p>
-                            </div>
                         </form>
                     </div>
 
@@ -186,10 +182,6 @@ TerminalApp.prototype.renderLogin = function () {
         e.preventDefault();
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('forgotSection').style.display = 'block';
-    });
-
-    document.getElementById('demoModeBtn').addEventListener('click', () => {
-        app.enterDemoMode();
     });
 
     document.getElementById('showLoginFromForgotBtn').addEventListener('click', (e) => {
