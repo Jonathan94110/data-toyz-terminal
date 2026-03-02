@@ -238,6 +238,28 @@ function bindScorecardEvents(container, figures) {
         }
     });
 
+    // Auto-load figure image from latest submission
+    function loadFigureImage(figureId) {
+        const apiBase = typeof API_URL !== 'undefined' ? API_URL : '/api';
+        fetch(apiBase + '/submissions/target/' + figureId)
+            .then(res => res.ok ? res.json() : [])
+            .then(subs => {
+                // Find latest submission with an image
+                const withImage = subs
+                    .filter(s => s.data && s.data.imagePath)
+                    .sort((a, b) => new Date(b.date) - new Date(a.date));
+                if (withImage.length > 0) {
+                    const imgSrc = withImage[0].data.imagePath;
+                    imageEl.src = imgSrc;
+                    imageEl.style.display = 'block';
+                    imagePlaceholder.style.display = 'none';
+                    // Clear any local blob URL since we're using a DB image
+                    if (imageURL) { URL.revokeObjectURL(imageURL); imageURL = null; }
+                }
+            })
+            .catch(() => { /* silent — user can still upload manually */ });
+    }
+
     // Figure search autocomplete
     const nameInput = document.getElementById('scFigureName');
     const dropdown = document.getElementById('scSearchDropdown');
@@ -270,6 +292,8 @@ function bindScorecardEvents(container, figures) {
                         if (fig.classTie) parts.push(fig.classTie);
                         metaEl.textContent = parts.join(' · ');
                         metaEl.style.display = parts.length ? 'block' : 'none';
+                        // Auto-load the figure's latest submission image
+                        loadFigureImage(fig.id);
                     }
                     dropdown.style.display = 'none';
                 });
