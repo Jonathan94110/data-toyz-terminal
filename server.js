@@ -80,6 +80,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/rooms', require('./routes/rooms'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/trade-advisor', require('./routes/trade-advisor'));
 
 // --- 404 for unknown API routes (Express 5 wildcard syntax) --- //
 app.all('/api/{*path}', (req, res) => {

@@ -11,6 +11,7 @@ TerminalApp.prototype.renderMarketPulse = function(container) {
                 <button class="market-tab ${tab === 'overview' ? 'active' : ''}" onclick="app.switchMarketTab('overview')">Overview</button>
                 <button class="market-tab ${tab === 'rankings' ? 'active' : ''}" onclick="app.switchMarketTab('rankings')">Rankings</button>
                 <button class="market-tab ${tab === 'compare' ? 'active' : ''}" onclick="app.switchMarketTab('compare')">Compare</button>
+                <button class="market-tab ${tab === 'trade_advisor' ? 'active' : ''}" onclick="app.switchMarketTab('trade_advisor')">Trade Advisor</button>
             </div>
 
             <div id="marketTabContent"></div>
@@ -20,6 +21,7 @@ TerminalApp.prototype.renderMarketPulse = function(container) {
     if (tab === 'overview') this.renderMarketOverview(document.getElementById('marketTabContent'));
     else if (tab === 'rankings') this.renderMarketRankings(document.getElementById('marketTabContent'));
     else if (tab === 'compare') this.renderMarketCompare(document.getElementById('marketTabContent'));
+    else if (tab === 'trade_advisor') this.renderTradeAdvisor(document.getElementById('marketTabContent'));
 };
 
 TerminalApp.prototype.switchMarketTab = function(tab) {
