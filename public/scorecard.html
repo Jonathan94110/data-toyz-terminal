@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Toyz | Live Scorecard</title>
+    <meta name="theme-color" content="#ff2a5f">
+    <link rel="apple-touch-icon" href="logo.png">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=35">
+    <style>
+        /* Standalone page overrides */
+        body {
+            background-color: var(--bg-base);
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .sc-standalone-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 1.25rem 2rem;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .sc-standalone-logo {
+            height: 40px;
+            width: auto;
+            filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));
+        }
+
+        .sc-standalone-title {
+            font-family: var(--font-heading);
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .sc-standalone-title span {
+            color: var(--accent);
+        }
+
+        .sc-standalone-badge {
+            background: rgba(255, 42, 95, 0.15);
+            color: var(--accent);
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.3rem 0.6rem;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: 1px solid rgba(255, 42, 95, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top Bar -->
+    <div class="sc-standalone-header">
+        <img src="logo.png" alt="Data Toyz" class="sc-standalone-logo">
+        <div class="sc-standalone-title"><span>Live</span> Scorecard</div>
+        <div class="sc-standalone-badge">Stream Mode</div>
+    </div>
+
+    <!-- Scorecard Container -->
+    <div id="scorecardRoot"></div>
+
+    <!-- Shared utilities -->
+    <script>
+        // Minimal escapeHTML for standalone (same as globals.js)
+        function escapeHTML(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+
+    <!-- Scorecard logic (shared with in-app version) -->
+    <script src="js/views/scorecard.js?v=1"></script>
+
+    <!-- Boot the standalone scorecard -->
+    <script>
+        (async function () {
+            let figures = [];
+
+            // Try to load figures from the API for autocomplete (graceful fallback)
+            try {
+                const res = await fetch('/api/figures');
+                if (res.ok) figures = await res.json();
+            } catch (e) {
+                console.warn('Could not load figures catalog — autocomplete disabled.', e);
+            }
+
+            const root = document.getElementById('scorecardRoot');
+            renderScorecardStandalone(root, figures);
+        })();
+    </script>
+</body>
+
+</html>
