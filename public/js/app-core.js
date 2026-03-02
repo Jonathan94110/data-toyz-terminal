@@ -300,6 +300,7 @@ class TerminalApp {
 
                 <div class="sidebar-overlay" id="sidebarOverlay"></div>
                 <main class="main-content">
+                    ${typeof DemoMode !== 'undefined' && DemoMode.isActive() ? DemoMode.getBannerHTML() : ''}
                     <header class="topbar">
                         <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle menu">☰</button>
                         <div class="topbar-search">
@@ -476,6 +477,7 @@ class TerminalApp {
 // --- Navigation & utility methods (prototype extensions) --- //
 
 TerminalApp.prototype.logout = function () {
+    if (typeof DemoMode !== 'undefined' && DemoMode.isActive()) DemoMode.cleanup();
     this.token = null;
     this.user = null;
     localStorage.removeItem('terminal_token');
