@@ -3569,18 +3569,21 @@ textarea:focus {
     padding: 1.5rem 1rem 3rem;
 }
 
-/* Header — Image + Info + Hero Stats */
+/* Header — Image + Info + Hero Stats (sticky for YouTube streaming) */
 .sc-header {
     display: grid;
     grid-template-columns: 240px 1fr;
     gap: 2rem;
-    margin-bottom: 2rem;
+    margin-bottom: 0;
     background: var(--bg-panel);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
     padding: 2rem;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .sc-figure-col {
@@ -3797,11 +3800,37 @@ textarea:focus {
     margin-left: 0.5rem;
 }
 
-/* Slider Sections */
+/* Slider Sections — scrollable area beneath sticky header */
 .sc-sections {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    padding-top: 1.5rem;
+}
+
+/* Always-visible scrollbar for the scorecard scroll container */
+.sc-scroll-wrap {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 42, 95, 0.4) rgba(255, 255, 255, 0.05);
+}
+
+.sc-scroll-wrap::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sc-scroll-wrap::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.sc-scroll-wrap::-webkit-scrollbar-thumb {
+    background: rgba(255, 42, 95, 0.4);
+    border-radius: 4px;
+}
+
+.sc-scroll-wrap::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 42, 95, 0.6);
 }
 
 .sc-section {
@@ -3958,6 +3987,9 @@ textarea:focus {
         grid-template-columns: 1fr;
         gap: 1.25rem;
         padding: 1.25rem;
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
 
     .sc-image-wrapper {

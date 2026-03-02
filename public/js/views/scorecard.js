@@ -1,10 +1,12 @@
 // views/scorecard.js — Live Scorecard presentation tool for YouTube streaming
 // No database writes — purely a visual/broadcast tool
 
-TerminalApp.prototype.renderScorecard = function(container) {
-    container.innerHTML = this._scorecardHTML();
-    this._scorecardBind(container);
-};
+if (typeof TerminalApp !== 'undefined') {
+    TerminalApp.prototype.renderScorecard = function(container) {
+        container.innerHTML = this._scorecardHTML();
+        this._scorecardBind(container);
+    };
+}
 
 // Shared rendering logic (used by both in-app view and standalone page)
 function renderScorecardStandalone(container, figures) {
@@ -354,9 +356,11 @@ function bindScorecardEvents(container, figures) {
 }
 
 // In-app version — adapter
-TerminalApp.prototype._scorecardHTML = function() {
-    return buildScorecardHTML(typeof MOCK_FIGURES !== 'undefined' ? MOCK_FIGURES : []);
-};
-TerminalApp.prototype._scorecardBind = function(container) {
-    bindScorecardEvents(container, typeof MOCK_FIGURES !== 'undefined' ? MOCK_FIGURES : []);
-};
+if (typeof TerminalApp !== 'undefined') {
+    TerminalApp.prototype._scorecardHTML = function() {
+        return buildScorecardHTML(typeof MOCK_FIGURES !== 'undefined' ? MOCK_FIGURES : []);
+    };
+    TerminalApp.prototype._scorecardBind = function(container) {
+        bindScorecardEvents(container, typeof MOCK_FIGURES !== 'undefined' ? MOCK_FIGURES : []);
+    };
+}
