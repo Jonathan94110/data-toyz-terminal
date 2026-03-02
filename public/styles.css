@@ -2894,8 +2894,26 @@ textarea:focus {
         grid-template-columns: repeat(2, 1fr) !important;
     }
 
+    [style*="grid-template-columns: repeat(3"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    [style*="grid-template-columns:repeat(3"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    .pop-count-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
     [style*="grid-template-columns:1fr 1fr"] {
         grid-template-columns: 1fr !important;
+    }
+
+    /* Mobile button touch improvements */
+    .btn {
+        -webkit-tap-highlight-color: rgba(255, 42, 95, 0.3);
+        touch-action: manipulation;
     }
 
     /* Touch targets: min 44px */

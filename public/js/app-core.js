@@ -447,6 +447,8 @@ class TerminalApp {
 
     renderCurrentView() {
         const contentArea = document.getElementById('mainContent');
+        // Reset scroll position on view change
+        if (contentArea) contentArea.scrollTop = 0;
         // Clear chat polling when leaving room_chat
         if (this.currentView !== 'room_chat' && this._chatPollInterval) {
             clearInterval(this._chatPollInterval);
