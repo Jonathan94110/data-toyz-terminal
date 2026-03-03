@@ -530,4 +530,71 @@ router.get('/figures/leaderboard-settings', requireAuth, requireRole('moderator'
     }
 });
 
+// ── Audit Logs ──────────────────────────────────────────
+// GET /admin/audit-logs — paginated, filterable log viewer
+
+router.get('/audit-logs', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
+        const offset = (page - 1) * limit;
+
+        // Build WHERE clauses
+        const conditions = [];
+        const params = [];
+        let paramIdx = 1;
+
+        if (req.query.action) {
+            conditions.push(`action = $${paramIdx++}`);
+            params.push(req.query.action);
+        }
+
+        if (req.query.actor) {
+            conditions.push(`LOWER(actor) = LOWER($${paramIdx++})`);
+            params.push(req.query.actor);
+        }
+
+        if (req.query.search) {
+            conditions.push(`(LOWER(actor) LIKE $${paramIdx} OR LOWER(target) LIKE $${paramIdx} OR LOWER(details) LIKE $${paramIdx})`);
+            params.push(`%${req.query.search.toLowerCase()}%`);
+            paramIdx++;
+        }
+
+        if (req.query.from) {
+            conditions.push(`created_at >= $${paramIdx++}`);
+            params.push(req.query.from);
+        }
+
+        if (req.query.to) {
+            conditions.push(`created_at <= $${paramIdx++}`);
+            params.push(req.query.to);
+        }
+
+        const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+        // Count total matching rows
+        const countRes = await db.query(`SELECT COUNT(*) as total FROM AuditLog ${whereClause}`, params);
+        const total = parseInt(countRes.rows[0].total) || 0;
+
+        // Fetch page of logs
+        const logsRes = await db.query(
+            `SELECT id, action, actor, target, details, ip_address, created_at
+             FROM AuditLog ${whereClause}
+             ORDER BY created_at DESC
+             LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+            [...params, limit, offset]
+        );
+
+        res.json({
+            logs: logsRes.rows,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit) || 1
+        });
+    } catch (err) {
+        log.error('Admin audit-logs error', { error: err.message || err });
+        res.status(500).json({ error: 'Failed to load audit logs.' });
+    }
+});
+
 module.exports = router;

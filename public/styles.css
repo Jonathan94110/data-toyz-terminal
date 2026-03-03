@@ -4627,3 +4627,15 @@ textarea:focus {
         gap: 0.3rem 0.5rem;
     }
 }
+
+/* ── Admin System Logs ─────────────────────────────── */
+.admin-log-filters {
+    flex-wrap: wrap;
+}
+@media (max-width: 767px) {
+    .admin-log-filters select,
+    .admin-log-filters input {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+}

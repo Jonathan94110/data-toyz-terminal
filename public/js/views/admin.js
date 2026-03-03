@@ -514,6 +514,57 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 </div>
                 ` : ''}
 
+                ${isFullAdmin ? `
+                <!-- SYSTEM LOGS -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F4DC} System Logs</h3>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Authentication events, admin actions, and security audit trail.</p>
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
+                    <div class="admin-log-filters" style="padding:0.75rem 1rem; border-bottom:1px solid var(--border-light); display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                        <select id="adminLogAction" style="padding:0.4rem 0.6rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.8rem;">
+                            <option value="">All Actions</option>
+                            <optgroup label="Auth Events">
+                                <option value="LOGIN_SUCCESS">Login Success</option>
+                                <option value="LOGIN_FAILURE">Login Failure</option>
+                                <option value="USER_REGISTER">Registration</option>
+                                <option value="PASSWORD_CHANGE">Password Change</option>
+                                <option value="PASSWORD_RESET">Password Reset</option>
+                            </optgroup>
+                            <optgroup label="Admin Actions">
+                                <option value="ADMIN_PASSWORD_RESET">Admin Password Reset</option>
+                                <option value="ADMIN_CREATE_USER">Admin Create User</option>
+                                <option value="ADMIN_ROLE_CHANGE">Role Change</option>
+                                <option value="ADMIN_SUSPEND">Suspend/Reinstate</option>
+                                <option value="ADMIN_DELETE_USER">Delete User</option>
+                                <option value="ADMIN_WIPE_SUBMISSIONS">Wipe Submissions</option>
+                                <option value="ADMIN_LB_UPDATE">Leaderboard Update</option>
+                                <option value="MOD_LB_VISIBILITY">Mod Visibility</option>
+                            </optgroup>
+                        </select>
+                        <input type="text" id="adminLogActor" placeholder="Filter by user..." style="padding:0.4rem 0.6rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.8rem; width:140px;">
+                        <input type="text" id="adminLogSearch" placeholder="Search details..." style="padding:0.4rem 0.6rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:0.8rem; flex:1; min-width:120px;">
+                        <button id="adminLogRefresh" style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.4rem 0.6rem; border-radius:var(--radius-sm); font-size:0.8rem;" title="Refresh">\u{1F504}</button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                            <thead>
+                                <tr style="background:var(--bg-panel); text-align:left;">
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600; white-space:nowrap;">Action</th>
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600;">Actor</th>
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600;">Target</th>
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600;">Details</th>
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600;">IP</th>
+                                    <th style="padding:0.6rem 0.75rem; font-weight:600; white-space:nowrap;">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminLogTbody">
+                                <tr><td colspan="6" style="padding:1.5rem; text-align:center; color:var(--text-muted);">Loading logs...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="adminLogPagination" style="display:flex; justify-content:center; align-items:center; gap:0.5rem; padding:0.75rem; border-top:1px solid var(--border-light);"></div>
+                </div>
+                ` : ''}
+
                 <!-- LEADERBOARD CONTROLS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F3C6} Leaderboard Controls (<span id="adminLbCount">${lbSettings.length}</span>)</h3>
                 <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Pin, hide, or override rank positions for figures on the leaderboard.${isMod ? ' As a moderator, you can toggle visibility.' : ''}</p>
@@ -702,6 +753,110 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 ` : ''}
             </div>
         `;
+
+        // ── System Logs ──────────────────────────────────────
+        if (isFullAdmin) {
+            let logPage = 1;
+            const LOG_PAGE_SIZE = 50;
+
+            const logActionBadge = (action) => {
+                const map = {
+                    LOGIN_SUCCESS: { label: 'LOGIN OK', color: '#10b981' },
+                    LOGIN_FAILURE: { label: 'LOGIN FAIL', color: '#ef4444' },
+                    USER_REGISTER: { label: 'REGISTER', color: '#3b82f6' },
+                    PASSWORD_CHANGE: { label: 'PW CHANGE', color: '#f59e0b' },
+                    PASSWORD_RESET: { label: 'PW RESET', color: '#f59e0b' },
+                    ADMIN_PASSWORD_RESET: { label: 'ADMIN PW', color: '#a855f7' },
+                    ADMIN_CREATE_USER: { label: 'CREATE USER', color: '#a855f7' },
+                    ADMIN_ROLE_CHANGE: { label: 'ROLE CHANGE', color: '#a855f7' },
+                    ADMIN_SUSPEND: { label: 'SUSPEND', color: '#a855f7' },
+                    ADMIN_DELETE_USER: { label: 'DELETE USER', color: '#ef4444' },
+                    ADMIN_WIPE_SUBMISSIONS: { label: 'WIPE SUBS', color: '#ef4444' },
+                    ADMIN_CLEANUP: { label: 'CLEANUP', color: '#6b7280' },
+                    ADMIN_LB_UPDATE: { label: 'LB UPDATE', color: '#6b7280' },
+                    MOD_LB_VISIBILITY: { label: 'MOD VIS', color: '#6b7280' }
+                };
+                const m = map[action] || { label: action, color: 'var(--text-muted)' };
+                return `<span class="admin-log-badge" style="background:${m.color}20; color:${m.color}; border:1px solid ${m.color}40; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.7rem; font-weight:700; white-space:nowrap;">${escapeHTML(m.label)}</span>`;
+            };
+
+            async function loadLogs() {
+                const tbody = document.getElementById('adminLogTbody');
+                const pagination = document.getElementById('adminLogPagination');
+                if (!tbody) return;
+
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:var(--text-muted);">Loading...</td></tr>';
+
+                const actionFilter = document.getElementById('adminLogAction')?.value || '';
+                const actorFilter = document.getElementById('adminLogActor')?.value.trim() || '';
+                const searchFilter = document.getElementById('adminLogSearch')?.value.trim() || '';
+
+                const params = new URLSearchParams({ page: logPage, limit: LOG_PAGE_SIZE });
+                if (actionFilter) params.set('action', actionFilter);
+                if (actorFilter) params.set('actor', actorFilter);
+                if (searchFilter) params.set('search', searchFilter);
+
+                try {
+                    const res = await self.authFetch(`${API_URL}/admin/audit-logs?${params}`);
+                    if (!res.ok) throw new Error('Failed to load');
+                    const data = await res.json();
+
+                    if (data.logs.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:var(--text-muted);">No logs found.</td></tr>';
+                    } else {
+                        tbody.innerHTML = data.logs.map(l => `
+                            <tr style="border-top:1px solid var(--border-light);">
+                                <td style="padding:0.5rem 0.75rem;">${logActionBadge(l.action)}</td>
+                                <td style="padding:0.5rem 0.75rem; font-weight:600; font-size:0.85rem;">${escapeHTML(l.actor || '\u2014')}</td>
+                                <td style="padding:0.5rem 0.75rem; font-size:0.85rem; color:var(--text-secondary);">${escapeHTML(l.target || '\u2014')}</td>
+                                <td style="padding:0.5rem 0.75rem; font-size:0.8rem; color:var(--text-muted); max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHTML(l.details || '')}">${escapeHTML(l.details || '\u2014')}</td>
+                                <td style="padding:0.5rem 0.75rem; font-size:0.75rem; color:var(--text-muted); font-family:monospace;">${escapeHTML(l.ip_address || '\u2014')}</td>
+                                <td style="padding:0.5rem 0.75rem; font-size:0.8rem; color:var(--text-muted); white-space:nowrap;" title="${l.created_at ? new Date(l.created_at).toLocaleString() : ''}">${l.created_at ? self.timeAgo(l.created_at) : '\u2014'}</td>
+                            </tr>
+                        `).join('');
+                    }
+
+                    // Pagination
+                    if (pagination) {
+                        if (data.totalPages <= 1) {
+                            pagination.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">${data.total} log${data.total !== 1 ? 's' : ''}</span>`;
+                        } else {
+                            pagination.innerHTML = `
+                                <button class="admin-log-page-btn" data-page="${logPage - 1}" ${logPage <= 1 ? 'disabled' : ''} style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">&laquo; Prev</button>
+                                <span style="font-size:0.8rem; color:var(--text-muted);">Page ${data.page} of ${data.totalPages} (${data.total} total)</span>
+                                <button class="admin-log-page-btn" data-page="${logPage + 1}" ${logPage >= data.totalPages ? 'disabled' : ''} style="background:none; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.8rem;">Next &raquo;</button>
+                            `;
+                            pagination.querySelectorAll('.admin-log-page-btn').forEach(btn => {
+                                btn.addEventListener('click', () => {
+                                    logPage = parseInt(btn.dataset.page);
+                                    loadLogs();
+                                });
+                            });
+                        }
+                    }
+                } catch (e) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:var(--danger);">Failed to load logs.</td></tr>';
+                    console.error('Audit log load error:', e);
+                }
+            }
+
+            // Wire up filter controls
+            let logDebounce = null;
+            const logFilterHandler = () => { logPage = 1; clearTimeout(logDebounce); logDebounce = setTimeout(loadLogs, 300); };
+
+            const logActionEl = document.getElementById('adminLogAction');
+            const logActorEl = document.getElementById('adminLogActor');
+            const logSearchEl = document.getElementById('adminLogSearch');
+            const logRefreshEl = document.getElementById('adminLogRefresh');
+
+            if (logActionEl) logActionEl.addEventListener('change', () => { logPage = 1; loadLogs(); });
+            if (logActorEl) logActorEl.addEventListener('input', logFilterHandler);
+            if (logSearchEl) logSearchEl.addEventListener('input', logFilterHandler);
+            if (logRefreshEl) logRefreshEl.addEventListener('click', loadLogs);
+
+            // Initial load
+            loadLogs();
+        }
 
         // Leaderboard controls table render
         let lbSearch = '';

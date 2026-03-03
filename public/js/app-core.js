@@ -102,6 +102,15 @@ class TerminalApp {
                 }
                 if (!res.ok) throw new Error('Server error');
                 this.user = await res.json();
+
+                // Token renewal: server returns a fresh token on each /me call
+                // so sessions extend as long as the app is opened within 24h
+                if (this.user.token) {
+                    this.token = this.user.token;
+                    localStorage.setItem('terminal_token', this.token);
+                    delete this.user.token; // don't store token in user object
+                }
+
                 await this.loadFigures();
 
                 // Deep-link support: ?figure=ID
@@ -147,7 +156,11 @@ class TerminalApp {
     }
 
     // Authenticated fetch helper — retries once on 401 to survive deploy blips
+    // Pass { background: true } for non-critical polling so it never kicks the user out
     async authFetch(url, options = {}) {
+        const isBackground = options.background;
+        delete options.background; // don't pass to fetch()
+
         if (!options.headers) options.headers = {};
         if (this.token && !(options.body instanceof FormData)) {
             if (!options.headers['Content-Type']) options.headers['Content-Type'] = 'application/json';
@@ -157,6 +170,10 @@ class TerminalApp {
         }
         const res = await fetch(url, options);
         if (res.status === 401) {
+            // Background polls should NOT kick the user out — just throw silently
+            if (isBackground) {
+                throw new Error('Auth expired (background)');
+            }
             // Retry once after a short delay — deploy blips can cause transient 401s
             await new Promise(r => setTimeout(r, 2000));
             const retryOpts = { ...options, headers: { ...options.headers } };
@@ -537,7 +554,7 @@ TerminalApp.prototype.selectTarget = function (id) {
 
 TerminalApp.prototype.updateNotifBadge = async function () {
     try {
-        const res = await this.authFetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}/count`);
+        const res = await this.authFetch(`${API_URL}/notifications/${encodeURIComponent(this.user.username)}/count`, { background: true });
         const data = await res.json();
         const badge = document.getElementById('notifBadge');
         if (badge) {
@@ -628,7 +645,7 @@ TerminalApp.prototype.timeAgo = function (dateStr) {
 
 TerminalApp.prototype.updateRoomsBadge = async function () {
     try {
-        const res = await this.authFetch(`${API_URL}/rooms/unread-total`);
+        const res = await this.authFetch(`${API_URL}/rooms/unread-total`, { background: true });
         if (!res.ok) return;
         const data = await res.json();
         const badge = document.getElementById('roomsBadge');

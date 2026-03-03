@@ -76,7 +76,7 @@ router.post('/login', authAttemptLimiter, async (req, res) => {
     }
 });
 
-// Get current user
+// Get current user (+ silent token renewal — extends session on every app load)
 router.get('/me', requireAuth, async (req, res) => {
     try {
         const result = await db.query(
@@ -84,7 +84,12 @@ router.get('/me', requireAuth, async (req, res) => {
             [req.user.id]
         );
         if (!result.rows[0]) return res.status(404).json({ error: 'User not found.' });
-        res.json(result.rows[0]);
+
+        const user = result.rows[0];
+        // Token rotation: issue a fresh 24h token on every successful /me call
+        // so the session extends as long as the user opens the app within 24h
+        const freshToken = generateToken(user);
+        res.json({ ...user, token: freshToken });
     } catch (e) {
         log.error('Get current user error', { error: e.message || e });
         res.status(500).json({ error: 'An internal error occurred.' });
