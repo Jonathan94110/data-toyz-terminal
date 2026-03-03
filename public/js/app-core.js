@@ -142,6 +142,7 @@ class TerminalApp {
                 }
 
                 this.renderApp();
+                this.startTicker();
                 // Set initial browser history state (so back doesn't leave the app on first nav)
                 history.replaceState({ view: this.currentView }, '');
                 this._historyReady = true;
@@ -208,6 +209,74 @@ class TerminalApp {
             }
         }
         return res;
+    }
+
+    async startTicker() {
+        const wrap = document.getElementById('globalTicker');
+        let content = document.getElementById('tickerContent');
+        if (!wrap || !content) return;
+
+        try {
+            // Fetch top 25 graded figures and also use the full figures list to sort by price
+            const [headlinesRes, figuresRes] = await Promise.all([
+                fetch(`${API_URL}/stats/headlines`),
+                fetch(`${API_URL}/figures`) // we fetch all figures to sort top 25 by grade and price
+            ]);
+
+            const headlines = await headlinesRes.json().catch(() => []);
+            const allFigures = await figuresRes.json().catch(() => []);
+
+            // Derive Top 25 Approval Scores
+            const topGraded = [...allFigures]
+                .filter(f => f.avgGrade && f.submissions > 0)
+                .sort((a, b) => parseFloat(b.avgGrade) - parseFloat(a.avgGrade))
+                .slice(0, 25);
+
+            // Derive Top 25 Pricing
+            const topPriced = [...allFigures]
+                .filter(f => f.avgSecondaryPrice)
+                .sort((a, b) => parseFloat(b.avgSecondaryPrice) - parseFloat(a.avgSecondaryPrice))
+                .slice(0, 25);
+
+            let html = '';
+
+            if (headlines && headlines.length > 0) {
+                html += headlines.slice(0, 5).map(h => `<span class="ticker-item"><span class="ticker-accent">[INTEL]</span> ${escapeHTML(h.brand)}: ${escapeHTML(h.headline)}</span>`).join('');
+            }
+            if (topPriced.length > 0) {
+                html += topPriced.map(f => `<span class="ticker-item"><span class="ticker-neutral">[${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--text-primary); margin-left:0.25rem;">$${parseFloat(f.avgSecondaryPrice).toFixed(2)}</span></span>`).join('');
+            }
+            if (topGraded.length > 0) {
+                html += topGraded.map(f => `<span class="ticker-item"><span class="ticker-neutral">[${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--success); margin-left:0.25rem;">★ ${f.avgGrade}</span></span>`).join('');
+            }
+
+            if (html) {
+                // duplicate content heavily to allow seamless continuous scrolling animation loop for large monitors
+                content.innerHTML = html + html + html + html;
+                wrap.style.display = 'flex';
+
+                // Add speed controls
+                if (!document.getElementById('tickerControls')) {
+                    const controls = document.createElement('div');
+                    controls.id = 'tickerControls';
+                    controls.style.cssText = 'position:absolute; right:10px; z-index:100; display:flex; gap:5px; background:var(--bg-panel); padding:2px 6px; border-radius:4px; align-items:center;';
+                    controls.innerHTML = `
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationPlayState = 'paused'">⏸</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationPlayState = 'running'">▶</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '30s'">⏩</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '120s'">🐢</button>
+                    `;
+                    wrap.appendChild(controls);
+                }
+
+                // Ensure content resets animation
+                content.style.animation = 'none';
+                void content.offsetWidth; // trigger reflow
+                content.style.animation = 'ticker 60s linear infinite';
+            }
+        } catch (e) {
+            console.error('Ticker load failed:', e);
+        }
     }
 
     async loadFigures() {
@@ -347,7 +416,7 @@ class TerminalApp {
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>`}
                             <div style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${escapeHTML(this.user.username)}</div>
-                                <div style="font-size:0.75rem; color:${{'owner':'#a855f7','admin':'#fbbf24','moderator':'#3b82f6'}[this.user.role] || 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${{'owner':'\u{2B50} Owner','admin':'\u{2605} Admin','moderator':'\u{1F6E1}\u{FE0F} Moderator'}[this.user.role] || 'Analyst'}</div>
+                                <div style="font-size:0.75rem; color:${{ 'owner': '#a855f7', 'admin': '#fbbf24', 'moderator': '#3b82f6' }[this.user.role] || 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${{ 'owner': '\u{2B50} Owner', 'admin': '\u{2605} Admin', 'moderator': '\u{1F6E1}\u{FE0F} Moderator' }[this.user.role] || 'Analyst'}</div>
                                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">View Profile</div>
                             </div>
                             </div>

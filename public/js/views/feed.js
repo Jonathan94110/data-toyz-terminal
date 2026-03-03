@@ -146,6 +146,15 @@ TerminalApp.prototype.renderFeed = async function (container) {
             const isMyPost = p.author === this.user.username;
             const isAdmin = ['owner', 'admin', 'moderator'].includes(this.user.role);
 
+            // Calculate author rank
+            const calculateRank = (count) => {
+                if (count >= 50) return { icon: '\u{1F48E}', class: 'badge-legend' };
+                if (count >= 20) return { icon: '\u{2B50}', class: 'badge-master' };
+                if (count >= 5) return { icon: '\u{1F6E1}', class: 'badge-operative' };
+                return { icon: '\u{1F530}', class: 'badge-recruit' };
+            };
+            const rankInfo = calculateRank(parseInt(p.submissionCount) || 0);
+
             // Post action buttons (edit/delete for author, admin delete, flag, share)
             let postActionsHtml = '<div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">';
             if (isMyPost) {
@@ -171,8 +180,11 @@ TerminalApp.prototype.renderFeed = async function (container) {
                 <div class="card feed-item animate-stagger" style="margin-bottom:1.5rem; padding:1.5rem; border-left: 4px solid ${badgeColor}; animation-delay: ${index * 0.08}s;${isSharedPost ? ' box-shadow: 0 0 20px rgba(255, 42, 95, 0.3); border: 1px solid var(--accent);' : ''}">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
                         <div>
-                            <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(p.author).replace(/'/g, "\\'")}')">${escapeHTML(p.author)}</div>
-                            <div style="font-size:0.75rem; color:var(--text-secondary);">${dateStr}${p.editedAt ? ' <span style="color:var(--text-muted); font-style:italic;">(edited)</span>' : ''}</div>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <div style="font-weight:800; font-size:1.1rem; color:${this.user.username === p.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(p.author).replace(/'/g, "\\'")}')">${escapeHTML(p.author)}</div>
+                                <span class="${rankInfo.class}" style="font-size:0.65rem; padding:0.15rem 0.4rem; border-radius:4px;" title="Analyst Rank">${rankInfo.icon}</span>
+                            </div>
+                            <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.15rem;">${dateStr}${p.editedAt ? ' <span style="color:var(--text-muted); font-style:italic;">(edited)</span>' : ''}</div>
                         </div>
                         <div style="background:${badgeGlow}; color:${badgeColor}; border:1px solid ${badgeColor}; padding:0.25rem 0.75rem; border-radius:1rem; font-weight:800; font-size:0.85rem; box-shadow: 0 0 10px ${badgeGlow}; text-transform:uppercase;">
                             ${badgeIcon} ${escapeHTML(p.sentiment)}

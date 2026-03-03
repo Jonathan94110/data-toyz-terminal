@@ -1,6 +1,6 @@
 // views/user-profile.js — View another user's profile
 
-TerminalApp.prototype.renderUserProfile = async function(container) {
+TerminalApp.prototype.renderUserProfile = async function (container) {
     const username = sessionStorage.getItem('profileUser');
     if (!username) { this.currentView = 'feed'; this.renderApp(); return; }
 
@@ -11,13 +11,13 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
         if (!res.ok) throw new Error('Profile not found');
         const profile = await res.json();
 
-        const titleColors = {
-            'Prime Intel Officer': '#a78bfa',
-            'Senior Field Evaluator': 'var(--text-secondary)',
-            'Field Evaluator': 'var(--success)',
-            'Junior Analyst': 'var(--accent)',
-            'Rookie Analyst': 'var(--text-muted)'
+        const calculateRank = (count) => {
+            if (count >= 50) return { title: 'Legend', class: 'badge-legend', next: null, current: count, icon: '\u{1F48E}' }; // Diamond
+            if (count >= 20) return { title: 'Master', class: 'badge-master', next: 50, current: count, icon: '\u{2B50}' }; // Star
+            if (count >= 5) return { title: 'Operative', class: 'badge-operative', next: 20, current: count, icon: '\u{1F6E1}' }; // Shield
+            return { title: 'Recruit', class: 'badge-recruit', next: 5, current: count, icon: '\u{1F530}' }; // Beginner
         };
+        const rankInfo = calculateRank(profile.submissionCount);
 
         container.innerHTML = `
             <div style="max-width:800px; margin:0 auto;">
@@ -29,8 +29,10 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                         <div style="flex:1; min-width:200px;">
                             <h2 style="font-size:1.75rem; margin-bottom:0.25rem;">${escapeHTML(profile.username)}</h2>
                             <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-                                <span style="color:${titleColors[profile.title] || 'var(--text-muted)'}; font-weight:700; font-size:0.9rem; border:1px solid; padding:0.2rem 0.6rem; border-radius:4px;">${escapeHTML(profile.title)}</span>
-                                ${{'owner':'<span style="color:#a855f7; font-weight:700; font-size:0.8rem;">\u{2B50} OWNER</span>','admin':'<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">\u2605 ADMIN</span>','moderator':'<span style="color:#3b82f6; font-weight:700; font-size:0.8rem;">\u{1F6E1}\u{FE0F} MOD</span>'}[profile.role] || ''}
+                                <span class="${rankInfo.class}" style="font-weight:700; font-size:0.85rem; padding:0.25rem 0.75rem; border-radius:var(--radius-sm); display:flex; gap:0.35rem; align-items:center; text-transform:uppercase; letter-spacing:0.05em;">
+                                    <span style="font-size:1rem;">${rankInfo.icon}</span> ${escapeHTML(rankInfo.title)}
+                                </span>
+                                ${{ 'owner': '<span style="color:#a855f7; font-weight:700; font-size:0.8rem;">\u{2B50} OWNER</span>', 'admin': '<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">\u2605 ADMIN</span>', 'moderator': '<span style="color:#3b82f6; font-weight:700; font-size:0.8rem;">\u{1F6E1}\u{FE0F} MOD</span>' }[profile.role] || ''}
                                 <span style="color:var(--text-muted); font-size:0.85rem;">Joined ${new Date(profile.joinDate).toLocaleDateString()}</span>
                             </div>
                         </div>
@@ -49,6 +51,21 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                             <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Following</div>
                         </div>
                     </div>
+                    ${rankInfo.next ? `
+                    <div style="margin-top:2rem; padding: 0 1.5rem;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">
+                            <span>Current: ${rankInfo.title}</span>
+                            <span>Next Rank: ${rankInfo.next} Reports</span>
+                        </div>
+                        <div class="level-progress-bg">
+                            <div class="level-progress-bar ${rankInfo.class}" style="width: ${(rankInfo.current / rankInfo.next) * 100}%;"></div>
+                        </div>
+                    </div>
+                    ` : `
+                    <div style="margin-top:2rem; padding: 0 1.5rem; text-align:center; color:var(--accent); font-size:0.9rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; text-shadow: 0 0 10px var(--accent-glow);">
+                        \u2728 Maximum Rank Achieved \u2728
+                    </div>
+                    `}
                     ${profile.username !== this.user.username ? `
                     <div style="display:flex; gap:1rem; margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border-light);">
                         <button class="btn" id="followBtn" data-userid="${profile.userId}" style="flex:1; padding:0.85rem; font-size:0.95rem;">Loading...</button>
@@ -88,8 +105,8 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                         </thead>
                         <tbody>
                             ${profile.recentSubmissions.map(s => {
-                                const grade = ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1);
-                                return `
+            const grade = ((parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2).toFixed(1);
+            return `
                                 <tr style="cursor:pointer;" onclick="app.selectTarget(${s.targetId})">
                                     <td style="color:var(--text-muted);">${new Date(s.date).toLocaleDateString()}${s.editedAt ? ' <span style="font-size:0.7rem; font-style:italic;">(edited)</span>' : ''}</td>
                                     <td>
@@ -98,7 +115,7 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
                                     </td>
                                     <td style="font-weight:700; color:${parseFloat(grade) >= 70 ? 'var(--success)' : parseFloat(grade) >= 50 ? '#fbbf24' : 'var(--danger)'};">${grade}</td>
                                 </tr>`;
-                            }).join('')}
+        }).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -212,7 +229,7 @@ TerminalApp.prototype.renderUserProfile = async function(container) {
     }
 };
 
-TerminalApp.prototype.loadFollowList = async function(userId, type) {
+TerminalApp.prototype.loadFollowList = async function (userId, type) {
     const contentEl = document.getElementById(type === 'followers' ? 'followerListContent' : 'followingListContent');
     if (!contentEl) return;
     contentEl.innerHTML = '<span style="color:var(--text-muted);">Loading...</span>';

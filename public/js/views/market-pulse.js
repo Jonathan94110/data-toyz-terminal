@@ -1,6 +1,6 @@
 // views/market-pulse.js — Market Pulse with tabs: Overview | Rankings | Compare
 
-TerminalApp.prototype.renderMarketPulse = function(container) {
+TerminalApp.prototype.renderMarketPulse = function (container) {
     const tab = sessionStorage.getItem('marketPulseTab') || 'overview';
     container.innerHTML = `
         <div style="max-width:1100px; margin:0 auto; padding:0 1rem;">
@@ -12,6 +12,7 @@ TerminalApp.prototype.renderMarketPulse = function(container) {
                 <button class="market-tab ${tab === 'rankings' ? 'active' : ''}" onclick="app.switchMarketTab('rankings')">Rankings</button>
                 <button class="market-tab ${tab === 'compare' ? 'active' : ''}" onclick="app.switchMarketTab('compare')">Compare</button>
                 <button class="market-tab ${tab === 'trade_advisor' ? 'active' : ''}" onclick="app.switchMarketTab('trade_advisor')">Trade Advisor</button>
+                <button class="market-tab ${tab === 'explorer_3d' ? 'active' : ''}" onclick="app.switchMarketTab('explorer_3d')">3D Explorer</button>
             </div>
 
             <div id="marketTabContent"></div>
@@ -22,16 +23,17 @@ TerminalApp.prototype.renderMarketPulse = function(container) {
     else if (tab === 'rankings') this.renderMarketRankings(document.getElementById('marketTabContent'));
     else if (tab === 'compare') this.renderMarketCompare(document.getElementById('marketTabContent'));
     else if (tab === 'trade_advisor') this.renderTradeAdvisor(document.getElementById('marketTabContent'));
+    else if (tab === 'explorer_3d') this.renderMarketExplorer3D(document.getElementById('marketTabContent'));
 };
 
-TerminalApp.prototype.switchMarketTab = function(tab) {
+TerminalApp.prototype.switchMarketTab = function (tab) {
     sessionStorage.setItem('marketPulseTab', tab);
     const contentArea = document.getElementById('mainContent');
     this.renderMarketPulse(contentArea);
 };
 
 // ==================== OVERVIEW TAB ====================
-TerminalApp.prototype.renderMarketOverview = async function(container) {
+TerminalApp.prototype.renderMarketOverview = async function (container) {
     container.innerHTML = this.skeletonHTML('stats', 8);
 
     try {
@@ -192,7 +194,7 @@ TerminalApp.prototype.renderMarketOverview = async function(container) {
     }
 };
 
-TerminalApp.prototype.loadVolumeChart = async function(period) {
+TerminalApp.prototype.loadVolumeChart = async function (period) {
     try {
         const res = await fetch(`${API_URL}/stats/market-volume?period=${period}`);
         const data = await res.json();
@@ -209,7 +211,7 @@ TerminalApp.prototype.loadVolumeChart = async function(period) {
     }
 };
 
-TerminalApp.prototype._renderVolumeChart = function(data) {
+TerminalApp.prototype._renderVolumeChart = function (data) {
     const canvas = document.getElementById('volumeChart');
     if (!canvas) return;
 
@@ -291,7 +293,7 @@ TerminalApp.prototype._renderVolumeChart = function(data) {
 };
 
 // ==================== RANKINGS TAB ====================
-TerminalApp.prototype.renderMarketRankings = async function(container) {
+TerminalApp.prototype.renderMarketRankings = async function (container) {
     container.innerHTML = this.skeletonHTML('rows', 10);
 
     try {
@@ -373,7 +375,7 @@ TerminalApp.prototype.renderMarketRankings = async function(container) {
     }
 };
 
-TerminalApp.prototype.sortRankings = function(col) {
+TerminalApp.prototype.sortRankings = function (col) {
     const current = sessionStorage.getItem('rankSort') || 'price';
     const currentOrder = sessionStorage.getItem('rankOrder') || 'desc';
     if (col === current) {
@@ -387,7 +389,7 @@ TerminalApp.prototype.sortRankings = function(col) {
 };
 
 // ==================== COMPARE TAB ====================
-TerminalApp.prototype.renderMarketCompare = function(container) {
+TerminalApp.prototype.renderMarketCompare = function (container) {
     container.innerHTML = `
         <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1.5rem;">Compare Figures</h3>
         <div class="grid-2" style="margin-bottom:2rem;">
@@ -416,7 +418,7 @@ TerminalApp.prototype.renderMarketCompare = function(container) {
     this._setupCompareAutocomplete('compareInput2', 'compareDrop2', 'compareId2');
 };
 
-TerminalApp.prototype._setupCompareAutocomplete = function(inputId, dropId, hiddenId) {
+TerminalApp.prototype._setupCompareAutocomplete = function (inputId, dropId, hiddenId) {
     const input = document.getElementById(inputId);
     const dropdown = document.getElementById(dropId);
     const hidden = document.getElementById(hiddenId);
@@ -445,7 +447,7 @@ TerminalApp.prototype._setupCompareAutocomplete = function(inputId, dropId, hidd
         dropdown.style.zIndex = '100';
 
         dropdown.querySelectorAll('.figure-ac-item').forEach(item => {
-            item.addEventListener('mousedown', function(ev) {
+            item.addEventListener('mousedown', function (ev) {
                 ev.preventDefault();
                 input.value = this.dataset.name;
                 hidden.value = this.dataset.id;
@@ -484,7 +486,7 @@ TerminalApp.prototype._setupCompareAutocomplete = function(inputId, dropId, hidd
     input.addEventListener('blur', () => { setTimeout(() => { dropdown.style.display = 'none'; }, 150); });
 };
 
-TerminalApp.prototype.runCompare = async function() {
+TerminalApp.prototype.runCompare = async function () {
     const id1 = document.getElementById('compareId1')?.value;
     const id2 = document.getElementById('compareId2')?.value;
     const results = document.getElementById('compareResults');
@@ -591,7 +593,7 @@ TerminalApp.prototype.runCompare = async function() {
     }
 };
 
-TerminalApp.prototype.clearCompare = function() {
+TerminalApp.prototype.clearCompare = function () {
     sessionStorage.removeItem('compareIds');
     const input1 = document.getElementById('compareInput1');
     const input2 = document.getElementById('compareInput2');
@@ -606,7 +608,7 @@ TerminalApp.prototype.clearCompare = function() {
     if (this._compareChart) { this._compareChart.destroy(); this._compareChart = null; }
 };
 
-TerminalApp.prototype._renderCompareChart = function(a, b) {
+TerminalApp.prototype._renderCompareChart = function (a, b) {
     const canvas = document.getElementById('compareChart');
     if (!canvas) return;
 
@@ -679,7 +681,7 @@ TerminalApp.prototype._renderCompareChart = function(a, b) {
                     padding: 12,
                     cornerRadius: 8,
                     callbacks: {
-                        label: function(ctx) {
+                        label: function (ctx) {
                             return ctx.dataset.label + ': $' + (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(2) : 'N/A');
                         }
                     }
@@ -691,4 +693,108 @@ TerminalApp.prototype._renderCompareChart = function(a, b) {
             }
         }
     });
+};
+
+// ==================== 3D EXPLORER TAB ====================
+TerminalApp.prototype.renderMarketExplorer3D = async function (container) {
+    container.innerHTML = `
+        <div style="margin-bottom:1.5rem;">
+            <h2 style="font-size:1.5rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; color:var(--text-primary);">3D Market Scatter</h2>
+            <p style="color:var(--text-secondary); font-size:0.95rem;">Interactive visualization of the secondary market landscape. Mapping Avg Price (X) against Approval Grade (Y) with Submission Volume (Z).</p>
+        </div>
+        <div class="card" style="padding:0; height:600px; position:relative; overflow:hidden;" id="plotlyWrapper">
+            <div id="plotlyContainer" style="width:100%; height:100%;">
+                <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:var(--text-muted); font-size:0.9rem; letter-spacing:0.05em; text-transform:uppercase;">
+                    <span class="pulse-anim" style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; margin-right:8px;"></span> Initializing Spatial Scan...
+                </div>
+            </div>
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`${API_URL}/figures`);
+        const figures = await res.json();
+
+        // Filter out figures without enough data points to plot meaningfully
+        const validFigures = figures.filter(f => f.avgGrade && f.avgSecondaryPrice && f.submissions > 0);
+
+        if (validFigures.length === 0) {
+            document.getElementById('plotlyContainer').innerHTML = '<div style="padding:3rem; text-align:center; color:var(--text-muted);">Insufficient market data points for 3D generation.</div>';
+            return;
+        }
+
+        const x = validFigures.map(f => parseFloat(f.avgSecondaryPrice));
+        const y = validFigures.map(f => parseFloat(f.avgGrade));
+        const z = validFigures.map(f => f.submissions);
+        const text = validFigures.map(f => `<b>${escapeHTML(f.name)}</b><br>${escapeHTML(f.brand)}<br>Grade: ${f.avgGrade}<br>Price: $${f.avgSecondaryPrice}<br>Reports: ${f.submissions}`);
+
+        // Colorscaping based on grade/sentiment
+        const colors = y.map(grade => grade >= 80 ? '#10b981' : grade >= 50 ? '#f59e0b' : '#ef4444');
+
+        const trace = {
+            x: x,
+            y: y,
+            z: z,
+            mode: 'markers',
+            marker: {
+                size: 8,
+                color: colors,
+                opacity: 0.8,
+                line: {
+                    color: 'rgba(255, 255, 255, 0.2)',
+                    width: 1
+                }
+            },
+            text: text,
+            hoverinfo: 'text',
+            type: 'scatter3d'
+        };
+
+        const isDark = document.body.getAttribute('data-theme') !== 'light';
+        const bgColor = isDark ? 'rgba(7, 9, 20, 0)' : 'rgba(255,255,255,0)';
+        const fgColor = isDark ? '#f8fafc' : '#0f172a';
+        const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+
+        const layout = {
+            margin: { l: 0, r: 0, b: 0, t: 0 },
+            paper_bgcolor: bgColor,
+            plot_bgcolor: bgColor,
+            font: { color: fgColor, family: 'Inter, sans-serif' },
+            hovermode: 'closest',
+            scene: {
+                xaxis: { title: 'Avg Price ($)', backgroundcolor: bgColor, gridcolor: gridColor, showbackground: false, zerolinecolor: gridColor },
+                yaxis: { title: 'Approval Grade', backgroundcolor: bgColor, gridcolor: gridColor, showbackground: false, zerolinecolor: gridColor },
+                zaxis: { title: 'Reports', backgroundcolor: bgColor, gridcolor: gridColor, showbackground: false, zerolinecolor: gridColor },
+                camera: {
+                    eye: { x: 1.5, y: 1.5, z: 0.5 }
+                }
+            }
+        };
+
+        if (typeof Plotly !== 'undefined') {
+            document.getElementById('plotlyContainer').innerHTML = ''; // clear loading state
+            Plotly.newPlot('plotlyContainer', [trace], layout, { responsive: true, displayModeBar: false });
+
+            // Interaction support: Click on a node to go to the figure
+            document.getElementById('plotlyContainer').on('plotly_click', function (data) {
+                if (data.points && data.points.length > 0) {
+                    const pt = data.points[0];
+                    // Very brittle text matching. Alternative is to stash IDs in customdata
+                    const figNameMatch = pt.text.match(/<b>(.*?)<\\/b >/);
+                    if (figNameMatch && figNameMatch[1]) {
+                        const figName = figNameMatch[1];
+                        const figObj = validFigures.find(f => escapeHTML(f.name) === figName || f.name === figName);
+                        if (figObj) {
+                            app.selectTarget(figObj.id);
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('plotlyContainer').innerHTML = '<div style="padding:3rem; text-align:center; color:var(--warning);">Plotly.js failed to load. Please check connection.</div>';
+        }
+    } catch (e) {
+        console.error('Failed to render 3D explorer:', e);
+        document.getElementById('plotlyContainer').innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Visualization module offline.</div>';
+    }
 };
