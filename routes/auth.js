@@ -8,7 +8,7 @@ const { resend, RESEND_FROM_EMAIL, APP_URL } = require('../helpers/config');
 const { validatePassword, escapeHTML } = require('../helpers/validation');
 const { auditLog } = require('../helpers/audit');
 const { generateToken } = require('../helpers/token');
-const { requireAuth, invalidateUserCache } = require('../middleware/auth');
+const { requireAuth, requireAuthRenew, invalidateUserCache } = require('../middleware/auth');
 const { authAttemptLimiter } = require('../middleware/rateLimiters');
 // Register a new operative
 router.post('/register', async (req, res) => {
@@ -77,7 +77,8 @@ router.post('/login', authAttemptLimiter, async (req, res) => {
 });
 
 // Get current user (+ silent token renewal — extends session on every app load)
-router.get('/me', requireAuth, async (req, res) => {
+// Uses requireAuthRenew: accepts expired tokens so users are never kicked to login
+router.get('/me', requireAuthRenew, async (req, res) => {
     try {
         const result = await db.query(
             "SELECT id, username, email, avatar, role FROM Users WHERE id = $1",

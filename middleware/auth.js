@@ -72,6 +72,47 @@ async function requireAuth(req, res, next) {
     }
 }
 
+// --- Token renewal backup: accept expired tokens for /api/auth/me --- //
+// Identical to requireAuth but uses { ignoreExpiration: true } so users
+// are never kicked to login as long as their account is active.
+// The /me endpoint issues a fresh 30d token, effectively renewing the session.
+async function requireAuthRenew(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication required. Please log in.' });
+    }
+
+    let decoded;
+    try {
+        const token = authHeader.split(' ')[1];
+        // Accept expired tokens — signature is still verified
+        decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+    } catch (jwtErr) {
+        // Signature invalid or malformed token — reject
+        return res.status(401).json({ error: 'Invalid token. Please log in again.' });
+    }
+
+    try {
+        const user = await getCachedUser(decoded.id);
+        if (!user) return res.status(401).json({ error: 'Account no longer exists.' });
+        if (user.suspended) return res.status(403).json({ error: 'Your account has been suspended.' });
+
+        // C-3: Reject token if issued before password was changed
+        const passwordChangedAt = user.password_changed_at;
+        if (passwordChangedAt && decoded.iat) {
+            const changedAtSec = Math.floor(new Date(passwordChangedAt).getTime() / 1000);
+            if (decoded.iat < changedAtSec) {
+                return res.status(401).json({ error: 'Password has been changed. Please log in again.' });
+            }
+        }
+
+        req.user = { id: user.id, username: user.username, role: user.role || 'analyst' };
+        next();
+    } catch (dbErr) {
+        return res.status(500).json({ error: 'Server temporarily unavailable. Please try again.' });
+    }
+}
+
 // Granular role gate: requireRole('moderator') allows moderator, admin, and owner
 function requireRole(minRole) {
     return function(req, res, next) {
@@ -91,4 +132,4 @@ function requireAdmin(req, res, next) {
     next();
 }
 
-module.exports = { requireAuth, requireAdmin, requireRole, invalidateUserCache, getRoleLevel, ROLE_HIERARCHY };
+module.exports = { requireAuth, requireAuthRenew, requireAdmin, requireRole, invalidateUserCache, getRoleLevel, ROLE_HIERARCHY };
