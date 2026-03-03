@@ -412,7 +412,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             tbody.innerHTML = paged.length === 0
                 ? '<tr><td colspan="5" style="padding:1.5rem; text-align:center; color:var(--text-muted);">No brands match your search.</td></tr>'
                 : paged.map(b => `
-                    <tr style="border-top:1px solid var(--border-light);">
+                    <tr style="border-top:1px solid var(--border-light);" id="brandRow-${b.id}">
                         <td style="padding:0.6rem 1rem; color:var(--text-muted);">${b.id}</td>
                         <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(b.name)}</td>
                         <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(b.approved_by || '\u2014')}</td>
@@ -432,46 +432,86 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 
         function wireUpBrandActions() {
             document.querySelectorAll('.editBrandBtn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const newName = prompt('Edit Brand Name:', btn.dataset.name);
-                    if (!newName || newName.trim() === btn.dataset.name) return;
-                    try {
-                        const res = await self.authFetch(`${API_URL}/admin/brands/${btn.dataset.id}`, {
-                            method: 'PUT',
-                            body: JSON.stringify({ name: newName.trim() })
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            alert(data.message);
-                            // Update local data
-                            const brand = approvedBrands.find(b => b.id == btn.dataset.id);
-                            if (brand) brand.name = newName.trim();
-                            // Also update figures list if any were affected
-                            figures.forEach(f => { if (f.brand === btn.dataset.name) f.brand = newName.trim(); });
-                            MOCK_FIGURES.forEach(f => { if (f.brand === btn.dataset.name) f.brand = newName.trim(); });
-                            renderBrandTable();
-                            renderFigureTable();
-                        } else {
-                            const err = await res.json();
-                            alert(err.error);
-                        }
-                    } catch (e) { console.error(e); }
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const row = document.getElementById(`brandRow-${btn.dataset.id}`);
+                    if (!row) return;
+                    if (row.nextElementSibling && row.nextElementSibling.classList.contains('brand-edit-row')) return;
+                    document.querySelectorAll('.brand-edit-row, .brand-delete-row').forEach(r => r.remove());
+
+                    const editRow = document.createElement('tr');
+                    editRow.classList.add('brand-edit-row');
+                    editRow.innerHTML = `
+                        <td colspan="5" style="padding:1rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:6px;">
+                            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                                <label style="font-size:0.8rem; color:var(--text-muted);">Brand Name:</label>
+                                <input id="editBrandName-${btn.dataset.id}" value="${escapeHTML(btn.dataset.name)}" style="flex:1; min-width:200px; max-width:400px; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
+                                <button id="saveBrandEdit-${btn.dataset.id}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem;">Save</button>
+                                <button id="cancelBrandEdit-${btn.dataset.id}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem; background:transparent; border:1px solid var(--border-light); color:var(--text-secondary);">Cancel</button>
+                            </div>
+                        </td>`;
+                    row.after(editRow);
+
+                    document.getElementById(`cancelBrandEdit-${btn.dataset.id}`).addEventListener('click', () => editRow.remove());
+                    document.getElementById(`saveBrandEdit-${btn.dataset.id}`).addEventListener('click', async () => {
+                        const newName = document.getElementById(`editBrandName-${btn.dataset.id}`).value.trim();
+                        if (!newName || newName === btn.dataset.name) { editRow.remove(); return; }
+                        try {
+                            const res = await self.authFetch(`${API_URL}/admin/brands/${btn.dataset.id}`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ name: newName })
+                            });
+                            if (res.ok) {
+                                const brand = approvedBrands.find(b => b.id == btn.dataset.id);
+                                if (brand) brand.name = newName;
+                                figures.forEach(f => { if (f.brand === btn.dataset.name) f.brand = newName; });
+                                MOCK_FIGURES.forEach(f => { if (f.brand === btn.dataset.name) f.brand = newName; });
+                                renderBrandTable();
+                                renderFigureTable();
+                            } else {
+                                const err = await res.json();
+                                alert(err.error);
+                            }
+                        } catch (e) { console.error(e); }
+                    });
                 });
             });
 
             document.querySelectorAll('.delBrandBtn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    if (!confirm(`Remove brand "${btn.dataset.name}" from approved list?\n\nExisting figures with this brand won't be affected, but users won't be able to create new figures with this brand.`)) return;
-                    try {
-                        const res = await self.authFetch(`${API_URL}/admin/brands/${btn.dataset.id}`, { method: 'DELETE' });
-                        if (res.ok) {
-                            approvedBrands = approvedBrands.filter(b => b.id != btn.dataset.id);
-                            renderBrandTable();
-                        } else {
-                            const err = await res.json();
-                            alert(err.error);
-                        }
-                    } catch (e) { console.error(e); }
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const row = document.getElementById(`brandRow-${btn.dataset.id}`);
+                    if (!row) return;
+                    if (row.nextElementSibling && row.nextElementSibling.classList.contains('brand-delete-row')) return;
+                    document.querySelectorAll('.brand-edit-row, .brand-delete-row').forEach(r => r.remove());
+
+                    const confirmRow = document.createElement('tr');
+                    confirmRow.classList.add('brand-delete-row');
+                    confirmRow.innerHTML = `
+                        <td colspan="5" style="padding:1rem; background:rgba(239,68,68,0.08); border:1px solid var(--danger); border-radius:6px;">
+                            <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                                <span style="color:var(--danger); font-weight:600;">Remove "${escapeHTML(btn.dataset.name)}" from approved brands? Existing figures won't be affected.</span>
+                                <div style="display:flex; gap:0.5rem; margin-left:auto;">
+                                    <button id="confirmBrandDel-${btn.dataset.id}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem; background:var(--danger); border-color:var(--danger);">Yes, Remove</button>
+                                    <button id="cancelBrandDel-${btn.dataset.id}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem; background:transparent; border:1px solid var(--border-light); color:var(--text-secondary);">Cancel</button>
+                                </div>
+                            </div>
+                        </td>`;
+                    row.after(confirmRow);
+
+                    document.getElementById(`cancelBrandDel-${btn.dataset.id}`).addEventListener('click', () => confirmRow.remove());
+                    document.getElementById(`confirmBrandDel-${btn.dataset.id}`).addEventListener('click', async () => {
+                        try {
+                            const res = await self.authFetch(`${API_URL}/admin/brands/${btn.dataset.id}`, { method: 'DELETE' });
+                            if (res.ok) {
+                                approvedBrands = approvedBrands.filter(b => b.id != btn.dataset.id);
+                                renderBrandTable();
+                            } else {
+                                const err = await res.json();
+                                alert(err.error);
+                            }
+                        } catch (e) { console.error(e); }
+                    });
                 });
             });
         }
