@@ -217,13 +217,8 @@ class TerminalApp {
         if (!wrap || !content) return;
 
         try {
-            // Fetch headlines + ranked figures (which include avgGrade and latestPrice)
-            const [headlinesRes, figuresRes] = await Promise.all([
-                fetch(`${API_URL}/stats/headlines`),
-                fetch(`${API_URL}/figures/market-ranked?sort=grade&order=desc`)
-            ]);
-
-            const headlines = await headlinesRes.json().catch(() => []);
+            // Fetch ranked figures (which include avgGrade and latestPrice)
+            const figuresRes = await fetch(`${API_URL}/figures/market-ranked?sort=grade&order=desc`);
             const allFigures = await figuresRes.json().catch(() => []);
 
             // Top 25 by Approval Grade
@@ -239,9 +234,6 @@ class TerminalApp {
 
             let html = '';
 
-            if (headlines && headlines.length > 0) {
-                html += headlines.slice(0, 5).map(h => `<span class="ticker-item"><span class="ticker-accent">[INTEL]</span> ${escapeHTML(h.brand)}: ${escapeHTML(h.headline)}</span>`).join('');
-            }
             if (topPriced.length > 0) {
                 html += topPriced.map((f, i) => `<span class="ticker-item"><span class="ticker-neutral">#${i + 1} [${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--text-primary); margin-left:0.25rem;">$${parseFloat(f.latestPrice).toFixed(2)}</span></span>`).join('');
             }
