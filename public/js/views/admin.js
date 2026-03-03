@@ -164,20 +164,43 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 
         function wireUpFigureActions() {
             document.querySelectorAll('.delFigBtn').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
+                btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (!confirm(`Delete "${btn.dataset.name}" and ALL associated intel? This cannot be undone.`)) return;
-                    try {
-                        const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE' });
-                        if (res.ok) {
-                            MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
-                            figures = figures.filter(f => f.id != btn.dataset.id);
-                            renderFigureTable();
-                        } else {
-                            const err = await res.json();
-                            alert(err.error);
-                        }
-                    } catch (e) { console.error(e); }
+                    const row = document.getElementById(`figRow-${btn.dataset.id}`);
+                    if (!row) return;
+                    // Don't open duplicate confirmation
+                    if (row.nextElementSibling && row.nextElementSibling.classList.contains('delete-confirm-row')) return;
+                    // Close any other open inline panels
+                    document.querySelectorAll('.delete-confirm-row, .edit-form-row, .merge-form-row').forEach(r => r.remove());
+
+                    const confirmRow = document.createElement('tr');
+                    confirmRow.classList.add('delete-confirm-row');
+                    confirmRow.innerHTML = `
+                        <td colspan="7" style="padding:1rem; background:rgba(239,68,68,0.08); border:1px solid var(--danger); border-radius:6px;">
+                            <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                                <span style="color:var(--danger); font-weight:600;">Delete "${escapeHTML(btn.dataset.name)}" and ALL associated intel? This cannot be undone.</span>
+                                <div style="display:flex; gap:0.5rem; margin-left:auto;">
+                                    <button id="confirmDel-${btn.dataset.id}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem; background:var(--danger); border-color:var(--danger);">Yes, Delete</button>
+                                    <button id="cancelDel-${btn.dataset.id}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem; background:transparent; border:1px solid var(--border-light); color:var(--text-secondary);">Cancel</button>
+                                </div>
+                            </div>
+                        </td>`;
+                    row.after(confirmRow);
+
+                    document.getElementById(`cancelDel-${btn.dataset.id}`).addEventListener('click', () => confirmRow.remove());
+                    document.getElementById(`confirmDel-${btn.dataset.id}`).addEventListener('click', async () => {
+                        try {
+                            const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE' });
+                            if (res.ok) {
+                                MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != btn.dataset.id);
+                                figures = figures.filter(f => f.id != btn.dataset.id);
+                                renderFigureTable();
+                            } else {
+                                const err = await res.json();
+                                alert(err.error);
+                            }
+                        } catch (e) { console.error(e); }
+                    });
                 });
             });
 
@@ -188,6 +211,8 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     if (!row) return;
                     // Check if edit form already open
                     if (row.nextElementSibling && row.nextElementSibling.classList.contains('edit-form-row')) return;
+                    // Close any other open inline panels
+                    document.querySelectorAll('.delete-confirm-row, .edit-form-row, .merge-form-row').forEach(r => r.remove());
 
                     const editRow = document.createElement('tr');
                     editRow.classList.add('edit-form-row');
@@ -256,43 +281,61 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             });
 
             document.querySelectorAll('.mergeFigBtn').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
+                btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const sourceId = btn.dataset.id;
                     const sourceName = btn.dataset.name;
-                    // Build list of other figures for merge target selection
+                    const row = document.getElementById(`figRow-${sourceId}`);
+                    if (!row) return;
+                    // Don't open duplicate
+                    if (row.nextElementSibling && row.nextElementSibling.classList.contains('merge-form-row')) return;
+                    // Close any other open inline panels
+                    document.querySelectorAll('.delete-confirm-row, .edit-form-row, .merge-form-row').forEach(r => r.remove());
+
                     const otherFigs = figures.filter(f => f.id != sourceId);
                     if (otherFigs.length === 0) { alert('No other figures to merge with.'); return; }
 
-                    const targetIdStr = prompt(
-                        `Merge "${sourceName}" (ID: ${sourceId}) INTO which figure?\n\n` +
-                        `All submissions, market data, and comments will be moved to the target figure, then "${sourceName}" will be deleted.\n\n` +
-                        `Enter the target figure ID:\n` +
-                        otherFigs.slice(0, 15).map(f => `  ${f.id}: ${f.name}`).join('\n')
-                    );
-                    if (!targetIdStr) return;
-                    const targetId = parseInt(targetIdStr);
-                    const targetFig = figures.find(f => f.id === targetId);
-                    if (!targetFig) { alert(`Figure ID ${targetId} not found.`); return; }
+                    const mergeRow = document.createElement('tr');
+                    mergeRow.classList.add('merge-form-row');
+                    mergeRow.innerHTML = `
+                        <td colspan="7" style="padding:1rem; background:rgba(251,191,36,0.08); border:1px solid #fbbf24; border-radius:6px;">
+                            <div style="margin-bottom:0.5rem; color:#fbbf24; font-weight:600;">Merge "${escapeHTML(sourceName)}" into another figure</div>
+                            <div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;">All submissions, market data, and comments will be moved to the target. "${escapeHTML(sourceName)}" will be deleted.</div>
+                            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                                <label style="font-size:0.8rem; color:var(--text-muted);">Target:</label>
+                                <select id="mergeTarget-${sourceId}" style="flex:1; min-width:200px; max-width:400px; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px; font-size:0.85rem;">
+                                    <option value="">-- Select target figure --</option>
+                                    ${otherFigs.map(f => `<option value="${f.id}">${f.id}: ${escapeHTML(f.name)} (${escapeHTML(f.brand)})</option>`).join('')}
+                                </select>
+                                <button id="confirmMerge-${sourceId}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem; background:#fbbf24; border-color:#fbbf24; color:#000;">Merge</button>
+                                <button id="cancelMerge-${sourceId}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem; background:transparent; border:1px solid var(--border-light); color:var(--text-secondary);">Cancel</button>
+                            </div>
+                        </td>`;
+                    row.after(mergeRow);
 
-                    if (!confirm(`Merge "${sourceName}" → "${targetFig.name}"?\n\nAll intel will be moved to "${targetFig.name}" and "${sourceName}" will be permanently deleted.`)) return;
+                    document.getElementById(`cancelMerge-${sourceId}`).addEventListener('click', () => mergeRow.remove());
+                    document.getElementById(`confirmMerge-${sourceId}`).addEventListener('click', async () => {
+                        const targetId = parseInt(document.getElementById(`mergeTarget-${sourceId}`).value);
+                        if (!targetId) { alert('Please select a target figure.'); return; }
+                        const targetFig = figures.find(f => f.id === targetId);
+                        if (!targetFig) { alert(`Figure ID ${targetId} not found.`); return; }
 
-                    try {
-                        const res = await self.authFetch(`${API_URL}/admin/figures/merge`, {
-                            method: 'POST',
-                            body: JSON.stringify({ sourceId: parseInt(sourceId), targetId })
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            alert(data.message);
-                            MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != sourceId);
-                            figures = figures.filter(f => f.id != sourceId);
-                            renderFigureTable();
-                        } else {
-                            const err = await res.json();
-                            alert(err.error || 'Merge failed.');
-                        }
-                    } catch (e) { console.error(e); alert('Connection error.'); }
+                        try {
+                            const res = await self.authFetch(`${API_URL}/admin/figures/merge`, {
+                                method: 'POST',
+                                body: JSON.stringify({ sourceId: parseInt(sourceId), targetId })
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                MOCK_FIGURES = MOCK_FIGURES.filter(f => f.id != sourceId);
+                                figures = figures.filter(f => f.id != sourceId);
+                                renderFigureTable();
+                            } else {
+                                const err = await res.json();
+                                alert(err.error || 'Merge failed.');
+                            }
+                        } catch (e) { console.error(e); alert('Connection error.'); }
+                    });
                 });
             });
         }
