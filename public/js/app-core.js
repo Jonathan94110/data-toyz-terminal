@@ -665,6 +665,121 @@ TerminalApp.prototype.selectTarget = function (id) {
     });
 };
 
+// --- Request Assessment modal --- //
+TerminalApp.prototype.showShareModal = function(figureId, figureName) {
+    const existing = document.querySelector('.share-modal-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'room-modal-overlay share-modal-overlay';
+    overlay.innerHTML = `
+        <div class="room-modal">
+            <h3 style="font-size:1.3rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem;">Request Assessment</h3>
+            <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.5rem;">
+                Send a notification requesting assessment on <strong style="color:var(--accent);">${escapeHTML(figureName)}</strong>
+            </p>
+
+            <label style="font-size:0.85rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">Select Recipients</label>
+            <input type="text" id="shareSearchInput" placeholder="Search by username..." style="width:100%; padding:0.75rem 1rem; background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); color:var(--text-primary); font-size:0.95rem; margin:0.5rem 0 0.25rem;">
+            <div id="shareSearchResults" class="user-search-results" style="display:none;"></div>
+            <div id="shareSelectedMembers" style="display:flex; flex-wrap:wrap; gap:0.25rem; margin:0.75rem 0 1.5rem; min-height:2rem;"></div>
+
+            <div style="display:flex; gap:1rem; justify-content:flex-end;">
+                <button id="cancelShareBtn" class="btn" style="background:transparent; border:1px solid var(--border-light); color:var(--text-secondary);">Cancel</button>
+                <button id="sendShareBtn" class="btn">Send Request</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const selectedRecipients = [];
+    let searchTimeout = null;
+    const self = this;
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.getElementById('cancelShareBtn').addEventListener('click', () => overlay.remove());
+
+    const searchInput = document.getElementById('shareSearchInput');
+    const resultsDiv = document.getElementById('shareSearchResults');
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        const q = searchInput.value.trim();
+        if (q.length < 1) { resultsDiv.style.display = 'none'; return; }
+        searchTimeout = setTimeout(async () => {
+            try {
+                const res = await self.authFetch(`${API_URL}/users/search?q=${encodeURIComponent(q)}`);
+                const users = await res.json();
+                const available = users.filter(u => !selectedRecipients.includes(u.username));
+                if (available.length === 0) { resultsDiv.style.display = 'none'; return; }
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = available.map(u => `
+                    <div class="user-search-item" data-username="${escapeHTML(u.username)}">
+                        ${u.avatar ? `<img src="${u.avatar}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">` : `<div style="width:32px; height:32px; border-radius:50%; background:var(--gradient-primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:0.85rem;">${escapeHTML(u.username).charAt(0).toUpperCase()}</div>`}
+                        <span>${escapeHTML(u.username)}</span>
+                    </div>
+                `).join('');
+
+                resultsDiv.querySelectorAll('.user-search-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const uname = item.dataset.username;
+                        if (!selectedRecipients.includes(uname)) {
+                            selectedRecipients.push(uname);
+                            renderShareChips();
+                        }
+                        searchInput.value = '';
+                        resultsDiv.style.display = 'none';
+                    });
+                });
+            } catch (e) { resultsDiv.style.display = 'none'; }
+        }, 300);
+    });
+
+    const renderShareChips = () => {
+        const container = document.getElementById('shareSelectedMembers');
+        if (!container) return;
+        container.innerHTML = selectedRecipients.map(m => `
+            <span class="member-pill">
+                ${escapeHTML(m)}
+                <span class="remove-member" data-username="${escapeHTML(m)}">&times;</span>
+            </span>
+        `).join('');
+        container.querySelectorAll('.remove-member').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = selectedRecipients.indexOf(btn.dataset.username);
+                if (idx > -1) selectedRecipients.splice(idx, 1);
+                renderShareChips();
+            });
+        });
+    };
+
+    document.getElementById('sendShareBtn').addEventListener('click', async () => {
+        if (selectedRecipients.length === 0) return alert('Select at least one recipient.');
+
+        const btn = document.getElementById('sendShareBtn');
+        btn.textContent = 'Sending...';
+        btn.disabled = true;
+
+        try {
+            const res = await self.authFetch(`${API_URL}/figures/${figureId}/request-assessment`, {
+                method: 'POST',
+                body: JSON.stringify({ recipients: selectedRecipients })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error);
+            }
+            btn.textContent = 'Sent!';
+            btn.style.background = 'var(--success)';
+            setTimeout(() => overlay.remove(), 1200);
+        } catch (e) {
+            alert(e.message || 'Failed to send assessment request.');
+            btn.textContent = 'Send Request';
+            btn.disabled = false;
+        }
+    });
+};
+
 // --- Notification methods (prototype extensions) --- //
 
 TerminalApp.prototype.updateNotifBadge = async function () {
@@ -697,7 +812,7 @@ TerminalApp.prototype.loadNotifications = async function () {
             return;
         }
 
-        const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', message: '🔒', follow: '👥', mention: '📢', flag: '🚩' };
+        const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', message: '🔒', follow: '👥', mention: '📢', flag: '🚩', assessment_request: '📊' };
 
         dropdown.innerHTML = `
             <div style="padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center;">

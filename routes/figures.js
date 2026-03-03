@@ -573,6 +573,47 @@ router.get('/compare', async (req, res) => {
     }
 });
 
+// Request assessment — send notification to selected users
+router.post('/:id/request-assessment', requireAuth, async (req, res) => {
+    try {
+        const figureId = req.params.id;
+        const { recipients } = req.body;
+
+        if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+            return res.status(400).json({ error: 'At least one recipient is required.' });
+        }
+        if (recipients.length > 20) {
+            return res.status(400).json({ error: 'Maximum 20 recipients per request.' });
+        }
+
+        const figResult = await db.query("SELECT id, name FROM Figures WHERE id = $1", [figureId]);
+        if (figResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Figure not found.' });
+        }
+        const figureName = figResult.rows[0].name;
+
+        const message = `${req.user.username} requested your assessment on ${figureName}`;
+        let sent = 0;
+        for (const recipient of recipients) {
+            if (typeof recipient !== 'string' || !recipient.trim()) continue;
+            await createNotification(
+                recipient.trim(),
+                'assessment_request',
+                message,
+                'figure',
+                parseInt(figureId),
+                req.user.username
+            );
+            sent++;
+        }
+
+        res.json({ message: `Assessment request sent to ${sent} user${sent !== 1 ? 's' : ''}.`, sent });
+    } catch (err) {
+        log.error('Request assessment error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Figure comments
 router.get('/:id/comments', async (req, res) => {
     try {

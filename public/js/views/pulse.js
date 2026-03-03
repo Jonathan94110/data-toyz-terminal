@@ -117,6 +117,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
 
             <div style="margin-bottom: 1.5rem; display:flex; gap:0.75rem; align-items:center;">
                 <button class="btn-outline" id="copyLinkBtn" style="font-size:0.85rem; padding:0.5rem 1rem;">📋 Copy Link</button>
+                ${this.token ? `<button class="btn-outline" id="requestAssessBtn" style="font-size:0.85rem; padding:0.5rem 1rem;">📊 Request Assessment</button>` : ''}
             </div>
 
             ${isGuestimate ? `
@@ -588,6 +589,14 @@ TerminalApp.prototype.renderPulse = async function(container) {
                 copyBtn.textContent = '✗ Failed';
                 setTimeout(() => { copyBtn.textContent = '📋 Copy Link'; }, 2000);
             });
+        });
+    }
+
+    // Request Assessment button
+    const assessBtn = document.getElementById('requestAssessBtn');
+    if (assessBtn) {
+        assessBtn.addEventListener('click', () => {
+            this.showShareModal(this.currentTarget.id, this.currentTarget.name);
         });
     }
 

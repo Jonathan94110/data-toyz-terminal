@@ -133,7 +133,10 @@ TerminalApp.prototype.renderSearch = async function (container) {
                         ${f.submissions > 0 ? `<span>${f.submissions} report${f.submissions !== 1 ? 's' : ''}</span>` : '<span>No reports</span>'}
                         ${f.avgGrade ? `<span style="color:var(--accent); font-weight:700;">${f.avgGrade}</span>` : ''}
                     </div>
-                    <span style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em;">Assess &rarr;</span>
+                    <div style="display:flex; gap:1rem; align-items:center;">
+                        ${app.token ? `<span class="share-btn" data-fig-id="${f.id}" data-fig-name="${escapeHTML(f.name)}" style="color:var(--text-muted); font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.05em; transition: color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">\u{1F4E4} Share</span>` : ''}
+                        <span style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em;">Assess &rarr;</span>
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -237,6 +240,16 @@ TerminalApp.prototype.renderSearch = async function (container) {
 
     // Event delegation for target card clicks
     document.getElementById('searchResults').addEventListener('click', (e) => {
+        // Handle Share button click (prevent card navigation)
+        const shareBtn = e.target.closest('.share-btn');
+        if (shareBtn) {
+            e.stopPropagation();
+            const figId = parseInt(shareBtn.dataset.figId);
+            const figName = shareBtn.dataset.figName;
+            if (figId && figName) app.showShareModal(figId, figName);
+            return;
+        }
+
         const card = e.target.closest('.target-card[data-figure-id]');
         if (card) {
             const figId = parseInt(card.dataset.figureId);

@@ -372,6 +372,16 @@ async function initDB() {
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN flag_email BOOLEAN DEFAULT false`);
         }
 
+        // Migration: add assessment_request notification preferences
+        const assessReqCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'notificationprefs' AND column_name = 'assessment_request_inapp'
+        `);
+        if (assessReqCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN assessment_request_inapp BOOLEAN DEFAULT true`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN assessment_request_email BOOLEAN DEFAULT false`);
+        }
+
         // Migration: add created_by column to Figures for ownership tracking
         const createdByCheck = await pool.query(`
             SELECT column_name FROM information_schema.columns
