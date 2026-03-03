@@ -1,7 +1,8 @@
 // views/market-pulse.js — Market Pulse with tabs: Overview | Rankings | Compare
 
 TerminalApp.prototype.renderMarketPulse = function (container) {
-    const tab = sessionStorage.getItem('marketPulseTab') || 'overview';
+    let tab = sessionStorage.getItem('marketPulseTab') || 'overview';
+    if (tab === 'explorer_3d') tab = 'weekly_movers'; // migrated
     container.innerHTML = `
         <div style="max-width:1100px; margin:0 auto; padding:0 1rem;">
             <h1 style="font-size:2.5rem; font-weight:900; text-transform:uppercase; letter-spacing:-0.02em; margin-bottom:0.5rem;">Market Pulse</h1>
@@ -12,7 +13,7 @@ TerminalApp.prototype.renderMarketPulse = function (container) {
                 <button class="market-tab ${tab === 'rankings' ? 'active' : ''}" onclick="app.switchMarketTab('rankings')">Rankings</button>
                 <button class="market-tab ${tab === 'compare' ? 'active' : ''}" onclick="app.switchMarketTab('compare')">Compare</button>
                 <button class="market-tab ${tab === 'trade_advisor' ? 'active' : ''}" onclick="app.switchMarketTab('trade_advisor')">Trade Advisor</button>
-                <button class="market-tab ${tab === 'explorer_3d' ? 'active' : ''}" onclick="app.switchMarketTab('explorer_3d')">3D Explorer</button>
+                <button class="market-tab ${tab === 'weekly_movers' ? 'active' : ''}" onclick="app.switchMarketTab('weekly_movers')">Weekly Movers</button>
             </div>
 
             <div id="marketTabContent"></div>
@@ -23,7 +24,7 @@ TerminalApp.prototype.renderMarketPulse = function (container) {
     else if (tab === 'rankings') this.renderMarketRankings(document.getElementById('marketTabContent'));
     else if (tab === 'compare') this.renderMarketCompare(document.getElementById('marketTabContent'));
     else if (tab === 'trade_advisor') this.renderTradeAdvisor(document.getElementById('marketTabContent'));
-    else if (tab === 'explorer_3d') this.renderMarketExplorer3D(document.getElementById('marketTabContent'));
+    else if (tab === 'weekly_movers') this.renderWeeklyMovers(document.getElementById('marketTabContent'));
 };
 
 TerminalApp.prototype.switchMarketTab = function (tab) {
@@ -695,106 +696,152 @@ TerminalApp.prototype._renderCompareChart = function (a, b) {
     });
 };
 
-// ==================== 3D EXPLORER TAB ====================
-TerminalApp.prototype.renderMarketExplorer3D = async function (container) {
-    container.innerHTML = `
-        <div style="margin-bottom:1.5rem;">
-            <h2 style="font-size:1.5rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; color:var(--text-primary);">3D Market Scatter</h2>
-            <p style="color:var(--text-secondary); font-size:0.95rem;">Interactive visualization of the secondary market landscape. Mapping Avg Price (X) against Approval Grade (Y) with Submission Volume (Z).</p>
-        </div>
-        <div class="card" style="padding:0; height:600px; position:relative; overflow:hidden;" id="plotlyWrapper">
-            <div id="plotlyContainer" style="width:100%; height:100%;">
-                <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:var(--text-muted); font-size:0.9rem; letter-spacing:0.05em; text-transform:uppercase;">
-                    <span class="pulse-anim" style="display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; margin-right:8px;"></span> Initializing Spatial Scan...
-                </div>
+// ==================== WEEKLY MOVERS TAB ====================
+TerminalApp.prototype._renderMoversTable = function (title, figures, fmtPrice, fmtPct, icon, accentColor) {
+    return `
+        <div class="card" style="padding:0; overflow:hidden;">
+            <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0; color:${accentColor};">
+                    ${icon} ${title}
+                </h3>
+            </div>
+            <div style="max-height:400px; overflow-y:auto;">
+                ${figures.length > 0 ? figures.map((f, i) => `
+                    <div class="pulse-headline-item" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${f.id})">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <span style="color:var(--text-muted); font-weight:700; font-size:0.85rem; width:24px;">#${i + 1}</span>
+                            <div>
+                                <div style="font-weight:600; font-size:0.9rem;">${escapeHTML(f.name)}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(f.brand)} \u00B7 ${fmtPrice(f.latestPrice)}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="text-align:right;">${fmtPct(f.priceChange7d)}</div>
+                            <div style="font-size:0.7rem; color:var(--text-muted); text-align:right;">30d: ${fmtPct(f.priceChange30d)}</div>
+                        </div>
+                    </div>
+                `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No movers this week.</div>'}
             </div>
         </div>
     `;
+};
+
+TerminalApp.prototype.renderWeeklyMovers = async function (container) {
+    container.innerHTML = this.skeletonHTML('stats', 6);
+
+    const fmtPrice = (v) => v !== null && v !== undefined ? '$' + parseFloat(v).toFixed(2) : '\u2014';
+    const fmtPct = (v) => {
+        if (v === null || v === undefined) return '<span style="color:var(--text-muted);">\u2014</span>';
+        const arrow = v > 0 ? '\u25B2' : v < 0 ? '\u25BC' : '\u25CF';
+        const color = v > 0 ? 'var(--success)' : v < 0 ? 'var(--danger)' : 'var(--text-muted)';
+        return `<span style="color:${color}; font-weight:700;">${arrow} ${Math.abs(v).toFixed(1)}%</span>`;
+    };
 
     try {
-        const res = await fetch(`${API_URL}/figures`);
-        const figures = await res.json();
+        const res = await fetch(`${API_URL}/stats/weekly-movers`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
 
-        // Filter out figures without enough data points to plot meaningfully
-        const validFigures = figures.filter(f => f.avgGrade && f.avgSecondaryPrice && f.submissions > 0);
+        container.innerHTML = `
+            <div style="margin-bottom:1.5rem;">
+                <h2 style="font-size:1.5rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem;">Weekly Movers Report</h2>
+                <p style="color:var(--text-secondary); font-size:0.95rem;">7-day market movement snapshot \u2014 price changes, activity surges, and brand trends.</p>
+            </div>
 
-        if (validFigures.length === 0) {
-            document.getElementById('plotlyContainer').innerHTML = '<div style="padding:3rem; text-align:center; color:var(--text-muted);">Insufficient market data points for 3D generation.</div>';
-            return;
-        }
+            <!-- Summary Banner -->
+            <div class="grid-4" style="margin-bottom:2rem;">
+                <div class="stat-box" style="padding:1.25rem;">
+                    <div class="stat-value" style="font-size:2rem; color:var(--accent);">${data.summary.totalSubmissions7d}</div>
+                    <div class="stat-label">Reports This Week</div>
+                </div>
+                <div class="stat-box" style="padding:1.25rem;">
+                    <div class="stat-value" style="font-size:2rem; color:var(--accent);">${data.summary.avgGrade7d !== null ? data.summary.avgGrade7d : '\u2014'}</div>
+                    <div class="stat-label">Avg Grade (7d)</div>
+                </div>
+                <div class="stat-box" style="padding:1.25rem;">
+                    <div class="stat-value" style="font-size:2rem; color:var(--success);">${data.summary.gainersCount}</div>
+                    <div class="stat-label">Gainers</div>
+                </div>
+                <div class="stat-box" style="padding:1.25rem;">
+                    <div class="stat-value" style="font-size:2rem; color:var(--danger);">${data.summary.losersCount}</div>
+                    <div class="stat-label">Losers</div>
+                </div>
+            </div>
 
-        const x = validFigures.map(f => parseFloat(f.avgSecondaryPrice));
-        const y = validFigures.map(f => parseFloat(f.avgGrade));
-        const z = validFigures.map(f => f.submissions);
-        const text = validFigures.map(f => `<b>${escapeHTML(f.name)}</b><br>${escapeHTML(f.brand)}<br>Grade: ${f.avgGrade}<br>Price: $${f.avgSecondaryPrice}<br>Reports: ${f.submissions}`);
+            <!-- Top Gainers & Top Losers -->
+            <div class="grid-2" style="margin-bottom:2rem;">
+                ${this._renderMoversTable('\u25B2 Top Gainers', data.topGainers, fmtPrice, fmtPct, '', 'var(--success)')}
+                ${this._renderMoversTable('\u25BC Top Losers', data.topLosers, fmtPrice, fmtPct, '', 'var(--danger)')}
+            </div>
 
-        // Colorscaping based on grade/sentiment
-        const colors = y.map(grade => grade >= 80 ? '#10b981' : grade >= 50 ? '#f59e0b' : '#ef4444');
+            <!-- Most Active & New Entries -->
+            <div class="grid-2" style="margin-bottom:2rem;">
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                        <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0;">\u{1F525} Most Active (7d)</h3>
+                    </div>
+                    <div style="max-height:400px; overflow-y:auto;">
+                        ${data.mostActive.length > 0 ? data.mostActive.map((f, i) => `
+                            <div class="pulse-headline-item" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${f.id})">
+                                <div style="display:flex; align-items:center; gap:0.75rem;">
+                                    <span style="color:var(--text-muted); font-weight:700; font-size:0.85rem; width:24px;">#${i + 1}</span>
+                                    <div>
+                                        <div style="font-weight:600; font-size:0.9rem;">${escapeHTML(f.name)}</div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(f.brand)}</div>
+                                    </div>
+                                </div>
+                                <div style="font-weight:800; color:var(--accent); font-size:1.1rem;">${f.submissions7d} report${f.submissions7d !== 1 ? 's' : ''}</div>
+                            </div>
+                        `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No activity this week.</div>'}
+                    </div>
+                </div>
 
-        const trace = {
-            x: x,
-            y: y,
-            z: z,
-            mode: 'markers',
-            marker: {
-                size: 8,
-                color: colors,
-                opacity: 0.8,
-                line: {
-                    color: 'rgba(255, 255, 255, 0.2)',
-                    width: 1
-                }
-            },
-            text: text,
-            hoverinfo: 'text',
-            type: 'scatter3d'
-        };
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                        <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0;">\u{1F195} New Entries</h3>
+                    </div>
+                    <div style="max-height:400px; overflow-y:auto;">
+                        ${data.newEntries.length > 0 ? data.newEntries.map(f => `
+                            <div class="pulse-headline-item" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${f.id})">
+                                <div>
+                                    <div style="font-weight:600; font-size:0.9rem;">${escapeHTML(f.name)}</div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(f.brand)} \u00B7 ${escapeHTML(f.classTie || '')}</div>
+                                </div>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">${new Date(f.firstSubmission).toLocaleDateString()}</div>
+                            </div>
+                        `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No new entries this week.</div>'}
+                    </div>
+                </div>
+            </div>
 
-        const isDark = document.body.getAttribute('data-theme') !== 'light';
-        const bgColor = isDark ? 'rgba(7, 9, 20, 0)' : 'rgba(255,255,255,0)';
-        const fgColor = isDark ? '#f8fafc' : '#0f172a';
-        const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-
-        const layout = {
-            margin: { l: 0, r: 0, b: 0, t: 0 },
-            paper_bgcolor: bgColor,
-            plot_bgcolor: bgColor,
-            font: { color: fgColor, family: 'Inter, sans-serif' },
-            hovermode: 'closest',
-            scene: {
-                xaxis: { title: 'Avg Price ($)', backgroundcolor: bgColor, gridcolor: gridColor, showbackground: false, zerolinecolor: gridColor },
-                yaxis: { title: 'Approval Grade', backgroundcolor: bgColor, gridcolor: gridColor, showbackground: false, zerolinecolor: gridColor },
-                zaxis: { title: 'Reports', backgroundcolor: bgColor, gridcolor: gridColor, showbackground: false, zerolinecolor: gridColor },
-                camera: {
-                    eye: { x: 1.5, y: 1.5, z: 0.5 }
-                }
-            }
-        };
-
-        if (typeof Plotly !== 'undefined') {
-            document.getElementById('plotlyContainer').innerHTML = ''; // clear loading state
-            Plotly.newPlot('plotlyContainer', [trace], layout, { responsive: true, displayModeBar: false });
-
-            // Interaction support: Click on a node to go to the figure
-            document.getElementById('plotlyContainer').on('plotly_click', function (data) {
-                if (data.points && data.points.length > 0) {
-                    const pt = data.points[0];
-                    // Very brittle text matching. Alternative is to stash IDs in customdata
-                    const figNameMatch = pt.text.match(/<b>(.*?)<\/b>/);
-                    if (figNameMatch && figNameMatch[1]) {
-                        const figName = figNameMatch[1];
-                        const figObj = validFigures.find(f => escapeHTML(f.name) === figName || f.name === figName);
-                        if (figObj) {
-                            app.selectTarget(figObj.id);
-                        }
-                    }
-                }
-            });
-        } else {
-            document.getElementById('plotlyContainer').innerHTML = '<div style="padding:3rem; text-align:center; color:var(--warning);">Plotly.js failed to load. Please check connection.</div>';
-        }
+            <!-- Brand Movers -->
+            <div style="margin-bottom:2.5rem;">
+                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">\u{1F4CA} Brand Movers (7d)</h3>
+                <div class="grid-3">
+                    ${data.brandMovers.length > 0 ? data.brandMovers.map(b => `
+                        <div class="card" style="padding:1.25rem;">
+                            <div style="font-weight:800; font-size:1.1rem; margin-bottom:0.75rem;">${escapeHTML(b.brand)}</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.85rem;">
+                                <div>
+                                    <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Figures</div>
+                                    <div style="font-weight:600;">${b.figureCount}</div>
+                                </div>
+                                <div>
+                                    <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Reports (7d)</div>
+                                    <div style="font-weight:600;">${b.submissions7d}</div>
+                                </div>
+                            </div>
+                            <div style="margin-top:0.75rem; text-align:right; font-size:0.9rem; font-weight:700;">
+                                ${fmtPct(b.priceChange7d)}
+                                <span style="font-size:0.7rem; color:var(--text-muted); margin-left:0.25rem;">7d</span>
+                            </div>
+                        </div>
+                    `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No brand movement data available.</div>'}
+                </div>
+            </div>
+        `;
     } catch (e) {
-        console.error('Failed to render 3D explorer:', e);
-        document.getElementById('plotlyContainer').innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Visualization module offline.</div>';
+        console.error('Weekly movers error:', e);
+        container.innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load weekly movers report.</div>';
     }
 };
