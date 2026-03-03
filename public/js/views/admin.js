@@ -6,7 +6,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
         const isFullAdmin = ['owner', 'admin'].includes(userRole);
         const isMod = userRole === 'moderator';
 
-        let analytics = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [], lbSettings = [];
+        let analytics = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [], lbSettings = [], tickerSettings = { ticker_mode: 'all', ticker_length: 25 };
 
         try {
             // All roles: analytics + flags + leaderboard settings
@@ -22,7 +22,8 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     fetch(`${API_URL}/figures`),
                     fetch(`${API_URL}/figures/top-rated`),
                     this.authFetch(`${API_URL}/admin/brands`),
-                    this.authFetch(`${API_URL}/admin/pending-brands`)
+                    this.authFetch(`${API_URL}/admin/pending-brands`),
+                    this.authFetch(`${API_URL}/admin/ticker-settings`)
                 );
             }
             const results = await Promise.all(promises);
@@ -35,6 +36,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 if (results[5].ok) topRated = await results[5].json();
                 if (results[6].ok) approvedBrands = await results[6].json();
                 if (results[7].ok) pendingBrands = await results[7].json();
+                if (results[8] && results[8].ok) tickerSettings = await results[8].json();
             }
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
@@ -644,6 +646,33 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 ` : ''}
 
                 ${isFullAdmin ? `
+                <!-- TICKER SETTINGS -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">&#x1F4F0; Ticker Settings</h3>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Control what data the global ticker displays and how many items it shows.</p>
+                <div class="card" style="padding:1.5rem; margin-bottom:2.5rem;">
+                    <div style="display:flex; gap:2rem; align-items:flex-start; flex-wrap:wrap;">
+                        <div>
+                            <label style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.5rem;">Display Mode</label>
+                            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                                <button class="ticker-mode-btn btn-sm${tickerSettings.ticker_mode === 'grade' ? ' active' : ''}" data-mode="grade" style="padding:0.4rem 1rem; font-size:0.8rem;">Grade</button>
+                                <button class="ticker-mode-btn btn-sm${tickerSettings.ticker_mode === 'approval' ? ' active' : ''}" data-mode="approval" style="padding:0.4rem 1rem; font-size:0.8rem;">Approval</button>
+                                <button class="ticker-mode-btn btn-sm${tickerSettings.ticker_mode === 'pricing' ? ' active' : ''}" data-mode="pricing" style="padding:0.4rem 1rem; font-size:0.8rem;">Pricing</button>
+                                <button class="ticker-mode-btn btn-sm${tickerSettings.ticker_mode === 'all' ? ' active' : ''}" data-mode="all" style="padding:0.4rem 1rem; font-size:0.8rem;">All</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.5rem;">Items Shown</label>
+                            <input type="number" id="tickerLengthInput" value="${tickerSettings.ticker_length}" min="5" max="100" style="width:80px; padding:0.4rem 0.6rem; background:var(--bg-input, var(--bg-panel)); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px; font-size:0.85rem;">
+                        </div>
+                        <div style="align-self:flex-end;">
+                            <button id="saveTickerSettings" class="btn" style="padding:0.5rem 1.25rem; font-size:0.85rem;">Save</button>
+                        </div>
+                    </div>
+                    <div id="tickerSettingsMsg" style="margin-top:0.75rem; font-size:0.8rem;"></div>
+                </div>
+                ` : ''}
+
+                ${isFullAdmin ? `
                 <!-- SYSTEM LOGS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F4DC} System Logs</h3>
                 <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Authentication events, admin actions, and security audit trail.</p>
@@ -883,6 +912,36 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             </div>
         `;
 
+        // ── Ticker Settings ──────────────────────────────────
+        if (isFullAdmin) {
+            let selectedMode = tickerSettings.ticker_mode || 'all';
+            document.querySelectorAll('.ticker-mode-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.ticker-mode-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedMode = btn.dataset.mode;
+                });
+            });
+            document.getElementById('saveTickerSettings')?.addEventListener('click', async () => {
+                const length = parseInt(document.getElementById('tickerLengthInput').value);
+                const msgEl = document.getElementById('tickerSettingsMsg');
+                try {
+                    const res = await self.authFetch(`${API_URL}/admin/ticker-settings`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ ticker_mode: selectedMode, ticker_length: length })
+                    });
+                    if (res.ok) {
+                        msgEl.innerHTML = '<span style="color:var(--success);">Settings saved. Ticker will update on next page load.</span>';
+                    } else {
+                        const err = await res.json();
+                        msgEl.innerHTML = `<span style="color:var(--danger);">${escapeHTML(err.error)}</span>`;
+                    }
+                } catch (e) {
+                    msgEl.innerHTML = '<span style="color:var(--danger);">Connection error.</span>';
+                }
+            });
+        }
+
         // ── System Logs ──────────────────────────────────────
         if (isFullAdmin) {
             let logPage = 1;
@@ -903,7 +962,8 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     ADMIN_WIPE_SUBMISSIONS: { label: 'WIPE SUBS', color: '#ef4444' },
                     ADMIN_CLEANUP: { label: 'CLEANUP', color: '#6b7280' },
                     ADMIN_LB_UPDATE: { label: 'LB UPDATE', color: '#6b7280' },
-                    MOD_LB_VISIBILITY: { label: 'MOD VIS', color: '#6b7280' }
+                    MOD_LB_VISIBILITY: { label: 'MOD VIS', color: '#6b7280' },
+                    ADMIN_TICKER_SETTINGS: { label: 'TICKER CFG', color: '#6b7280' }
                 };
                 const m = map[action] || { label: action, color: 'var(--text-muted)' };
                 return `<span class="admin-log-badge" style="background:${m.color}20; color:${m.color}; border:1px solid ${m.color}40; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.7rem; font-weight:700; white-space:nowrap;">${escapeHTML(m.label)}</span>`;

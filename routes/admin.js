@@ -597,4 +597,65 @@ router.get('/audit-logs', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// Get ticker settings
+router.get('/ticker-settings', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await db.query(
+            "SELECT key, value FROM SiteSettings WHERE key IN ('ticker_mode', 'ticker_length')"
+        );
+        const settings = {};
+        result.rows.forEach(r => { settings[r.key] = r.value; });
+        res.json({
+            ticker_mode: settings.ticker_mode || 'all',
+            ticker_length: parseInt(settings.ticker_length) || 25
+        });
+    } catch (err) {
+        log.error('Admin get ticker settings error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Update ticker settings
+router.put('/ticker-settings', requireAuth, requireAdmin, async (req, res) => {
+    const { ticker_mode, ticker_length } = req.body;
+
+    const validModes = ['grade', 'approval', 'pricing', 'all'];
+    if (ticker_mode && !validModes.includes(ticker_mode)) {
+        return res.status(400).json({ error: 'Invalid ticker mode. Must be: grade, approval, pricing, or all.' });
+    }
+
+    const length = parseInt(ticker_length);
+    if (ticker_length !== undefined && (isNaN(length) || length < 5 || length > 100)) {
+        return res.status(400).json({ error: 'Ticker length must be between 5 and 100.' });
+    }
+
+    try {
+        const now = new Date().toISOString();
+        if (ticker_mode) {
+            await db.query(
+                `INSERT INTO SiteSettings (key, value, updated_by, updated_at)
+                 VALUES ('ticker_mode', $1, $2, $3)
+                 ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = $3`,
+                [ticker_mode, req.user.username, now]
+            );
+        }
+        if (ticker_length !== undefined) {
+            await db.query(
+                `INSERT INTO SiteSettings (key, value, updated_by, updated_at)
+                 VALUES ('ticker_length', $1, $2, $3)
+                 ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = $3`,
+                [String(length), req.user.username, now]
+            );
+        }
+
+        await auditLog('ADMIN_TICKER_SETTINGS', req.user.username, null,
+            `Ticker updated: mode=${ticker_mode || '(unchanged)'}, length=${ticker_length || '(unchanged)'}`, req.ip);
+
+        res.json({ message: 'Ticker settings updated.', ticker_mode: ticker_mode || undefined, ticker_length: length || undefined });
+    } catch (err) {
+        log.error('Admin update ticker settings error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 module.exports = router;

@@ -217,28 +217,53 @@ class TerminalApp {
         if (!wrap || !content) return;
 
         try {
-            // Fetch ranked figures (which include avgGrade and latestPrice)
+            // Fetch ticker settings (public, no auth)
+            let tickerMode = 'all', tickerLength = 25;
+            try {
+                const settingsRes = await fetch(`${API_URL}/settings/ticker`);
+                if (settingsRes.ok) {
+                    const s = await settingsRes.json();
+                    tickerMode = s.ticker_mode || 'all';
+                    tickerLength = s.ticker_length || 25;
+                }
+            } catch (e) { /* use defaults */ }
+
+            // Fetch ranked figures (includes avgGrade, avgApproval, latestPrice)
             const figuresRes = await fetch(`${API_URL}/figures/market-ranked?sort=grade&order=desc`);
             const allFigures = await figuresRes.json().catch(() => []);
 
-            // Top 25 by Approval Grade
-            const topGraded = allFigures
-                .filter(f => f.avgGrade && f.submissions > 0)
-                .slice(0, 25);
-
-            // Top 25 by Price
-            const topPriced = [...allFigures]
-                .filter(f => f.latestPrice)
-                .sort((a, b) => parseFloat(b.latestPrice) - parseFloat(a.latestPrice))
-                .slice(0, 25);
-
             let html = '';
 
-            if (topPriced.length > 0) {
-                html += topPriced.map((f, i) => `<span class="ticker-item"><span class="ticker-neutral">#${i + 1} [${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--text-primary); margin-left:0.25rem;">$${parseFloat(f.latestPrice).toFixed(2)}</span></span>`).join('');
+            // Pricing section
+            if (tickerMode === 'pricing' || tickerMode === 'all') {
+                const topPriced = [...allFigures]
+                    .filter(f => f.latestPrice)
+                    .sort((a, b) => parseFloat(b.latestPrice) - parseFloat(a.latestPrice))
+                    .slice(0, tickerLength);
+                if (topPriced.length > 0) {
+                    html += topPriced.map((f, i) => `<span class="ticker-item"><span class="ticker-neutral">#${i + 1} [${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--text-primary); margin-left:0.25rem;">$${parseFloat(f.latestPrice).toFixed(2)}</span></span>`).join('');
+                }
             }
-            if (topGraded.length > 0) {
-                html += topGraded.map((f, i) => `<span class="ticker-item"><span class="ticker-neutral">#${i + 1} [${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--success); margin-left:0.25rem;">★ ${f.avgGrade}</span></span>`).join('');
+
+            // Grade section (combined MTS + approval)
+            if (tickerMode === 'grade' || tickerMode === 'all') {
+                const topGraded = allFigures
+                    .filter(f => f.avgGrade && f.submissions > 0)
+                    .slice(0, tickerLength);
+                if (topGraded.length > 0) {
+                    html += topGraded.map((f, i) => `<span class="ticker-item"><span class="ticker-neutral">#${i + 1} [${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--success); margin-left:0.25rem;">&#9733; ${f.avgGrade}</span></span>`).join('');
+                }
+            }
+
+            // Approval rating section (approval score only)
+            if (tickerMode === 'approval') {
+                const topApproval = [...allFigures]
+                    .filter(f => f.avgApproval && f.submissions > 0)
+                    .sort((a, b) => b.avgApproval - a.avgApproval)
+                    .slice(0, tickerLength);
+                if (topApproval.length > 0) {
+                    html += topApproval.map((f, i) => `<span class="ticker-item"><span class="ticker-neutral">#${i + 1} [${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:#a855f7; margin-left:0.25rem;">&#9829; ${f.avgApproval}</span></span>`).join('');
+                }
             }
 
             if (html) {
@@ -252,10 +277,10 @@ class TerminalApp {
                     controls.id = 'tickerControls';
                     controls.style.cssText = 'position:absolute; right:10px; z-index:100; display:flex; gap:5px; background:var(--bg-panel); padding:2px 6px; border-radius:4px; align-items:center;';
                     controls.innerHTML = `
-                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationPlayState = 'paused'">⏸</button>
-                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationPlayState = 'running'">▶</button>
-                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '200s'">⏩</button>
-                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '800s'">🐢</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationPlayState = 'paused'">&#9208;</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationPlayState = 'running'">&#9654;</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '200s'">&#9193;</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '800s'">&#128034;</button>
                     `;
                     wrap.appendChild(controls);
                 }

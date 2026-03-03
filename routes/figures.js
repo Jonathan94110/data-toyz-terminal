@@ -266,7 +266,7 @@ router.get('/ranked', async (req, res) => {
 // Market-ranked figures — MUST be before /:id
 router.get('/market-ranked', async (req, res) => {
     try {
-        const sort = ['price', 'grade', 'change', 'submissions'].includes(req.query.sort) ? req.query.sort : 'price';
+        const sort = ['price', 'grade', 'approval', 'change', 'submissions'].includes(req.query.sort) ? req.query.sort : 'price';
         const order = req.query.order === 'asc' ? 'asc' : 'desc';
         const brand = req.query.brand || null;
 
@@ -276,7 +276,8 @@ router.get('/market-ranked', async (req, res) => {
             db.query(`
                 SELECT f.id, f.name, f.brand, f.classTie, f.line,
                        COUNT(s.id) as submission_count,
-                       AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+                       AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade,
+                       AVG(s.approvalScore) as avg_approval
                 FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
                 GROUP BY f.id, f.name, f.brand, f.classTie, f.line
             `),
@@ -295,6 +296,7 @@ router.get('/market-ranked', async (req, res) => {
             line: r.line,
             submissions: parseInt(r.submission_count) || 0,
             avgGrade: r.avg_grade ? parseFloat(parseFloat(r.avg_grade).toFixed(1)) : null,
+            avgApproval: r.avg_approval ? parseFloat(parseFloat(r.avg_approval).toFixed(1)) : null,
             latestPrice: priceMap[r.id] !== undefined ? priceMap[r.id] : null,
             priceChange30d: changeMap[r.id] !== undefined ? changeMap[r.id] : null
         }));
@@ -305,7 +307,7 @@ router.get('/market-ranked', async (req, res) => {
         }
 
         // Sort by requested field
-        const sortKey = { price: 'latestPrice', grade: 'avgGrade', change: 'priceChange30d', submissions: 'submissions' }[sort];
+        const sortKey = { price: 'latestPrice', grade: 'avgGrade', approval: 'avgApproval', change: 'priceChange30d', submissions: 'submissions' }[sort];
         merged.sort((a, b) => {
             const aVal = a[sortKey];
             const bVal = b[sortKey];
