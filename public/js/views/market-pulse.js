@@ -306,7 +306,7 @@ TerminalApp.prototype.renderMarketRankings = async function (container) {
         const figures = await res.json();
 
         // Get distinct brands for filter
-        const brands = [...new Set(MOCK_FIGURES.map(f => f.brand).filter(Boolean))].sort();
+        const brands = [...new Set(figures.map(f => f.brand).filter(Boolean))].sort();
 
         const fmtPrice = (v) => v !== null && v !== undefined ? '$' + parseFloat(v).toFixed(2) : '\u2014';
         const fmtPct = (v) => {
@@ -429,7 +429,7 @@ TerminalApp.prototype._setupCompareAutocomplete = function (inputId, dropId, hid
     const showMatches = () => {
         const q = input.value.trim().toLowerCase();
         if (q.length < 1) { dropdown.style.display = 'none'; return; }
-        const matches = MOCK_FIGURES.filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
+        const matches = (typeof figures !== 'undefined' ? figures : []).filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
         if (matches.length === 0) { dropdown.style.display = 'none'; return; }
 
         selectedIdx = -1;
@@ -780,7 +780,7 @@ TerminalApp.prototype.renderMarketExplorer3D = async function (container) {
                 if (data.points && data.points.length > 0) {
                     const pt = data.points[0];
                     // Very brittle text matching. Alternative is to stash IDs in customdata
-                    const figNameMatch = pt.text.match(/<b>(.*?)<\\/b >/);
+                    const figNameMatch = pt.text.match(/<b>(.*?)<\/b>/);
                     if (figNameMatch && figNameMatch[1]) {
                         const figName = figNameMatch[1];
                         const figObj = validFigures.find(f => escapeHTML(f.name) === figName || f.name === figName);
