@@ -243,10 +243,10 @@ class TerminalApp {
                 html += headlines.slice(0, 5).map(h => `<span class="ticker-item"><span class="ticker-accent">[INTEL]</span> ${escapeHTML(h.brand)}: ${escapeHTML(h.headline)}</span>`).join('');
             }
             if (topPriced.length > 0) {
-                html += topPriced.map(f => `<span class="ticker-item"><span class="ticker-neutral">[${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--text-primary); margin-left:0.25rem;">$${parseFloat(f.latestPrice).toFixed(2)}</span></span>`).join('');
+                html += topPriced.map((f, i) => `<span class="ticker-item"><span class="ticker-neutral">#${i + 1} [${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--text-primary); margin-left:0.25rem;">$${parseFloat(f.latestPrice).toFixed(2)}</span></span>`).join('');
             }
             if (topGraded.length > 0) {
-                html += topGraded.map(f => `<span class="ticker-item"><span class="ticker-neutral">[${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--success); margin-left:0.25rem;">★ ${f.avgGrade}</span></span>`).join('');
+                html += topGraded.map((f, i) => `<span class="ticker-item"><span class="ticker-neutral">#${i + 1} [${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--success); margin-left:0.25rem;">★ ${f.avgGrade}</span></span>`).join('');
             }
 
             if (html) {
