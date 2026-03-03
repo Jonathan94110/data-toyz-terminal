@@ -259,18 +259,18 @@ router.get('/weekly-movers', async (req, res) => {
                weeklySubmissions, weeklyFigures, brandPrices] = await Promise.all([
             // Base figure data with 7d submission counts + avg grade
             db.query(`
-                SELECT f.id, f.name, f.brand, f."classTie", f.line,
+                SELECT f.id, f.name, f.brand, f.classTie, f.line,
                        COUNT(s.id) as total_submissions,
                        COUNT(CASE WHEN s.date >= $1 THEN 1 END) as submissions_7d,
-                       AVG((s."mtsTotal" + s."approvalScore") / 2) as avg_grade
-                FROM "Figures" f LEFT JOIN "Submissions" s ON f.id = s."targetId"
-                GROUP BY f.id, f.name, f.brand, f."classTie", f.line
+                       AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+                FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+                GROUP BY f.id, f.name, f.brand, f.classTie, f.line
             `, [d7]),
 
             // Latest price per figure
             db.query(`
                 SELECT DISTINCT ON (figure_id) figure_id, price_avg as latest_price
-                FROM "MarketTransactions"
+                FROM MarketTransactions
                 WHERE price_type = 'secondary_market'
                 ORDER BY figure_id, created_at DESC
             `),
@@ -280,7 +280,7 @@ router.get('/weekly-movers', async (req, res) => {
                 SELECT figure_id,
                        AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_7d,
                        AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_7d
-                FROM "MarketTransactions"
+                FROM MarketTransactions
                 WHERE price_type = 'secondary_market' AND created_at >= $2
                 GROUP BY figure_id
             `, [d7, d14]),
@@ -290,7 +290,7 @@ router.get('/weekly-movers', async (req, res) => {
                 SELECT figure_id,
                        AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_30d,
                        AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_30d
-                FROM "MarketTransactions"
+                FROM MarketTransactions
                 WHERE price_type = 'secondary_market' AND created_at >= $2
                 GROUP BY figure_id
             `, [d30, d60]),
@@ -298,17 +298,17 @@ router.get('/weekly-movers', async (req, res) => {
             // Weekly submission summary
             db.query(`
                 SELECT COUNT(*) as count,
-                       AVG(("mtsTotal" + "approvalScore") / 2) as avg_grade
-                FROM "Submissions" WHERE date >= $1
+                       AVG((mtsTotal + approvalScore) / 2) as avg_grade
+                FROM Submissions WHERE date >= $1
             `, [d7]),
 
             // New entries (first submission in last 7d)
             db.query(`
-                SELECT f.id, f.name, f.brand, f."classTie", f.line,
+                SELECT f.id, f.name, f.brand, f.classTie, f.line,
                        MIN(s.date) as first_submission
-                FROM "Figures" f
-                JOIN "Submissions" s ON f.id = s."targetId"
-                GROUP BY f.id, f.name, f.brand, f."classTie", f.line
+                FROM Figures f
+                JOIN Submissions s ON f.id = s.targetId
+                GROUP BY f.id, f.name, f.brand, f.classTie, f.line
                 HAVING MIN(s.date) >= $1
                 ORDER BY MIN(s.date) DESC
             `, [d7]),
@@ -320,9 +320,9 @@ router.get('/weekly-movers', async (req, res) => {
                        AVG(CASE WHEN mt.created_at >= $1 THEN mt.price_avg END) as avg_price_7d,
                        AVG(CASE WHEN mt.created_at >= $2 AND mt.created_at < $1 THEN mt.price_avg END) as avg_price_prior_7d,
                        COUNT(CASE WHEN s.date >= $1 THEN 1 END) as submissions_7d
-                FROM "Figures" f
-                LEFT JOIN "MarketTransactions" mt ON f.id = mt.figure_id AND mt.price_type = 'secondary_market'
-                LEFT JOIN "Submissions" s ON f.id = s."targetId"
+                FROM Figures f
+                LEFT JOIN MarketTransactions mt ON f.id = mt.figure_id AND mt.price_type = 'secondary_market'
+                LEFT JOIN Submissions s ON f.id = s.targetId
                 GROUP BY f.brand
                 HAVING COUNT(DISTINCT f.id) > 0
             `, [d7, d14])
@@ -353,7 +353,7 @@ router.get('/weekly-movers', async (req, res) => {
             id: r.id,
             name: r.name,
             brand: r.brand,
-            classTie: r.classTie,
+            classTie: r.classtie,
             line: r.line,
             totalSubmissions: parseInt(r.total_submissions) || 0,
             submissions7d: parseInt(r.submissions_7d) || 0,
@@ -382,7 +382,7 @@ router.get('/weekly-movers', async (req, res) => {
 
         const newEntries = weeklyFigures.rows.map(r => ({
             id: r.id, name: r.name, brand: r.brand,
-            classTie: r.classTie, line: r.line,
+            classTie: r.classtie, line: r.line,
             firstSubmission: r.first_submission
         }));
 
