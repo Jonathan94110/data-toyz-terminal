@@ -1,14 +1,14 @@
 {
   "name": "data-toyz-terminal",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Trade Value & Risk Terminal for Collectible Action Figures",
+  "main": "server.js",
   "scripts": {
     "test": "node test/smoke.test.js",
     "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["action-figures", "collectibles", "market-analytics", "trade-value"],
+  "author": "Jonathan94110",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
