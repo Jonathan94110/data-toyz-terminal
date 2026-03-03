@@ -164,7 +164,8 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 
         function wireUpFigureActions() {
             document.querySelectorAll('.delFigBtn').forEach(btn => {
-                btn.addEventListener('click', async () => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
                     if (!confirm(`Delete "${btn.dataset.name}" and ALL associated intel? This cannot be undone.`)) return;
                     try {
                         const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, { method: 'DELETE' });
@@ -181,37 +182,82 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             });
 
             document.querySelectorAll('.editFigBtn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const newName = prompt('Figure Name:', btn.dataset.name);
-                    if (!newName) return;
-                    const newBrand = prompt('Brand:', btn.dataset.brand);
-                    if (!newBrand) return;
-                    const newClass = prompt('Class Tier:', btn.dataset.class);
-                    if (!newClass) return;
-                    const newLine = prompt('Product Line:', btn.dataset.line);
-                    if (!newLine) return;
-                    const msrpStr = prompt('MSRP (leave blank to clear):', btn.dataset.msrp || '');
-                    if (msrpStr === null) return;
-                    const newMsrp = msrpStr.trim() !== '' ? parseFloat(msrpStr) : null;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const row = document.getElementById(`figRow-${btn.dataset.id}`);
+                    if (!row) return;
+                    // Check if edit form already open
+                    if (row.nextElementSibling && row.nextElementSibling.classList.contains('edit-form-row')) return;
 
-                    try {
-                        const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
-                            method: 'PUT',
-                            body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine, msrp: newMsrp })
-                        });
-                        if (res.ok) {
-                            const fig = MOCK_FIGURES.find(f => f.id == btn.dataset.id);
-                            if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; fig.msrp = newMsrp; }
-                            const localFig = figures.find(f => f.id == btn.dataset.id);
-                            if (localFig) { localFig.name = newName; localFig.brand = newBrand; localFig.classTie = newClass; localFig.line = newLine; localFig.msrp = newMsrp; }
-                            renderFigureTable();
-                        }
-                    } catch (e) { console.error(e); }
+                    const editRow = document.createElement('tr');
+                    editRow.classList.add('edit-form-row');
+                    editRow.innerHTML = `
+                        <td colspan="7" style="padding:1rem; background:var(--bg-surface); border:1px solid var(--border-light);">
+                            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+                                <div>
+                                    <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Name</label>
+                                    <input id="editName-${btn.dataset.id}" value="${escapeHTML(btn.dataset.name)}" style="width:100%; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Brand</label>
+                                    <input id="editBrand-${btn.dataset.id}" value="${escapeHTML(btn.dataset.brand)}" style="width:100%; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Class Tier</label>
+                                    <input id="editClass-${btn.dataset.id}" value="${escapeHTML(btn.dataset.class)}" style="width:100%; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
+                                </div>
+                            </div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+                                <div>
+                                    <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Product Line</label>
+                                    <input id="editLine-${btn.dataset.id}" value="${escapeHTML(btn.dataset.line)}" style="width:100%; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.2rem;">MSRP</label>
+                                    <input id="editMsrp-${btn.dataset.id}" value="${btn.dataset.msrp || ''}" type="number" step="0.01" style="width:100%; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:0.5rem;">
+                                <button id="saveEdit-${btn.dataset.id}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem;">Save</button>
+                                <button id="cancelEdit-${btn.dataset.id}" class="btn" style="padding:0.4rem 1rem; font-size:0.8rem; background:transparent; border:1px solid var(--border-light); color:var(--text-secondary);">Cancel</button>
+                            </div>
+                        </td>`;
+                    row.after(editRow);
+
+                    document.getElementById(`cancelEdit-${btn.dataset.id}`).addEventListener('click', () => editRow.remove());
+                    document.getElementById(`saveEdit-${btn.dataset.id}`).addEventListener('click', async () => {
+                        const newName = document.getElementById(`editName-${btn.dataset.id}`).value.trim();
+                        const newBrand = document.getElementById(`editBrand-${btn.dataset.id}`).value.trim();
+                        const newClass = document.getElementById(`editClass-${btn.dataset.id}`).value.trim();
+                        const newLine = document.getElementById(`editLine-${btn.dataset.id}`).value.trim();
+                        const msrpVal = document.getElementById(`editMsrp-${btn.dataset.id}`).value.trim();
+                        const newMsrp = msrpVal !== '' ? parseFloat(msrpVal) : null;
+
+                        if (!newName || !newBrand) { alert('Name and Brand are required.'); return; }
+
+                        try {
+                            const res = await self.authFetch(`${API_URL}/admin/figures/${btn.dataset.id}`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ name: newName, brand: newBrand, classTie: newClass, line: newLine, msrp: newMsrp })
+                            });
+                            if (res.ok) {
+                                const fig = MOCK_FIGURES.find(f => f.id == btn.dataset.id);
+                                if (fig) { fig.name = newName; fig.brand = newBrand; fig.classTie = newClass; fig.line = newLine; fig.msrp = newMsrp; }
+                                const localFig = figures.find(f => f.id == btn.dataset.id);
+                                if (localFig) { localFig.name = newName; localFig.brand = newBrand; localFig.classTie = newClass; localFig.line = newLine; localFig.msrp = newMsrp; }
+                                renderFigureTable();
+                            } else {
+                                const err = await res.json().catch(() => ({}));
+                                alert(err.error || 'Save failed.');
+                            }
+                        } catch (e) { console.error(e); alert('Connection error.'); }
+                    });
                 });
             });
 
             document.querySelectorAll('.mergeFigBtn').forEach(btn => {
-                btn.addEventListener('click', async () => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
                     const sourceId = btn.dataset.id;
                     const sourceName = btn.dataset.name;
                     // Build list of other figures for merge target selection
