@@ -217,19 +217,22 @@ class TerminalApp {
         if (!wrap || !content) return;
 
         try {
+            // Fetch top 25 graded figures and also use the full figures list to sort by price
             const [headlinesRes, figuresRes] = await Promise.all([
                 fetch(`${API_URL}/stats/headlines`),
-                fetch(`${API_URL}/figures`)
+                fetch(`${API_URL}/figures`) // we fetch all figures to sort top 25 by grade and price
             ]);
 
             const headlines = await headlinesRes.json().catch(() => []);
             const allFigures = await figuresRes.json().catch(() => []);
 
+            // Derive Top 25 Approval Scores
             const topGraded = [...allFigures]
                 .filter(f => f.avgGrade && f.submissions > 0)
                 .sort((a, b) => parseFloat(b.avgGrade) - parseFloat(a.avgGrade))
                 .slice(0, 25);
 
+            // Derive Top 25 Pricing
             const topPriced = [...allFigures]
                 .filter(f => f.avgSecondaryPrice)
                 .sort((a, b) => parseFloat(b.avgSecondaryPrice) - parseFloat(a.avgSecondaryPrice))
@@ -248,9 +251,11 @@ class TerminalApp {
             }
 
             if (html) {
+                // duplicate content heavily to allow seamless continuous scrolling animation loop for large monitors
                 content.innerHTML = html + html + html + html;
                 wrap.style.display = 'flex';
 
+                // Add speed controls
                 if (!document.getElementById('tickerControls')) {
                     const controls = document.createElement('div');
                     controls.id = 'tickerControls';
@@ -264,8 +269,9 @@ class TerminalApp {
                     wrap.appendChild(controls);
                 }
 
+                // Ensure content resets animation
                 content.style.animation = 'none';
-                void content.offsetWidth;
+                void content.offsetWidth; // trigger reflow
                 content.style.animation = 'ticker 60s linear infinite';
             }
         } catch (e) {
