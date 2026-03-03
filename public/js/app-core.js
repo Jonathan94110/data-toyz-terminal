@@ -254,8 +254,8 @@ class TerminalApp {
                     controls.innerHTML = `
                         <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationPlayState = 'paused'">⏸</button>
                         <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationPlayState = 'running'">▶</button>
-                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '30s'">⏩</button>
-                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '120s'">🐢</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '200s'">⏩</button>
+                        <button class="btn-sm" style="padding:0.1rem 0.3rem; font-size:0.7rem;" onclick="document.getElementById('tickerContent').style.animationDuration = '800s'">🐢</button>
                     `;
                     wrap.appendChild(controls);
                 }
@@ -263,7 +263,7 @@ class TerminalApp {
                 // Ensure content resets animation
                 content.style.animation = 'none';
                 void content.offsetWidth; // trigger reflow
-                content.style.animation = 'ticker 60s linear infinite';
+                content.style.animation = 'ticker 400s linear infinite';
             }
         } catch (e) {
             console.error('Ticker load failed:', e);
