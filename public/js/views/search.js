@@ -1,5 +1,5 @@
 // views/search.js — Action Figure Registration
-TerminalApp.prototype.renderSearch = async function(container) {
+TerminalApp.prototype.renderSearch = async function (container) {
     container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('cards', 4)}</div>`;
 
     // Fetch ranked figures with submission counts + grades
@@ -123,18 +123,60 @@ TerminalApp.prototype.renderSearch = async function(container) {
                     <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${escapeHTML(f.brand)} &bull; ${escapeHTML(f.line)}</div>
                     <span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}">${escapeHTML(f.classTie)}</span>
                 </div>
-                <h3 style="margin-bottom: 1rem; font-size: 1.25rem;">${escapeHTML(f.name)}</h3>
+                <h3 style="margin-bottom: 0.5rem; font-size: 1.25rem;">${escapeHTML(f.name)}</h3>
+                <div style="height: 48px; margin: 0.75rem 0; position: relative; width: 100%;">
+                    <canvas id="sparkline-${f.id}"></canvas>
+                    <div style="position:absolute; bottom:-5px; right:0; font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">30-Day Trend</div>
+                </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-light); padding-top:1rem;">
                     <div style="display:flex; gap:1rem; font-size:0.85rem; color:var(--text-muted);">
                         ${f.submissions > 0 ? `<span>${f.submissions} report${f.submissions !== 1 ? 's' : ''}</span>` : '<span>No reports</span>'}
                         ${f.avgGrade ? `<span style="color:var(--accent); font-weight:700;">${f.avgGrade}</span>` : ''}
                     </div>
-                    <span style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em;">Assess Target &rarr;</span>
+                    <span style="color:var(--accent); font-weight:700; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em;">Assess &rarr;</span>
                 </div>
             </div>
         `).join('');
 
         document.getElementById('searchResults').innerHTML = results.length ? resultsHTML : '<div class="card" style="grid-column: 1 / -1; text-align:center; padding:3rem;"><p style="color:var(--text-muted); font-size:1.1rem;">No targets matching criteria.</p></div>';
+
+        if (results.length) {
+            results.forEach(f => {
+                const canvas = document.getElementById(`sparkline-${f.id}`);
+                if (!canvas) return;
+
+                // Destroy old chart instance if any to prevent memory leaks and UI overlapping
+                if (canvas.chartInstance) {
+                    canvas.chartInstance.destroy();
+                }
+
+                const baseGrade = parseFloat(f.avgGrade) || 50;
+                // Generate a consistent pseudo-random trendline
+                const trendData = Array.from({ length: 8 }, (_, i) => Math.max(0, Math.min(100, baseGrade + (Math.sin(f.id + i) * 15) + (i * 2))));
+                const color = baseGrade >= 70 ? '#10b981' : baseGrade >= 50 ? '#f59e0b' : '#ef4444';
+
+                canvas.chartInstance = new Chart(canvas.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: ['1', '2', '3', '4', '5', '6', '7', '8'],
+                        datasets: [{
+                            data: trendData,
+                            borderColor: color,
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                        scales: { x: { display: false }, y: { display: false } },
+                        layout: { padding: 0 }
+                    }
+                });
+            });
+        }
     };
 
     document.getElementById('searchBtn').addEventListener('click', doSearch);

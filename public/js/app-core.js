@@ -359,10 +359,30 @@ class TerminalApp {
                     <div class="content-area" id="mainContent">
                     </div>
                 </main>
+                <nav class="bottom-nav">
+                    <div class="nav-items-mobile">
+                        <div class="nav-item-mobile ${this.currentView === 'search' ? 'active' : ''}" data-view="search">
+                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <span class="nav-label-mobile">Search</span>
+                        </div>
+                        <div class="nav-item-mobile ${this.currentView === 'feed' ? 'active' : ''}" data-view="feed">
+                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                            <span class="nav-label-mobile">Feed</span>
+                        </div>
+                        <div class="nav-item-mobile ${this.currentView === 'scorecard' ? 'active' : ''}" data-view="scorecard">
+                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/><path d="M2 20h20"/></svg>
+                            <span class="nav-label-mobile">Scorecard</span>
+                        </div>
+                        <div class="nav-item-mobile ${this.currentView === 'profile' ? 'active' : ''}" data-view="profile">
+                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span class="nav-label-mobile">Profile</span>
+                        </div>
+                    </div>
+                </nav>
             </div>
         `;
 
-        document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+        document.querySelectorAll('.nav-item[data-view], .nav-item-mobile[data-view]').forEach(item => {
             item.addEventListener('click', (e) => {
                 this.currentView = e.currentTarget.dataset.view;
                 this.renderApp();
