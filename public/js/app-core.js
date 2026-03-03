@@ -82,29 +82,39 @@ class TerminalApp {
             return;
         }
 
-        // Validate token with retry (survives brief server restarts during deploys)
-        const maxRetries = 3;
+        // Validate token with retry (survives server restarts during Render deploys)
+        // 5 attempts with exponential backoff: 2s, 4s, 6s, 8s, 10s = 30s total coverage
+        const maxRetries = 5;
         let lastErr = null;
+        let gotAuthReject = false;
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
                 const res = await fetch(`${API_URL}/auth/me`, {
                     headers: { 'Authorization': `Bearer ${this.token}` }
                 });
+
                 if (res.status === 401 || res.status === 403) {
-                    // Definitive auth failure — token is invalid, clear it
+                    // During deploys, a transient 401 can occur — retry before giving up
+                    if (!gotAuthReject && attempt < maxRetries - 1) {
+                        gotAuthReject = true;
+                        console.warn(`[Auth] Token rejected (attempt ${attempt + 1}), retrying...`);
+                        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                        continue;
+                    }
+                    // Confirmed auth failure after retry — token is truly invalid
                     const errBody = await res.json().catch(() => ({}));
-                    console.warn('[Auth] Token rejected:', res.status, errBody.error || 'unknown');
+                    console.warn('[Auth] Token rejected permanently:', res.status, errBody.error || 'unknown');
                     this.token = null;
                     this.user = null;
                     localStorage.removeItem('terminal_token');
                     this.renderLogin();
                     return;
                 }
-                if (!res.ok) throw new Error('Server error');
+                if (!res.ok) throw new Error(`Server error (${res.status})`);
                 this.user = await res.json();
 
-                // Token renewal: server returns a fresh token on each /me call
-                // so sessions extend as long as the app is opened within 24h
+                // Token renewal: server returns a fresh 30-day token on each /me call
+                // so sessions stay alive as long as the user opens the app within 30 days
                 if (this.user.token) {
                     this.token = this.user.token;
                     localStorage.setItem('terminal_token', this.token);
