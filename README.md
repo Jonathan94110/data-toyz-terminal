@@ -31,6 +31,7 @@ Data Toyz Terminal is a collaborative market intelligence platform built for col
 - **Feed** — Broadcast posts with sentiment tagging, image attachments, threaded replies, reactions, and @mentions
 - **Chat Rooms** — Direct messages and group channels with typing indicators, reactions, and unread tracking
 - **User Profiles** — Follow/unfollow system, submission history, title progression, and avatar customization
+- **Request Assessment** — Share figures with other users to request their scorecard submission via in-app notifications
 - **Cost Basis Tracking** — Personal portfolio gain/loss calculations vs. current market prices
 
 ### Gamification
