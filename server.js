@@ -13,6 +13,7 @@ const log = require('./logger.js');
 const { apiLimiter } = require('./middleware/rateLimiters');
 
 const app = express();
+app.set('trust proxy', 1);          // Render sits behind a reverse proxy
 const PORT = process.env.PORT || 3000;
 
 // --- HTTPS Enforcement in production --- //
@@ -34,7 +35,7 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdn.plot.ly"],
             scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -50,6 +51,16 @@ app.use(helmet({
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 
+// --- Health check BEFORE rate limiter (blue-green deploys) --- //
+app.get('/api/health', async (req, res) => {
+    try {
+        await db.query('SELECT 1');
+        res.json({ status: 'ok', uptime: process.uptime() });
+    } catch (err) {
+        res.status(503).json({ status: 'unhealthy', error: 'database unreachable' });
+    }
+});
+
 // --- Global API rate limiter --- //
 app.use('/api/', apiLimiter);
 
@@ -59,16 +70,6 @@ app.use(express.static(path.join(__dirname, 'public'), {
     etag: true,
     lastModified: true
 }));
-
-// --- Health check (DB connectivity gate for blue-green deploys) --- //
-app.get('/api/health', async (req, res) => {
-    try {
-        await db.query('SELECT 1');
-        res.json({ status: 'ok', uptime: process.uptime() });
-    } catch (err) {
-        res.status(503).json({ status: 'unhealthy', error: 'database unreachable' });
-    }
-});
 
 // --- Mount route modules --- //
 app.use('/api/auth', require('./routes/auth'));

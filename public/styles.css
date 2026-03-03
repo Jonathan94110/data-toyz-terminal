@@ -4798,3 +4798,112 @@ textarea:focus {
         padding-bottom: 90px !important;
     }
 }
+
+/* ── Gamification Badges & Progress ── */
+.badge-recruit {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    color: #cbd5e1;
+    border: 1px solid #475569;
+}
+
+.badge-operative {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.4));
+    color: #93c5fd;
+    border: 1px solid #3b82f6;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+}
+
+.badge-master {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(202, 138, 4, 0.4));
+    color: #fde047;
+    border: 1px solid #eab308;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.3);
+}
+
+.badge-legend {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(147, 51, 234, 0.5));
+    color: #e9d5ff;
+    border: 1px solid #a855f7;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+}
+
+.level-progress-bg {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-surface);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.level-progress-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Ticker Tape ── */
+.ticker-wrap {
+    width: 100%;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-light);
+    height: 32px;
+    overflow: hidden;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    z-index: 99;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.ticker-content {
+    white-space: nowrap;
+    padding-left: 100%;
+    display: inline-block;
+    animation: ticker 40s linear infinite;
+    font-family: monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--success);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.ticker-content span.ticker-item {
+    margin-right: 3rem;
+}
+
+.ticker-content span.ticker-negative {
+    color: var(--danger);
+}
+
+.ticker-content span.ticker-neutral {
+    color: var(--text-secondary);
+}
+
+.ticker-content span.ticker-accent {
+    color: var(--warning);
+}
+
+@keyframes ticker {
+    0% {
+        transform: translate3d(0, 0, 0);
+    }
+
+    100% {
+        transform: translate3d(-100%, 0, 0);
+    }
+}
+
+@media (max-width: 768px) {
+    .ticker-wrap {
+        bottom: 72px;
+        height: 28px;
+    }
+}
+

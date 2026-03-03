@@ -19,6 +19,8 @@
     <link rel="stylesheet" href="styles.css?v=40">
     <!-- Chart.js for Projections Graph -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Plotly.js for 3D Market Visualization -->
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" charset="utf-8"></script>
 </head>
 
 <body>
@@ -42,10 +44,15 @@
     <script src="js/views/docs.js?v=33"></script>
     <script src="js/views/scorecard.js?v=2"></script>
     <script src="js/views/admin.js?v=34"></script>
-    <script src="js/views/market-pulse.js?v=30"></script>
+    <script src="js/views/market-pulse.js?v=31"></script>
     <script src="js/views/trade-advisor.js?v=2"></script>
     <script src="js/views/user-profile.js?v=33"></script>
     <script src="js/views/rooms.js?v=25"></script>
+
+    <!-- Global Ticker Tape -->
+    <div id="globalTicker" class="ticker-wrap" style="display: none;">
+        <div class="ticker-content" id="tickerContent"></div>
+    </div>
 </body>
 
 </html>

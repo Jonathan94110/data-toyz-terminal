@@ -16,7 +16,12 @@ router.get('/', async (req, res) => {
         const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
         const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
-        const postsRes = await db.query("SELECT * FROM Posts ORDER BY id DESC LIMIT $1 OFFSET $2", [limit, offset]);
+        const postsRes = await db.query(`
+            SELECT p.*, (SELECT COUNT(*) FROM Submissions s WHERE s.author = p.author) as "submissionCount" 
+            FROM Posts p 
+            ORDER BY p.id DESC 
+            LIMIT $1 OFFSET $2
+        `, [limit, offset]);
         const postIds = postsRes.rows.map(p => p.id);
 
         let comments = [];
