@@ -418,4 +418,351 @@ router.get('/weekly-movers', async (req, res) => {
     }
 });
 
+// ── Brand Health Dashboard ──────────────────────────────────
+router.get('/brand-health', async (req, res) => {
+    try {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+        const [brandBase, brandPrices, submissionVelocity, uniqueAnalysts,
+               priceTrendSeries, gradeTrendSeries] = await Promise.all([
+            // Brand base metrics (figure count, submission count, avg grade)
+            db.query(`
+                SELECT f.brand,
+                       COUNT(DISTINCT f.id) as figure_count,
+                       COUNT(s.id) as submission_count,
+                       AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+                FROM Figures f
+                LEFT JOIN Submissions s ON f.id = s.targetId
+                GROUP BY f.brand
+                ORDER BY submission_count DESC
+            `),
+
+            // Brand secondary market prices (current 30d vs prior 30d)
+            db.query(`
+                SELECT f.brand,
+                       AVG(mt.price_avg) as avg_price_all,
+                       AVG(CASE WHEN mt.created_at >= $1 THEN mt.price_avg END) as avg_price_30d,
+                       AVG(CASE WHEN mt.created_at >= $2 AND mt.created_at < $1 THEN mt.price_avg END) as avg_price_prior_30d
+                FROM MarketTransactions mt
+                JOIN Figures f ON f.id = mt.figure_id
+                WHERE mt.price_type = 'secondary_market'
+                GROUP BY f.brand
+            `, [thirtyDaysAgo, sixtyDaysAgo]),
+
+            // Submission velocity (last 30d per brand)
+            db.query(`
+                SELECT f.brand, COUNT(s.id) as submissions_30d
+                FROM Submissions s
+                JOIN Figures f ON f.id = s.targetId
+                WHERE s.date >= $1
+                GROUP BY f.brand
+            `, [thirtyDaysAgo]),
+
+            // Unique analysts per brand
+            db.query(`
+                SELECT f.brand, COUNT(DISTINCT s.author) as analysts
+                FROM Submissions s
+                JOIN Figures f ON f.id = s.targetId
+                GROUP BY f.brand
+            `),
+
+            // Price trend time-series (weekly buckets, last 90d, per brand)
+            db.query(`
+                SELECT f.brand,
+                       DATE_TRUNC('week', mt.created_at::timestamp) as week,
+                       AVG(mt.price_avg) as avg_price
+                FROM MarketTransactions mt
+                JOIN Figures f ON f.id = mt.figure_id
+                WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+                GROUP BY f.brand, DATE_TRUNC('week', mt.created_at::timestamp)
+                ORDER BY week ASC
+            `, [ninetyDaysAgo]),
+
+            // Grade trend time-series (weekly buckets, last 90d, per brand)
+            db.query(`
+                SELECT f.brand,
+                       DATE_TRUNC('week', s.date::timestamp) as week,
+                       AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+                FROM Submissions s
+                JOIN Figures f ON f.id = s.targetId
+                WHERE s.date >= $1
+                GROUP BY f.brand, DATE_TRUNC('week', s.date::timestamp)
+                ORDER BY week ASC
+            `, [ninetyDaysAgo])
+        ]);
+
+        // Build lookup maps
+        const priceMap = {};
+        for (const r of brandPrices.rows) priceMap[r.brand] = r;
+
+        const velocityMap = {};
+        for (const r of submissionVelocity.rows) velocityMap[r.brand] = parseInt(r.submissions_30d);
+
+        const analystMap = {};
+        for (const r of uniqueAnalysts.rows) analystMap[r.brand] = parseInt(r.analysts);
+
+        // Merge into brands array
+        const brands = brandBase.rows.map(r => {
+            const price = priceMap[r.brand] || {};
+            const avg30 = price.avg_price_30d ? parseFloat(price.avg_price_30d) : null;
+            const avgPrior30 = price.avg_price_prior_30d ? parseFloat(price.avg_price_prior_30d) : null;
+            const changePct = (avg30 !== null && avgPrior30 !== null && avgPrior30 !== 0)
+                ? parseFloat((((avg30 - avgPrior30) / avgPrior30) * 100).toFixed(1))
+                : null;
+
+            return {
+                brand: r.brand,
+                figureCount: parseInt(r.figure_count),
+                submissionCount: parseInt(r.submission_count),
+                avgGrade: r.avg_grade ? parseFloat(parseFloat(r.avg_grade).toFixed(1)) : null,
+                avgSecondaryPrice: price.avg_price_all ? parseFloat(price.avg_price_all) : null,
+                priceChange30d: changePct,
+                submissions30d: velocityMap[r.brand] || 0,
+                uniqueAnalysts: analystMap[r.brand] || 0
+            };
+        });
+
+        // Build price trend time-series
+        const priceWeeks = new Set();
+        const priceBrandMap = {};
+        for (const r of priceTrendSeries.rows) {
+            const wk = new Date(r.week).toISOString().split('T')[0];
+            priceWeeks.add(wk);
+            if (!priceBrandMap[r.brand]) priceBrandMap[r.brand] = {};
+            priceBrandMap[r.brand][wk] = parseFloat(parseFloat(r.avg_price).toFixed(2));
+        }
+        const priceLabels = Array.from(priceWeeks).sort();
+        const priceDatasets = Object.keys(priceBrandMap).map(brand => ({
+            brand,
+            data: priceLabels.map(l => priceBrandMap[brand][l] || null)
+        }));
+
+        // Build grade trend time-series
+        const gradeWeeks = new Set();
+        const gradeBrandMap = {};
+        for (const r of gradeTrendSeries.rows) {
+            const wk = new Date(r.week).toISOString().split('T')[0];
+            gradeWeeks.add(wk);
+            if (!gradeBrandMap[r.brand]) gradeBrandMap[r.brand] = {};
+            gradeBrandMap[r.brand][wk] = parseFloat(parseFloat(r.avg_grade).toFixed(1));
+        }
+        const gradeLabels = Array.from(gradeWeeks).sort();
+        const gradeDatasets = Object.keys(gradeBrandMap).map(brand => ({
+            brand,
+            data: gradeLabels.map(l => gradeBrandMap[brand][l] || null)
+        }));
+
+        res.json({
+            brands,
+            priceTrends: { labels: priceLabels, datasets: priceDatasets },
+            gradeTrends: { labels: gradeLabels, datasets: gradeDatasets }
+        });
+    } catch (err) {
+        log.error('Brand health error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// ── Market Trends Timeline ──────────────────────────────────
+router.get('/market-trends', async (req, res) => {
+    try {
+        const periodParam = req.query.period || '90d';
+        let days, bucketExprTx, bucketExprSub;
+        if (periodParam === '30d') {
+            days = 30;
+            bucketExprTx = 'DATE(mt.created_at)';
+            bucketExprSub = 'DATE(s.date)';
+        } else if (periodParam === '1y') {
+            days = 365;
+            bucketExprTx = "DATE_TRUNC('week', mt.created_at::timestamp)";
+            bucketExprSub = "DATE_TRUNC('week', s.date::timestamp)";
+        } else {
+            days = 90;
+            bucketExprTx = "DATE_TRUNC('week', mt.created_at::timestamp)";
+            bucketExprSub = "DATE_TRUNC('week', s.date::timestamp)";
+        }
+
+        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+        const midpoint = new Date(Date.now() - Math.floor(days / 2) * 24 * 60 * 60 * 1000).toISOString();
+        const recentWindow = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const startWindow = new Date(new Date(since).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        // Find top 3 brands by transaction volume in period
+        const topBrandsResult = await db.query(`
+            SELECT f.brand, COUNT(*) as cnt
+            FROM MarketTransactions mt
+            JOIN Figures f ON f.id = mt.figure_id
+            WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+            GROUP BY f.brand ORDER BY cnt DESC LIMIT 3
+        `, [since]);
+        const topBrands = topBrandsResult.rows.map(r => r.brand);
+
+        const [summaryNow, summaryStart, totalSubs, activeFigures,
+               overallPriceSeries, brandPriceSeries,
+               submissionActivity, txActivity, topMoversResult] = await Promise.all([
+            // Current avg price (last 7d)
+            db.query(`
+                SELECT AVG(price_avg) as avg
+                FROM MarketTransactions
+                WHERE price_type = 'secondary_market' AND created_at >= $1
+            `, [recentWindow]),
+
+            // Period-start avg price (first 7d of period)
+            db.query(`
+                SELECT AVG(price_avg) as avg
+                FROM MarketTransactions
+                WHERE price_type = 'secondary_market'
+                  AND created_at >= $1 AND created_at < $2
+            `, [since, startWindow]),
+
+            // Total submissions in period
+            db.query(`SELECT COUNT(*) as count FROM Submissions WHERE date >= $1`, [since]),
+
+            // Active figures (with submission or transaction in period)
+            db.query(`
+                SELECT COUNT(DISTINCT id) as count FROM (
+                    SELECT targetId as id FROM Submissions WHERE date >= $1
+                    UNION
+                    SELECT figure_id as id FROM MarketTransactions WHERE created_at >= $1
+                ) active
+            `, [since]),
+
+            // Overall avg price time-series
+            db.query(`
+                SELECT ${bucketExprTx} as bucket, AVG(mt.price_avg) as avg_price
+                FROM MarketTransactions mt
+                WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+                GROUP BY ${bucketExprTx}
+                ORDER BY bucket ASC
+            `, [since]),
+
+            // Top 3 brand price time-series
+            topBrands.length > 0 ? db.query(`
+                SELECT f.brand, ${bucketExprTx} as bucket, AVG(mt.price_avg) as avg_price
+                FROM MarketTransactions mt
+                JOIN Figures f ON f.id = mt.figure_id
+                WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+                  AND f.brand = ANY($2)
+                GROUP BY f.brand, ${bucketExprTx}
+                ORDER BY bucket ASC
+            `, [since, topBrands]) : { rows: [] },
+
+            // Submission activity time-series
+            db.query(`
+                SELECT ${bucketExprSub} as bucket, COUNT(*) as count
+                FROM Submissions s WHERE s.date >= $1
+                GROUP BY ${bucketExprSub} ORDER BY bucket ASC
+            `, [since]),
+
+            // Transaction activity time-series
+            db.query(`
+                SELECT ${bucketExprTx} as bucket, COUNT(*) as count
+                FROM MarketTransactions mt WHERE mt.created_at >= $1
+                GROUP BY ${bucketExprTx} ORDER BY bucket ASC
+            `, [since]),
+
+            // Top movers (recent half vs earlier half)
+            db.query(`
+                SELECT f.id, f.name, f.brand, f.classtie,
+                       AVG(CASE WHEN mt.created_at >= $2 THEN mt.price_avg END) as recent_avg,
+                       AVG(CASE WHEN mt.created_at < $2 THEN mt.price_avg END) as earlier_avg
+                FROM MarketTransactions mt
+                JOIN Figures f ON f.id = mt.figure_id
+                WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+                GROUP BY f.id, f.name, f.brand, f.classtie
+                HAVING AVG(CASE WHEN mt.created_at >= $2 THEN mt.price_avg END) IS NOT NULL
+                   AND AVG(CASE WHEN mt.created_at < $2 THEN mt.price_avg END) IS NOT NULL
+                   AND AVG(CASE WHEN mt.created_at < $2 THEN mt.price_avg END) > 0
+            `, [since, midpoint])
+        ]);
+
+        // Process summary
+        const avgNow = summaryNow.rows[0].avg ? parseFloat(summaryNow.rows[0].avg) : null;
+        const avgStart = summaryStart.rows[0].avg ? parseFloat(summaryStart.rows[0].avg) : null;
+        const priceChangePct = (avgNow !== null && avgStart !== null && avgStart !== 0)
+            ? parseFloat((((avgNow - avgStart) / avgStart) * 100).toFixed(1))
+            : null;
+
+        // Build price series
+        const allBuckets = new Set();
+        const overallMap = {};
+        for (const r of overallPriceSeries.rows) {
+            const key = new Date(r.bucket).toISOString().split('T')[0];
+            allBuckets.add(key);
+            overallMap[key] = parseFloat(parseFloat(r.avg_price).toFixed(2));
+        }
+
+        const brandMaps = {};
+        for (const r of brandPriceSeries.rows) {
+            const key = new Date(r.bucket).toISOString().split('T')[0];
+            allBuckets.add(key);
+            if (!brandMaps[r.brand]) brandMaps[r.brand] = {};
+            brandMaps[r.brand][key] = parseFloat(parseFloat(r.avg_price).toFixed(2));
+        }
+
+        const priceLabels = Array.from(allBuckets).sort();
+        const priceDatasets = [
+            { label: 'Overall', data: priceLabels.map(l => overallMap[l] || null) },
+            ...Object.keys(brandMaps).map(brand => ({
+                label: brand,
+                data: priceLabels.map(l => brandMaps[brand][l] || null)
+            }))
+        ];
+
+        // Build activity series
+        const actBuckets = new Set();
+        const subsMap = {};
+        const txMap = {};
+        for (const r of submissionActivity.rows) {
+            const key = new Date(r.bucket).toISOString().split('T')[0];
+            actBuckets.add(key);
+            subsMap[key] = parseInt(r.count);
+        }
+        for (const r of txActivity.rows) {
+            const key = new Date(r.bucket).toISOString().split('T')[0];
+            actBuckets.add(key);
+            txMap[key] = parseInt(r.count);
+        }
+        const actLabels = Array.from(actBuckets).sort();
+
+        // Process top movers
+        const movers = topMoversResult.rows.map(r => {
+            const recent = parseFloat(r.recent_avg);
+            const earlier = parseFloat(r.earlier_avg);
+            const changePct = parseFloat((((recent - earlier) / earlier) * 100).toFixed(1));
+            return {
+                id: r.id, name: r.name, brand: r.brand, classTie: r.classtie,
+                currentPrice: parseFloat(recent.toFixed(2)),
+                changePct
+            };
+        });
+
+        const gainers = movers.filter(m => m.changePct > 0).sort((a, b) => b.changePct - a.changePct).slice(0, 10);
+        const losers = movers.filter(m => m.changePct < 0).sort((a, b) => a.changePct - b.changePct).slice(0, 10);
+
+        res.json({
+            period: periodParam,
+            summary: {
+                avgPriceNow: avgNow !== null ? parseFloat(avgNow.toFixed(2)) : null,
+                avgPriceStart: avgStart !== null ? parseFloat(avgStart.toFixed(2)) : null,
+                priceChangePct,
+                totalSubmissions: parseInt(totalSubs.rows[0].count),
+                activeFigures: parseInt(activeFigures.rows[0].count)
+            },
+            priceSeries: { labels: priceLabels, datasets: priceDatasets },
+            activitySeries: {
+                labels: actLabels,
+                submissions: actLabels.map(l => subsMap[l] || 0),
+                transactions: actLabels.map(l => txMap[l] || 0)
+            },
+            topMovers: { gainers, losers }
+        });
+    } catch (err) {
+        log.error('Market trends error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 module.exports = router;

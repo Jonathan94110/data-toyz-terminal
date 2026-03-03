@@ -14,6 +14,8 @@ TerminalApp.prototype.renderMarketPulse = function (container) {
                 <button class="market-tab ${tab === 'compare' ? 'active' : ''}" onclick="app.switchMarketTab('compare')">Compare</button>
                 <button class="market-tab ${tab === 'trade_advisor' ? 'active' : ''}" onclick="app.switchMarketTab('trade_advisor')">Trade Advisor</button>
                 <button class="market-tab ${tab === 'weekly_movers' ? 'active' : ''}" onclick="app.switchMarketTab('weekly_movers')">Weekly Movers</button>
+                <button class="market-tab ${tab === 'brand_health' ? 'active' : ''}" onclick="app.switchMarketTab('brand_health')">Brand Health</button>
+                <button class="market-tab ${tab === 'market_trends' ? 'active' : ''}" onclick="app.switchMarketTab('market_trends')">Market Trends</button>
             </div>
 
             <div id="marketTabContent"></div>
@@ -25,6 +27,8 @@ TerminalApp.prototype.renderMarketPulse = function (container) {
     else if (tab === 'compare') this.renderMarketCompare(document.getElementById('marketTabContent'));
     else if (tab === 'trade_advisor') this.renderTradeAdvisor(document.getElementById('marketTabContent'));
     else if (tab === 'weekly_movers') this.renderWeeklyMovers(document.getElementById('marketTabContent'));
+    else if (tab === 'brand_health') this.renderBrandHealth(document.getElementById('marketTabContent'));
+    else if (tab === 'market_trends') this.renderMarketTrends(document.getElementById('marketTabContent'));
 };
 
 TerminalApp.prototype.switchMarketTab = function (tab) {
@@ -844,4 +848,389 @@ TerminalApp.prototype.renderWeeklyMovers = async function (container) {
         console.error('Weekly movers error:', e);
         container.innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load weekly movers report.</div>';
     }
+};
+
+// ==================== BRAND HEALTH DASHBOARD TAB ====================
+TerminalApp.prototype.renderBrandHealth = async function (container) {
+    container.innerHTML = this.skeletonHTML('stats', 8);
+
+    const BRAND_COLORS = [
+        '#ff2a5f', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
+        '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
+    ];
+
+    const fmtPrice = (v) => v !== null && v !== undefined ? '$' + parseFloat(v).toFixed(2) : '\u2014';
+    const fmtPct = (v) => {
+        if (v === null || v === undefined) return '<span style="color:var(--text-muted);">\u2014</span>';
+        const cls = v > 0 ? 'change-up' : v < 0 ? 'change-down' : 'change-flat';
+        const arrow = v > 0 ? '\u25B2' : v < 0 ? '\u25BC' : '\u25CF';
+        return `<span class="${cls}">${arrow} ${Math.abs(v).toFixed(1)}%</span>`;
+    };
+
+    try {
+        const res = await fetch(`${API_URL}/stats/brand-health`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+
+        if (!data.brands || data.brands.length === 0) {
+            container.innerHTML = '<div style="padding:3rem; text-align:center; color:var(--text-muted);">No brand data available yet.</div>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="margin-bottom:1.5rem;">
+                <h2 style="font-size:1.5rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem;">Brand Health Dashboard</h2>
+                <p style="color:var(--text-secondary); font-size:0.95rem;">Compare brands side-by-side with health metrics, price trends, and grade trajectories.</p>
+            </div>
+
+            <!-- Brand Comparison Grid -->
+            <div class="grid-3" style="margin-bottom:2.5rem;">
+                ${data.brands.map((b, i) => `
+                    <div class="card" style="padding:1.25rem; border-top:3px solid ${BRAND_COLORS[i % BRAND_COLORS.length]};">
+                        <div style="font-weight:800; font-size:1.1rem; margin-bottom:0.75rem;">${escapeHTML(b.brand)}</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.85rem;">
+                            <div>
+                                <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Figures</div>
+                                <div style="font-weight:600;">${b.figureCount}</div>
+                            </div>
+                            <div>
+                                <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Avg Grade</div>
+                                <div style="font-weight:600; color:${b.avgGrade ? (b.avgGrade >= 70 ? 'var(--success)' : b.avgGrade >= 50 ? '#fbbf24' : 'var(--danger)') : 'var(--text-muted)'};">${b.avgGrade || '\u2014'}</div>
+                            </div>
+                            <div>
+                                <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Avg Price</div>
+                                <div style="font-weight:600;">${fmtPrice(b.avgSecondaryPrice)}</div>
+                            </div>
+                            <div>
+                                <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">30d Trend</div>
+                                <div style="font-weight:600;">${fmtPct(b.priceChange30d)}</div>
+                            </div>
+                            <div>
+                                <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Submissions (30d)</div>
+                                <div style="font-weight:600;">${b.submissions30d}</div>
+                            </div>
+                            <div>
+                                <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Analysts</div>
+                                <div style="font-weight:600;">${b.uniqueAnalysts}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <!-- Brand Price Trend Chart -->
+            <div class="card" style="padding:1.5rem; margin-bottom:2.5rem;">
+                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Brand Price Trends (90d)</h3>
+                ${data.priceTrends.labels.length > 0
+                    ? '<div style="position:relative; height:320px;"><canvas id="brandPriceChart"></canvas></div>'
+                    : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No price data available yet.</div>'}
+            </div>
+
+            <!-- Brand Grade Trend Chart -->
+            <div class="card" style="padding:1.5rem; margin-bottom:2.5rem;">
+                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Brand Grade Trends (90d)</h3>
+                ${data.gradeTrends.labels.length > 0
+                    ? '<div style="position:relative; height:320px;"><canvas id="brandGradeChart"></canvas></div>'
+                    : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No grade data available yet.</div>'}
+            </div>
+        `;
+
+        // Render charts
+        if (data.priceTrends.labels.length > 0) this._renderBrandChart('brandPriceChart', '_brandPriceChart', data.priceTrends, BRAND_COLORS, '$');
+        if (data.gradeTrends.labels.length > 0) this._renderBrandChart('brandGradeChart', '_brandGradeChart', data.gradeTrends, BRAND_COLORS, '');
+
+    } catch (e) {
+        console.error('Brand health error:', e);
+        container.innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load brand health data.</div>';
+    }
+};
+
+TerminalApp.prototype._renderBrandChart = function (canvasId, instanceKey, trends, colors, prefix) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    if (this[instanceKey]) this[instanceKey].destroy();
+
+    const isDark = document.body.getAttribute('data-theme') !== 'light';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const shortLabels = trends.labels.map(l => {
+        const d = new Date(l + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    this[instanceKey] = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: shortLabels,
+            datasets: trends.datasets.map((ds, i) => ({
+                label: ds.brand,
+                data: ds.data,
+                borderColor: colors[i % colors.length],
+                backgroundColor: 'transparent',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+                borderWidth: 2,
+                spanGaps: true
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: textColor, usePointStyle: true, pointStyle: 'circle', padding: 16 } },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#fff',
+                    titleColor: isDark ? '#f8fafc' : '#0f172a',
+                    bodyColor: isDark ? '#cbd5e1' : '#334155',
+                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                    borderWidth: 1, padding: 12, cornerRadius: 8,
+                    callbacks: { label: ctx => ctx.dataset.label + ': ' + prefix + (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(prefix ? 2 : 1) : 'N/A') }
+                }
+            },
+            scales: {
+                x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 45, maxTicksLimit: 12 } },
+                y: { grid: { color: gridColor }, ticks: { color: textColor, callback: v => prefix + v }, beginAtZero: !prefix, suggestedMin: prefix ? undefined : 0, suggestedMax: prefix ? undefined : 100 }
+            }
+        }
+    });
+};
+
+// ==================== MARKET TRENDS TIMELINE TAB ====================
+TerminalApp.prototype.renderMarketTrends = async function (container) {
+    container.innerHTML = this.skeletonHTML('stats', 8);
+
+    const period = sessionStorage.getItem('marketTrendsPeriod') || '90d';
+
+    const fmtPrice = (v) => v !== null && v !== undefined ? '$' + parseFloat(v).toFixed(2) : '\u2014';
+    const fmtPct = (v) => {
+        if (v === null || v === undefined) return '<span style="color:var(--text-muted);">\u2014</span>';
+        const cls = v > 0 ? 'change-up' : v < 0 ? 'change-down' : 'change-flat';
+        const arrow = v > 0 ? '\u25B2' : v < 0 ? '\u25BC' : '\u25CF';
+        return `<span class="${cls}">${arrow} ${Math.abs(v).toFixed(1)}%</span>`;
+    };
+
+    const TREND_COLORS = ['#ff2a5f', '#3b82f6', '#10b981', '#f59e0b'];
+
+    try {
+        const res = await fetch(`${API_URL}/stats/market-trends?period=${period}`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+
+        container.innerHTML = `
+            <div style="margin-bottom:1.5rem;">
+                <h2 style="font-size:1.5rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem;">Market Trends Timeline</h2>
+                <p style="color:var(--text-secondary); font-size:0.95rem;">Overall market movement, price trends, and activity over time.</p>
+            </div>
+
+            <!-- Period Selector -->
+            <div style="display:flex; gap:0.5rem; margin-bottom:2rem;">
+                <button class="btn-sm ${period === '30d' ? 'active' : ''}" onclick="app.switchTrendsPeriod('30d')">30 Days</button>
+                <button class="btn-sm ${period === '90d' ? 'active' : ''}" onclick="app.switchTrendsPeriod('90d')">90 Days</button>
+                <button class="btn-sm ${period === '1y' ? 'active' : ''}" onclick="app.switchTrendsPeriod('1y')">1 Year</button>
+            </div>
+
+            <!-- Summary Stats -->
+            <div class="grid-4" style="margin-bottom:2.5rem;">
+                <div class="stat-box">
+                    <div class="stat-value">${fmtPrice(data.summary.avgPriceNow)}</div>
+                    <div class="stat-label">Avg Price (Current)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">${fmtPct(data.summary.priceChangePct)}</div>
+                    <div class="stat-label">Price Change (${period})</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">${data.summary.totalSubmissions}</div>
+                    <div class="stat-label">Submissions (${period})</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">${data.summary.activeFigures}</div>
+                    <div class="stat-label">Active Figures</div>
+                </div>
+            </div>
+
+            <!-- Price Trends Chart -->
+            <div class="card" style="padding:1.5rem; margin-bottom:2.5rem;">
+                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Price Trends</h3>
+                ${data.priceSeries.labels.length > 0
+                    ? '<div style="position:relative; height:320px;"><canvas id="marketTrendsPriceChart"></canvas></div>'
+                    : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No price data available for this period.</div>'}
+            </div>
+
+            <!-- Activity Chart -->
+            <div class="card" style="padding:1.5rem; margin-bottom:2.5rem;">
+                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Market Activity</h3>
+                ${data.activitySeries.labels.length > 0
+                    ? '<div style="position:relative; height:280px;"><canvas id="marketTrendsActivityChart"></canvas></div>'
+                    : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No activity data available for this period.</div>'}
+            </div>
+
+            <!-- Top Movers Tables -->
+            <div class="grid-2" style="margin-bottom:2.5rem;">
+                ${this._renderTrendsMoversTable('\u25B2 Top Gainers', data.topMovers.gainers, fmtPrice, fmtPct, 'var(--success)')}
+                ${this._renderTrendsMoversTable('\u25BC Top Losers', data.topMovers.losers, fmtPrice, fmtPct, 'var(--danger)')}
+            </div>
+        `;
+
+        if (data.priceSeries.labels.length > 0) this._renderTrendsPriceChart(data.priceSeries, TREND_COLORS);
+        if (data.activitySeries.labels.length > 0) this._renderTrendsActivityChart(data.activitySeries);
+
+    } catch (e) {
+        console.error('Market trends error:', e);
+        container.innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load market trends data.</div>';
+    }
+};
+
+TerminalApp.prototype.switchTrendsPeriod = function (period) {
+    sessionStorage.setItem('marketTrendsPeriod', period);
+    const contentArea = document.getElementById('marketTabContent');
+    if (contentArea) this.renderMarketTrends(contentArea);
+};
+
+TerminalApp.prototype._renderTrendsMoversTable = function (title, figures, fmtPrice, fmtPct, accentColor) {
+    return `
+        <div class="card" style="padding:0; overflow:hidden;">
+            <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0; color:${accentColor};">${title}</h3>
+            </div>
+            <div style="max-height:400px; overflow-y:auto;">
+                ${figures.length > 0 ? figures.map((f, i) => `
+                    <div class="pulse-headline-item" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${f.id})">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <span style="color:var(--text-muted); font-weight:700; font-size:0.85rem; width:24px;">#${i + 1}</span>
+                            <div>
+                                <div style="font-weight:600; font-size:0.9rem;">${escapeHTML(f.name)}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(f.brand)} \u00B7 ${fmtPrice(f.currentPrice)}</div>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">${fmtPct(f.changePct)}</div>
+                    </div>
+                `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No movers in this period.</div>'}
+            </div>
+        </div>
+    `;
+};
+
+TerminalApp.prototype._renderTrendsPriceChart = function (series, colors) {
+    const canvas = document.getElementById('marketTrendsPriceChart');
+    if (!canvas) return;
+    if (this._trendsPriceChart) this._trendsPriceChart.destroy();
+
+    const isDark = document.body.getAttribute('data-theme') !== 'light';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const shortLabels = series.labels.map(l => {
+        const d = new Date(l + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    this._trendsPriceChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: shortLabels,
+            datasets: series.datasets.map((ds, i) => ({
+                label: ds.label,
+                data: ds.data,
+                borderColor: colors[i % colors.length],
+                backgroundColor: i === 0 ? colors[0] + '15' : 'transparent',
+                fill: i === 0,
+                tension: 0.3,
+                pointRadius: i === 0 ? 0 : 2,
+                pointHoverRadius: 5,
+                borderWidth: i === 0 ? 3 : 2,
+                borderDash: i === 0 ? [] : [5, 5],
+                spanGaps: true
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: textColor, usePointStyle: true, pointStyle: 'circle', padding: 16 } },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#fff',
+                    titleColor: isDark ? '#f8fafc' : '#0f172a',
+                    bodyColor: isDark ? '#cbd5e1' : '#334155',
+                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                    borderWidth: 1, padding: 12, cornerRadius: 8,
+                    callbacks: { label: ctx => ctx.dataset.label + ': $' + (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(2) : 'N/A') }
+                }
+            },
+            scales: {
+                x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 45, maxTicksLimit: 12 } },
+                y: { grid: { color: gridColor }, ticks: { color: textColor, callback: v => '$' + v }, beginAtZero: false }
+            }
+        }
+    });
+};
+
+TerminalApp.prototype._renderTrendsActivityChart = function (series) {
+    const canvas = document.getElementById('marketTrendsActivityChart');
+    if (!canvas) return;
+    if (this._trendsActivityChart) this._trendsActivityChart.destroy();
+
+    const isDark = document.body.getAttribute('data-theme') !== 'light';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const shortLabels = series.labels.map(l => {
+        const d = new Date(l + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    this._trendsActivityChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: shortLabels,
+            datasets: [
+                {
+                    label: 'Submissions',
+                    data: series.submissions,
+                    borderColor: '#ff2a5f',
+                    backgroundColor: 'rgba(255,42,95,0.15)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 2
+                },
+                {
+                    label: 'Market Transactions',
+                    data: series.transactions,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59,130,246,0.15)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: textColor, usePointStyle: true, pointStyle: 'circle', padding: 16 } },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#fff',
+                    titleColor: isDark ? '#f8fafc' : '#0f172a',
+                    bodyColor: isDark ? '#cbd5e1' : '#334155',
+                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                    borderWidth: 1, padding: 12, cornerRadius: 8
+                }
+            },
+            scales: {
+                x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 45, maxTicksLimit: 12 } },
+                y: { grid: { color: gridColor }, ticks: { color: textColor }, beginAtZero: true }
+            }
+        }
+    });
 };
