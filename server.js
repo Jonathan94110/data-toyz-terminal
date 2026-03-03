@@ -89,6 +89,24 @@ app.use('/api/rooms', require('./routes/rooms'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/trade-advisor', require('./routes/trade-advisor'));
 
+// Public ticker settings (no auth required)
+app.get('/api/settings/ticker', async (req, res) => {
+    try {
+        const db = require('./db.js');
+        const result = await db.query(
+            "SELECT key, value FROM SiteSettings WHERE key IN ('ticker_mode', 'ticker_length')"
+        );
+        const settings = {};
+        result.rows.forEach(r => { settings[r.key] = r.value; });
+        res.json({
+            ticker_mode: settings.ticker_mode || 'all',
+            ticker_length: parseInt(settings.ticker_length) || 25
+        });
+    } catch (err) {
+        res.json({ ticker_mode: 'all', ticker_length: 25 });
+    }
+});
+
 // --- 404 for unknown API routes (Express 5 wildcard syntax) --- //
 app.all('/api/{*path}', (req, res) => {
     res.status(404).json({ error: 'API endpoint not found.' });

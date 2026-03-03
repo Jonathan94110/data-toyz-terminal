@@ -294,6 +294,14 @@ async function initDB() {
             created_at TEXT NOT NULL
         )`);
 
+        // Create SiteSettings table (admin-configurable site-wide settings)
+        await pool.query(`CREATE TABLE IF NOT EXISTS SiteSettings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_by TEXT,
+            updated_at TEXT
+        )`);
+
         // Migration: add message notification preferences to NotificationPrefs
         const msgInappCheck = await pool.query(`
             SELECT column_name FROM information_schema.columns
