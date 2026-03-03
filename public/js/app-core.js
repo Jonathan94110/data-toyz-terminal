@@ -217,25 +217,24 @@ class TerminalApp {
         if (!wrap || !content) return;
 
         try {
-            // Fetch top 25 graded figures and also use the full figures list to sort by price
+            // Fetch headlines + ranked figures (which include avgGrade and latestPrice)
             const [headlinesRes, figuresRes] = await Promise.all([
                 fetch(`${API_URL}/stats/headlines`),
-                fetch(`${API_URL}/figures`) // we fetch all figures to sort top 25 by grade and price
+                fetch(`${API_URL}/figures/market-ranked?sort=grade&order=desc`)
             ]);
 
             const headlines = await headlinesRes.json().catch(() => []);
             const allFigures = await figuresRes.json().catch(() => []);
 
-            // Derive Top 25 Approval Scores
-            const topGraded = [...allFigures]
+            // Top 25 by Approval Grade
+            const topGraded = allFigures
                 .filter(f => f.avgGrade && f.submissions > 0)
-                .sort((a, b) => parseFloat(b.avgGrade) - parseFloat(a.avgGrade))
                 .slice(0, 25);
 
-            // Derive Top 25 Pricing
+            // Top 25 by Price
             const topPriced = [...allFigures]
-                .filter(f => f.avgSecondaryPrice)
-                .sort((a, b) => parseFloat(b.avgSecondaryPrice) - parseFloat(a.avgSecondaryPrice))
+                .filter(f => f.latestPrice)
+                .sort((a, b) => parseFloat(b.latestPrice) - parseFloat(a.latestPrice))
                 .slice(0, 25);
 
             let html = '';
@@ -244,7 +243,7 @@ class TerminalApp {
                 html += headlines.slice(0, 5).map(h => `<span class="ticker-item"><span class="ticker-accent">[INTEL]</span> ${escapeHTML(h.brand)}: ${escapeHTML(h.headline)}</span>`).join('');
             }
             if (topPriced.length > 0) {
-                html += topPriced.map(f => `<span class="ticker-item"><span class="ticker-neutral">[${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--text-primary); margin-left:0.25rem;">$${parseFloat(f.avgSecondaryPrice).toFixed(2)}</span></span>`).join('');
+                html += topPriced.map(f => `<span class="ticker-item"><span class="ticker-neutral">[${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--text-primary); margin-left:0.25rem;">$${parseFloat(f.latestPrice).toFixed(2)}</span></span>`).join('');
             }
             if (topGraded.length > 0) {
                 html += topGraded.map(f => `<span class="ticker-item"><span class="ticker-neutral">[${escapeHTML(f.brand)}]</span> ${escapeHTML(f.name)} <span style="color:var(--success); margin-left:0.25rem;">★ ${f.avgGrade}</span></span>`).join('');
