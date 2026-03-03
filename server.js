@@ -64,7 +64,13 @@ app.get('/api/health', async (req, res) => {
 // --- Global API rate limiter --- //
 app.use('/api/', apiLimiter);
 
-// --- Static files (7-day cache; busted via ?v=N in index.html) --- //
+// --- HTML: no-cache (always fresh ?v=N refs); assets: 7-day cache --- //
+app.use((req, res, next) => {
+    if (req.path === '/' || req.path.endsWith('.html')) {
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+    next();
+});
 app.use(express.static(path.join(__dirname, 'public'), {
     maxAge: '7d',
     etag: true,
