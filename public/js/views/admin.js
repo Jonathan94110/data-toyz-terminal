@@ -1214,18 +1214,24 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             if (btn && !btn.disabled) {
                 figPage = parseInt(btn.dataset.page);
                 renderFigureTable();
+                const figTbody = document.getElementById('adminFigTbody');
+                if (figTbody) figTbody.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
             const ubtn = e.target.closest('.user-page-btn');
             if (ubtn && !ubtn.disabled) {
                 userPage = parseInt(ubtn.dataset.page);
                 renderUserTable();
+                const userTbody = document.getElementById('adminUserTbody');
+                if (userTbody) userTbody.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
             const bbtn = e.target.closest('.brand-page-btn');
             if (bbtn && !bbtn.disabled) {
                 brandPage = parseInt(bbtn.dataset.page);
                 renderBrandTable();
+                const brandTbody = document.getElementById('adminBrandTbody');
+                if (brandTbody) brandTbody.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
         });
