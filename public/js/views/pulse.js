@@ -71,19 +71,45 @@ TerminalApp.prototype.renderPulse = async function(container) {
         overallAvg = `${baseTVI}.0 <span style="font-size:1rem; font-weight:400; color:var(--text-secondary);">(Guestimate)</span>`;
     }
 
-    // --- Value Signal: grade vs price-over-MSRP ---
+    // --- Smart MSRP: admin-set → community overseas avg → null ---
+    const smartMsrp = this.currentTarget.msrp
+        ? parseFloat(this.currentTarget.msrp)
+        : (communityMetrics && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType.overseas_msrp
+            ? communityMetrics.marketPriceByType.overseas_msrp.avg : null);
+    const msrpSource = this.currentTarget.msrp ? 'catalog' : (smartMsrp ? 'community' : null);
+
+    // Per-tier community averages
+    const overseasAvg  = communityMetrics && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType.overseas_msrp  ? communityMetrics.marketPriceByType.overseas_msrp.avg  : null;
+    const statesideAvg = communityMetrics && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType.stateside_msrp ? communityMetrics.marketPriceByType.stateside_msrp.avg : null;
+    const secondaryAvg = communityMetrics && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType.secondary_market ? communityMetrics.marketPriceByType.secondary_market.avg : null;
+    const overseasCt   = communityMetrics && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType.overseas_msrp  ? communityMetrics.marketPriceByType.overseas_msrp.count  : 0;
+    const statesideCt  = communityMetrics && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType.stateside_msrp ? communityMetrics.marketPriceByType.stateside_msrp.count : 0;
+    const secondaryCt  = communityMetrics && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType.secondary_market ? communityMetrics.marketPriceByType.secondary_market.count : 0;
+
+    // Tier diffs
+    const stateVsOverseasPct = (overseasAvg && statesideAvg) ? (((statesideAvg - overseasAvg) / overseasAvg) * 100).toFixed(1) : null;
+    const secVsOverseasPct   = (overseasAvg && secondaryAvg)  ? (((secondaryAvg - overseasAvg) / overseasAvg) * 100).toFixed(1) : null;
+    const secVsStatesidePct  = (statesideAvg && secondaryAvg) ? (((secondaryAvg - statesideAvg) / statesideAvg) * 100).toFixed(1) : null;
+
+    // --- Value Signal: grade vs price-over-MSRP (with smart fallbacks) ---
     const valueSignal = (() => {
-        if (isGuestimate || !marketIntel || !marketIntel.msrp) return { label: 'NO MSRP DATA', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'MSRP not set — value signal unavailable' };
-        if (marketIntel.transactions.confidence === 'low') return { label: 'LOW DATA', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'Fewer than 3 price reports — signal unreliable' };
+        if (isGuestimate) return { label: 'PROVISIONAL', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'Fewer than 3 submissions — signal provisional' };
         const grade = parseFloat(overallAvg);
-        const pct = marketIntel.transactions.pctOverMsrp;
-        if (pct === null || pct === undefined) return { label: 'NO MSRP DATA', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'Price-to-MSRP ratio unavailable' };
-        if (grade >= 70 && pct <= 10)  return { label: 'UNDERVALUED', color: '#10b981', bg: 'rgba(16,185,129,0.15)', tip: 'High community grade with price near MSRP — potential value buy' };
-        if (grade >= 60 && pct <= 30)  return { label: 'FAIR VALUE',   color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',  tip: 'Solid community grade with moderate market premium' };
-        if (grade >= 50 && pct <= 60)  return { label: 'HOLD',         color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', tip: 'Decent grade but elevated price — hold or wait for dip' };
-        if (grade < 50 && pct > 50)    return { label: 'OVERVALUED',   color: '#ef4444', bg: 'rgba(239,68,68,0.15)',  tip: 'Below-average grade with high premium — proceed with caution' };
-        if (grade >= 70 && pct > 30)   return { label: 'HOT',          color: '#f97316', bg: 'rgba(249,115,22,0.15)', tip: 'High demand — strong grade but commanding a premium' };
-        return { label: 'NEUTRAL', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'No clear value signal at current grade and pricing' };
+        // Price-based signal when we have an MSRP baseline + secondary market data
+        if (smartMsrp && secondaryAvg) {
+            const pct = ((secondaryAvg - smartMsrp) / smartMsrp) * 100;
+            if (grade >= 70 && pct <= 10)  return { label: 'UNDERVALUED', color: '#10b981', bg: 'rgba(16,185,129,0.15)', tip: 'High grade, price near MSRP — potential value buy' };
+            if (grade >= 60 && pct <= 30)  return { label: 'FAIR VALUE',   color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',  tip: 'Solid grade with moderate secondary market premium' };
+            if (grade >= 50 && pct <= 60)  return { label: 'HOLD',         color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', tip: 'Decent grade but elevated aftermarket price' };
+            if (grade < 50 && pct > 50)    return { label: 'OVERVALUED',   color: '#ef4444', bg: 'rgba(239,68,68,0.15)',  tip: 'Below-average grade with high aftermarket premium' };
+            if (grade >= 70 && pct > 30)   return { label: 'HOT',          color: '#f97316', bg: 'rgba(249,115,22,0.15)', tip: 'High demand — strong grade but commanding a premium' };
+            return { label: 'NEUTRAL', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'No clear signal at current grade and pricing' };
+        }
+        // Grade-only fallback when no pricing baseline available
+        if (grade >= 80) return { label: 'STRONG BUY', color: '#10b981', bg: 'rgba(16,185,129,0.15)', tip: 'Top-tier community grade — no pricing data to compare' };
+        if (grade >= 65) return { label: 'SOLID',      color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',  tip: 'Above-average community sentiment — no pricing data to compare' };
+        if (grade >= 50) return { label: 'MIXED',       color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', tip: 'Average community reception — no pricing data to compare' };
+        return { label: 'WEAK', color: '#ef4444', bg: 'rgba(239,68,68,0.15)', tip: 'Below-average community grade — no pricing data to compare' };
     })();
 
     // Build data reliability stars (auto-calculated)
@@ -168,27 +194,10 @@ TerminalApp.prototype.renderPulse = async function(container) {
                 </div>
             </div>
 
-            <!-- PRICE CONTEXT -->
-            ${(() => {
-                const figureMsrp = this.currentTarget.msrp ? parseFloat(this.currentTarget.msrp) : null;
-                const cmAvgPrice = (() => {
-                    if (!communityMetrics) return null;
-                    if (this.pulsePriceType && communityMetrics.marketPriceByType && communityMetrics.marketPriceByType[this.pulsePriceType]) {
-                        return communityMetrics.marketPriceByType[this.pulsePriceType].avg;
-                    }
-                    return communityMetrics.marketPriceAvg;
-                })();
-                const priceLabel = this.pulsePriceType ? ({
-                    overseas_msrp: 'Avg Overseas Price',
-                    stateside_msrp: 'Avg Stateside Price',
-                    secondary_market: 'Avg Secondary Price'
-                })[this.pulsePriceType] : 'Avg Street Price';
-                const msrpDelta = (figureMsrp && cmAvgPrice) ? cmAvgPrice - figureMsrp : null;
-                const msrpDeltaPct = (figureMsrp && msrpDelta !== null) ? ((msrpDelta / figureMsrp) * 100).toFixed(1) : null;
-                return `
+            <!-- PRICE TIERS -->
             <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
-                    <h3 style="margin:0; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">\u{1F4B2} Price Context</h3>
+                    <h3 style="margin:0; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">\u{1F4B2} Price Tiers</h3>
                     <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
                         <button type="button" class="priceTypeToggle${!this.pulsePriceType ? ' active' : ''}" onclick="app.pulsePriceType=null; app.renderPulse(document.getElementById('mainContent'));">All</button>
                         <button type="button" class="priceTypeToggle${this.pulsePriceType==='overseas_msrp' ? ' active' : ''}" onclick="app.pulsePriceType='overseas_msrp'; app.renderPulse(document.getElementById('mainContent'));">Overseas</button>
@@ -197,23 +206,27 @@ TerminalApp.prototype.renderPulse = async function(container) {
                     </div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem; text-align:center;">
-                    <div>
-                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">MSRP</div>
-                        <div style="font-size:1.5rem; font-weight:800; color:var(--success);">${figureMsrp ? '$' + figureMsrp.toFixed(2) : '---'}</div>
+                    <div style="padding:0.75rem 0.5rem; background:rgba(16,185,129,0.05); border-radius:var(--radius-sm);">
+                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.35rem; letter-spacing:0.05em;">OVERSEAS (MSRP)</div>
+                        <div style="font-size:1.4rem; font-weight:800; color:var(--success);">${overseasAvg ? '$' + overseasAvg.toFixed(2) : (smartMsrp && msrpSource === 'catalog' ? '$' + smartMsrp.toFixed(2) : '---')}</div>
+                        <div style="font-size:0.65rem; color:var(--text-muted); margin-top:0.35rem;">○ baseline ${msrpSource === 'catalog' ? '(catalog)' : overseasCt ? '(community avg)' : ''}</div>
+                        <div style="font-size:0.6rem; color:var(--text-muted); margin-top:0.15rem;">${overseasCt ? overseasCt + ' report' + (overseasCt !== 1 ? 's' : '') : (msrpSource === 'catalog' ? 'admin set' : 'no data')}</div>
                     </div>
-                    <div>
-                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">${priceLabel}</div>
-                        <div style="font-size:1.5rem; font-weight:800; color:#f59e0b;">${cmAvgPrice ? '$' + cmAvgPrice.toFixed(2) : '---'}</div>
+                    <div style="padding:0.75rem 0.5rem; background:rgba(245,158,11,0.05); border-radius:var(--radius-sm);">
+                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.35rem; letter-spacing:0.05em;">STATESIDE (US RETAIL)</div>
+                        <div style="font-size:1.4rem; font-weight:800; color:#f59e0b;">${statesideAvg ? '$' + statesideAvg.toFixed(2) : '---'}</div>
+                        ${stateVsOverseasPct !== null ? '<div style="font-size:0.7rem; font-weight:700; color:' + (parseFloat(stateVsOverseasPct) >= 0 ? 'var(--danger)' : 'var(--success)') + '; margin-top:0.35rem;">' + (parseFloat(stateVsOverseasPct) >= 0 ? '+' : '') + stateVsOverseasPct + '% vs overseas</div>' : '<div style="font-size:0.65rem; color:var(--text-muted); margin-top:0.35rem;">—</div>'}
+                        <div style="font-size:0.6rem; color:var(--text-muted); margin-top:0.15rem;">${statesideCt ? statesideCt + ' report' + (statesideCt !== 1 ? 's' : '') : 'no data'}</div>
                     </div>
-                    <div>
-                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.25rem;">Delta</div>
-                        <div style="font-size:1.5rem; font-weight:800; color:${msrpDelta !== null ? (msrpDelta >= 0 ? 'var(--danger)' : 'var(--success)') : 'var(--text-muted)'};">
-                            ${msrpDeltaPct !== null ? (msrpDelta >= 0 ? '+' : '') + msrpDeltaPct + '%' : '---'}
-                        </div>
+                    <div style="padding:0.75rem 0.5rem; background:rgba(255,42,95,0.05); border-radius:var(--radius-sm);">
+                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.35rem; letter-spacing:0.05em;">SECONDARY MARKET</div>
+                        <div style="font-size:1.4rem; font-weight:800; color:var(--accent);">${secondaryAvg ? '$' + secondaryAvg.toFixed(2) : '---'}</div>
+                        ${secVsOverseasPct !== null ? '<div style="font-size:0.7rem; font-weight:700; color:' + (parseFloat(secVsOverseasPct) >= 0 ? 'var(--danger)' : 'var(--success)') + '; margin-top:0.35rem;">' + (parseFloat(secVsOverseasPct) >= 0 ? '+' : '') + secVsOverseasPct + '% vs overseas</div>' : ''}
+                        ${secVsStatesidePct !== null ? '<div style="font-size:0.65rem; font-weight:600; color:' + (parseFloat(secVsStatesidePct) >= 0 ? 'var(--danger)' : 'var(--success)') + '; margin-top:0.1rem;">' + (parseFloat(secVsStatesidePct) >= 0 ? '+' : '') + secVsStatesidePct + '% vs US retail</div>' : (!secVsOverseasPct ? '<div style="font-size:0.65rem; color:var(--text-muted); margin-top:0.35rem;">—</div>' : '')}
+                        <div style="font-size:0.6rem; color:var(--text-muted); margin-top:0.15rem;">${secondaryCt ? secondaryCt + ' report' + (secondaryCt !== 1 ? 's' : '') : 'no data'}</div>
                     </div>
                 </div>
-            </div>`;
-            })()}
+            </div>
 
             <!-- COMMUNITY POP COUNT -->
             ${communityMetrics && communityMetrics.popCount ? (() => {
@@ -354,10 +367,10 @@ TerminalApp.prototype.renderPulse = async function(container) {
                     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
                         <button type="button" class="chartToggle" data-idx="0" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #ff0f39; background:rgba(255,15,57,0.15); color:#ff0f39; cursor:pointer; font-weight:600;">Community Score</button>
                         <button type="button" class="chartToggle" data-idx="1" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #10b981; background:rgba(16,185,129,0.15); color:#10b981; cursor:pointer; font-weight:600;">Market Pricing</button>
-                        ${marketIntel && marketIntel.msrp ? `<button type="button" class="chartToggle" data-idx="2" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #f59e0b; background:rgba(245,158,11,0.15); color:#f59e0b; cursor:pointer; font-weight:600;">MSRP Baseline</button>` : ''}
+                        ${smartMsrp ? `<button type="button" class="chartToggle" data-idx="2" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #f59e0b; background:rgba(245,158,11,0.15); color:#f59e0b; cursor:pointer; font-weight:600;">MSRP Baseline${msrpSource === 'community' ? ' (overseas avg)' : ''}</button>` : ''}
                     </div>
                 </div>
-                <p style="margin:0 0 1rem; font-size:0.78rem; color:var(--text-muted); line-height:1.4;">Community sentiment <span style="color:#ff0f39;">(left axis)</span> vs market pricing <span style="color:#10b981;">(right axis)</span> over time. The <strong style="color:${valueSignal.color};">${valueSignal.label}</strong> signal compares the community grade against price relative to MSRP.</p>
+                <p style="margin:0 0 1rem; font-size:0.78rem; color:var(--text-muted); line-height:1.4;">Grade <span style="color:#ff0f39;">(left axis)</span> reflects community-assessed quality — tends to stabilize. Market pricing <span style="color:#10b981;">(right axis)</span> reflects what collectors actually paid — more volatile, driven by supply, tariffs &amp; demand. The <strong style="color:${valueSignal.color};">${valueSignal.label}</strong> signal ${smartMsrp && secondaryAvg ? 'compares grade against aftermarket premium over ' + (msrpSource === 'community' ? 'overseas avg' : 'MSRP') : 'is based on community grade alone (no pricing baseline yet)'}.</p>
                 <div style="height: 280px; width: 100%;">
                     <canvas id="projectionsChart"></canvas>
                 </div>
@@ -517,10 +530,10 @@ TerminalApp.prototype.renderPulse = async function(container) {
                     spanGaps: true
                 }
             ];
-            if (marketIntel && marketIntel.msrp) {
+            if (smartMsrp) {
                 chartDatasets.push({
-                    label: 'MSRP Baseline',
-                    data: labels.map(() => marketIntel.msrp),
+                    label: 'MSRP Baseline' + (msrpSource === 'community' ? ' (overseas avg)' : ''),
+                    data: labels.map(() => smartMsrp),
                     borderColor: '#f59e0b',
                     backgroundColor: 'transparent',
                     borderDash: [10, 5],
