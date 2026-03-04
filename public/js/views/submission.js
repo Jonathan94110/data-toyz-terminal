@@ -374,29 +374,29 @@ TerminalApp.prototype.renderSubmission = function(container) {
                 <!-- SECTION 5: PRICING CONTEXT -->
                 <div class="card form-section">
                     <div class="section-header">
-                        <h3>5. Pricing Context</h3>
-                        <p>Select one or more pricing categories and enter the corresponding amounts.</p>
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">At least one pricing type must be submitted. Data feeds independently into analytics by category.</p>
+                        <h3>5. What Did You Pay?</h3>
+                        <p>Where did you buy this figure? Select the source and enter what you paid.</p>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">Select at least one. If you bought from multiple sources, select all that apply.</p>
                     </div>
 
-                    <!-- MSRP (read-only from figure data) -->
+                    ${this.currentTarget.msrp ? `
                     <div class="form-group" style="margin-bottom:1.5rem;">
-                        <label class="form-label">Manufacturer's Suggested Retail Price (MSRP)</label>
+                        <label class="form-label" style="font-size:0.8rem; color:var(--text-muted);">Reference MSRP</label>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
-                            <span style="font-size:1.5rem; color:var(--text-muted);">$</span>
-                            <span id="msrpDisplay" style="font-size:1.5rem; font-weight:800; color:var(--success);">${this.currentTarget.msrp ? parseFloat(this.currentTarget.msrp).toFixed(2) : 'Not Set'}</span>
+                            <span style="font-size:1.25rem; color:var(--text-muted);">$</span>
+                            <span style="font-size:1.25rem; font-weight:800; color:var(--success);">${parseFloat(this.currentTarget.msrp).toFixed(2)}</span>
                         </div>
-                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem;">Set by admins in the figure catalog.</p>
                     </div>
+                    ` : ''}
 
-                    <div style="border-top:1px solid var(--border-light); padding-top:1.5rem;">
-                        <!-- Overseas MSRP -->
+                    <div style="${this.currentTarget.msrp ? 'border-top:1px solid var(--border-light); padding-top:1.5rem;' : ''}">
+                        <!-- Overseas Retail -->
                         <div class="pricing-type-row" style="margin-bottom:1.25rem;">
                             <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer;">
                                 <input type="checkbox" id="pt_overseas" onchange="app.togglePriceInput('overseas_msrp')"
                                     ${isEdit && ed.pricing_types && ed.pricing_types.includes('overseas_msrp') ? 'checked' : ''}>
-                                <span style="font-weight:600; color:var(--text-primary);">Overseas MSRP</span>
-                                <span style="font-size:0.8rem; color:var(--text-muted);">Price from overseas retailers</span>
+                                <span style="font-weight:600; color:#10b981;">🌏 Overseas Retail</span>
+                                <span style="font-size:0.8rem; color:var(--text-muted);">I bought from a retailer outside the US</span>
                             </label>
                             <div id="priceInput_overseas_msrp" style="display:${isEdit && ed.price_overseas_msrp ? 'flex' : 'none'}; align-items:center; gap:0.5rem; margin-top:0.75rem; margin-left:2rem;">
                                 <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
@@ -406,13 +406,13 @@ TerminalApp.prototype.renderSubmission = function(container) {
                             </div>
                         </div>
 
-                        <!-- Stateside MSRP -->
+                        <!-- US Retail -->
                         <div class="pricing-type-row" style="margin-bottom:1.25rem;">
                             <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer;">
                                 <input type="checkbox" id="pt_stateside" onchange="app.togglePriceInput('stateside_msrp')"
                                     ${isEdit && ed.pricing_types && ed.pricing_types.includes('stateside_msrp') ? 'checked' : ''}>
-                                <span style="font-weight:600; color:var(--text-primary);">Stateside MSRP</span>
-                                <span style="font-size:0.8rem; color:var(--text-muted);">Price from US retailers</span>
+                                <span style="font-weight:600; color:#f59e0b;">🇺🇸 US Retail</span>
+                                <span style="font-size:0.8rem; color:var(--text-muted);">I bought from a US retailer</span>
                             </label>
                             <div id="priceInput_stateside_msrp" style="display:${isEdit && ed.price_stateside_msrp ? 'flex' : 'none'}; align-items:center; gap:0.5rem; margin-top:0.75rem; margin-left:2rem;">
                                 <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
@@ -422,13 +422,13 @@ TerminalApp.prototype.renderSubmission = function(container) {
                             </div>
                         </div>
 
-                        <!-- Secondary Market Price -->
+                        <!-- Secondary Market -->
                         <div class="pricing-type-row" style="margin-bottom:1rem;">
                             <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer;">
                                 <input type="checkbox" id="pt_secondary" onchange="app.togglePriceInput('secondary_market')"
                                     ${isEdit && ed.pricing_types && ed.pricing_types.includes('secondary_market') ? 'checked' : ''}>
-                                <span style="font-weight:600; color:var(--text-primary);">Secondary Market Price</span>
-                                <span style="font-size:0.8rem; color:var(--text-muted);">Aftermarket / resale value</span>
+                                <span style="font-weight:600; color:#ef4444;">🔄 Aftermarket / Resale</span>
+                                <span style="font-size:0.8rem; color:var(--text-muted);">I bought secondhand (eBay, Mercari, trade, etc.)</span>
                             </label>
                             <div id="priceInput_secondary_market" style="display:${isEdit && ed.price_secondary_market ? 'flex' : 'none'}; align-items:center; gap:0.5rem; margin-top:0.75rem; margin-left:2rem;">
                                 <span style="font-size:1.25rem; color:var(--text-secondary);">$</span>
