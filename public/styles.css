@@ -1797,6 +1797,7 @@ textarea:focus {
     z-index: 200;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    color: var(--text-primary);
 }
 
 .notif-item {

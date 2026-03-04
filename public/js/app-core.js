@@ -543,7 +543,9 @@ class TerminalApp {
                 dropdown.style.display = 'none';
             }
         });
-        document.addEventListener('click', () => { dropdown.style.display = 'none'; }, { once: true });
+        document.addEventListener('click', (e) => {
+            if (!bell.contains(e.target)) dropdown.style.display = 'none';
+        });
 
         // Mobile hamburger menu
         const hamburgerBtn = document.getElementById('hamburgerBtn');
