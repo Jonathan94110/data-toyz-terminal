@@ -42,12 +42,12 @@ TerminalApp.prototype.renderAddTarget = function(container) {
                         </select>
                     </div>
                     <div class="form-group" style="margin-bottom:2rem;">
-                        <label class="form-label">Retail Price (MSRP) <span style="font-weight:400; color:var(--text-muted);">— optional</span></label>
+                        <label class="form-label">Retail Price (MSRP)</label>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <span style="font-size:1.25rem; color:var(--text-muted);">$</span>
-                            <input type="number" name="msrp" id="addTargetMsrp" step="0.01" min="0" placeholder="e.g. 89.99" style="width:100%; max-width:200px; padding:0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
+                            <input type="number" name="msrp" id="addTargetMsrp" step="0.01" min="0.01" required placeholder="e.g. 89.99" style="width:100%; max-width:200px; padding:0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
                         </div>
-                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">What's the manufacturer's retail price? This sets the baseline for value analysis. If you're not sure, leave it blank — community pricing data will fill in later.</p>
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">What's the manufacturer's retail price? This sets the MSRP baseline for value analysis across all price tiers.</p>
                     </div>
                     <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem;">Register Target</button>
                 </form>
