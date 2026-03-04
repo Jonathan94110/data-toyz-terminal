@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
         const [postsRes, countRes] = await Promise.all([
             db.query(`
                 SELECT p.id, p.author, p.content, p.sentiment, p.date, p.edited_at,
-                       (p."imagePath" IS NOT NULL) AS "hasImage",
+                       (p.imagepath IS NOT NULL) AS "hasImage",
                        COALESCE(sc.cnt, 0) AS "submissionCount"
                 FROM Posts p
                 LEFT JOIN (SELECT author, COUNT(*) AS cnt FROM Submissions GROUP BY author) sc ON sc.author = p.author
@@ -40,8 +40,8 @@ router.get('/', async (req, res) => {
         if (postIds.length > 0) {
             // Parallelize comments, reactions, and admin flag queries
             const parallelQueries = [
-                db.query(`SELECT * FROM Comments WHERE "postId" = ANY($1) ORDER BY id ASC`, [postIds]),
-                db.query(`SELECT * FROM Reactions WHERE "postId" = ANY($1)`, [postIds])
+                db.query(`SELECT * FROM Comments WHERE postid = ANY($1) ORDER BY id ASC`, [postIds]),
+                db.query(`SELECT * FROM Reactions WHERE postid = ANY($1)`, [postIds])
             ];
 
             // Check admin status and queue flag query if needed
@@ -102,11 +102,11 @@ router.get('/', async (req, res) => {
 // Serve post image as raw binary (avoids sending MB of base64 in list JSON)
 router.get('/:postId/image', async (req, res) => {
     try {
-        const result = await db.query('SELECT "imagePath" FROM Posts WHERE id = $1', [req.params.postId]);
-        if (!result.rows[0] || !result.rows[0].imagePath) {
+        const result = await db.query('SELECT imagepath FROM Posts WHERE id = $1', [req.params.postId]);
+        if (!result.rows[0] || !result.rows[0].imagepath) {
             return res.status(404).json({ error: 'No image found.' });
         }
-        const dataUri = result.rows[0].imagePath;
+        const dataUri = result.rows[0].imagepath;
         const matches = dataUri.match(/^data:(.+);base64,(.+)$/);
         if (!matches) return res.status(400).json({ error: 'Invalid image data.' });
 
@@ -351,7 +351,7 @@ router.get('/:postId', async (req, res) => {
     try {
         const postRes = await db.query(`
             SELECT p.id, p.author, p.content, p.sentiment, p.date, p.edited_at,
-                   (p."imagePath" IS NOT NULL) AS "hasImage",
+                   (p.imagepath IS NOT NULL) AS "hasImage",
                    COALESCE(sc.cnt, 0) AS "submissionCount"
             FROM Posts p
             LEFT JOIN (SELECT author, COUNT(*) AS cnt FROM Submissions GROUP BY author) sc ON sc.author = p.author
@@ -361,8 +361,8 @@ router.get('/:postId', async (req, res) => {
 
         const post = normalizeRow(postRes.rows[0]);
         const [commentsRes, reactionsRes] = await Promise.all([
-            db.query('SELECT * FROM Comments WHERE "postId" = $1 ORDER BY id ASC', [req.params.postId]),
-            db.query('SELECT * FROM Reactions WHERE "postId" = $1', [req.params.postId])
+            db.query('SELECT * FROM Comments WHERE postid = $1 ORDER BY id ASC', [req.params.postId]),
+            db.query('SELECT * FROM Reactions WHERE postid = $1', [req.params.postId])
         ]);
 
         post.comments = normalizeRows(commentsRes.rows);
