@@ -71,6 +71,21 @@ TerminalApp.prototype.renderPulse = async function(container) {
         overallAvg = `${baseTVI}.0 <span style="font-size:1rem; font-weight:400; color:var(--text-secondary);">(Guestimate)</span>`;
     }
 
+    // --- Value Signal: grade vs price-over-MSRP ---
+    const valueSignal = (() => {
+        if (isGuestimate || !marketIntel || !marketIntel.msrp) return { label: 'NO MSRP DATA', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'MSRP not set — value signal unavailable' };
+        if (marketIntel.transactions.confidence === 'low') return { label: 'LOW DATA', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'Fewer than 3 price reports — signal unreliable' };
+        const grade = parseFloat(overallAvg);
+        const pct = marketIntel.transactions.pctOverMsrp;
+        if (pct === null || pct === undefined) return { label: 'NO MSRP DATA', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'Price-to-MSRP ratio unavailable' };
+        if (grade >= 70 && pct <= 10)  return { label: 'UNDERVALUED', color: '#10b981', bg: 'rgba(16,185,129,0.15)', tip: 'High community grade with price near MSRP — potential value buy' };
+        if (grade >= 60 && pct <= 30)  return { label: 'FAIR VALUE',   color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',  tip: 'Solid community grade with moderate market premium' };
+        if (grade >= 50 && pct <= 60)  return { label: 'HOLD',         color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', tip: 'Decent grade but elevated price — hold or wait for dip' };
+        if (grade < 50 && pct > 50)    return { label: 'OVERVALUED',   color: '#ef4444', bg: 'rgba(239,68,68,0.15)',  tip: 'Below-average grade with high premium — proceed with caution' };
+        if (grade >= 70 && pct > 30)   return { label: 'HOT',          color: '#f97316', bg: 'rgba(249,115,22,0.15)', tip: 'High demand — strong grade but commanding a premium' };
+        return { label: 'NEUTRAL', color: '#64748b', bg: 'rgba(100,116,139,0.12)', tip: 'No clear value signal at current grade and pricing' };
+    })();
+
     // Build data reliability stars (auto-calculated)
     let reliabilityHtml = '';
     for (let i = 0; i < 5; i++) {
@@ -331,9 +346,10 @@ TerminalApp.prototype.renderPulse = async function(container) {
             ${!isGuestimate && figureSubs.length > 0 ? `
             <div class="card" style="margin-bottom: 2.5rem; padding: 2rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom: 1rem;">
-                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
                         <h3 style="margin:0;">Community Projections Trend</h3>
                         ${marketIntel ? `<span style="font-size:0.7rem; padding:0.2rem 0.5rem; border-radius:8px; font-weight:700; ${marketIntel.transactions.confidence === 'high' ? 'background:rgba(16,185,129,0.15); color:#10b981;' : marketIntel.transactions.confidence === 'medium' ? 'background:rgba(251,191,36,0.15); color:#fbbf24;' : 'background:rgba(239,68,68,0.15); color:#ef4444;'}">${marketIntel.transactions.total} data pt${marketIntel.transactions.total !== 1 ? 's' : ''}</span>` : ''}
+                        <span title="${valueSignal.tip}" style="font-size:0.7rem; padding:0.25rem 0.65rem; border-radius:8px; font-weight:800; letter-spacing:0.06em; background:${valueSignal.bg}; color:${valueSignal.color}; cursor:help; text-transform:uppercase;">${valueSignal.label}</span>
                     </div>
                     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
                         <button type="button" class="chartToggle" data-idx="0" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #ff0f39; background:rgba(255,15,57,0.15); color:#ff0f39; cursor:pointer; font-weight:600;">Community Score</button>
@@ -341,6 +357,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
                         ${marketIntel && marketIntel.msrp ? `<button type="button" class="chartToggle" data-idx="2" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #f59e0b; background:rgba(245,158,11,0.15); color:#f59e0b; cursor:pointer; font-weight:600;">MSRP Baseline</button>` : ''}
                     </div>
                 </div>
+                <p style="margin:0 0 1rem; font-size:0.78rem; color:var(--text-muted); line-height:1.4;">Community sentiment <span style="color:#ff0f39;">(left axis)</span> vs market pricing <span style="color:#10b981;">(right axis)</span> over time. The <strong style="color:${valueSignal.color};">${valueSignal.label}</strong> signal compares the community grade against price relative to MSRP.</p>
                 <div style="height: 280px; width: 100%;">
                     <canvas id="projectionsChart"></canvas>
                 </div>
