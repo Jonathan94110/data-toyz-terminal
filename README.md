@@ -16,9 +16,12 @@ Data Toyz Terminal is a collaborative market intelligence platform built for col
 
 ### Market Intelligence
 
-- **Figure Database** — Search, catalog, and manage action figures across brands and lines
-- **Intelligence Reports** — Submit detailed scorecards with DTS (demand, buzz, liquidity, risk, appeal), product quality grades, approval scores, and pricing data
-- **Market Pricing** — Track overseas MSRP, stateside MSRP, and secondary market prices with historical timelines, confidence ratings, and volatility metrics
+- **Figure Database** — Search, catalog, and manage action figures across brands and lines with mandatory MSRP on registration
+- **Intelligence Reports** — Submit detailed scorecards with DTS (demand, buzz, liquidity, scarcity, appeal), product quality grades, approval scores, and color-coded pricing by source
+- **Color-Coded Price Tracking** — Three distinct price lines by purchase source: Overseas (green), Stateside (amber), and Secondary Market (red) with MSRP baseline reference
+- **Price Tiers** — Side-by-side comparison of average prices across all three purchase channels with cross-tier percentage diffs
+- **Value Signal** — Automated market position badge (UNDERVALUED / FAIR VALUE / HOLD / HOT / OVERVALUED) using Smart MSRP analysis
+- **Smart MSRP** — Automatic price baseline derivation from admin-set MSRP or community overseas retail average
 - **Figure Rankings** — Sort and filter by price, grade, approval, momentum, and submission count
 - **Weekly Movers** — Top gainers, losers, most active, and new entries over 7-day and 30-day windows
 - **Brand Health Dashboard** — Per-brand analytics with submission counts, average grades, pricing trends, and weekly charts
@@ -49,6 +52,7 @@ Data Toyz Terminal is a collaborative market intelligence platform built for col
 - **Content Moderation** — Flagged post review with dismiss/action controls
 - **Audit Logs** — Searchable activity log with filtering by action, actor, target, and date range
 - **Ticker Settings** — Configure global ticker mode and item count
+- **System Logs** — Real-time server activity monitoring
 
 ---
 
@@ -127,7 +131,7 @@ The app will be available at `http://localhost:3000`.
 │   ├── styles.css         # Global styles
 │   └── js/
 │       ├── app-core.js    # Router, auth, navigation
-│       └── views/         # View modules (18 views)
+│       └── views/         # View modules (19 views)
 ├── test/                  # Smoke tests
 ├── render.yaml            # Render deployment config
 └── DEV_ROADMAP.md         # Development roadmap & changelog

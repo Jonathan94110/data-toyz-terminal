@@ -185,7 +185,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Minimum Grade Filter</strong> &mdash; Use the grade dropdown to filter figures by minimum average grade (50+, 60+, 70+, etc.)</li>
                         <li><strong>Class Tier Badges</strong> &mdash; Color-coded badges show the figure's class (Deluxe, Voyager, Leader, Commander, Masterpiece)</li>
                         <li><strong>Select a Target</strong> &mdash; Click any figure to view its full intel page with all submissions, charts, and gallery</li>
-                        <li><strong>Add New Target</strong> &mdash; Any authenticated operative can register a new figure. The brand field is a dropdown populated from all admin-approved brands in the database. If you need a brand not yet in the list, select "Other" and enter the new brand name &mdash; it will be submitted for admin approval before the figure can be created.</li>
+                        <li><strong>Add New Target</strong> &mdash; Any authenticated operative can register a new figure with a name, brand, product line, class tier, and <strong>mandatory MSRP</strong> (retail price). The MSRP establishes the price baseline used across all market analytics. The brand field is a dropdown populated from all admin-approved brands in the database. If you need a brand not yet in the list, select "Other" and enter the new brand name &mdash; it will be submitted for admin approval before the figure can be created.</li>
                     </ul>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Brand Approval Process:</strong></p>
                     <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
@@ -223,7 +223,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">2</td><td style="padding:0.6rem 1rem; font-weight:600;">Risk Forecasting</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Predict market direction across 4 axes: Bullish, Neutral, or Bearish &mdash; with a selectable forecast horizon</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">3</td><td style="padding:0.6rem 1rem; font-weight:600;">Physical Quality Scales</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">9 physical attributes (Build, Paint, Articulation, Accuracy, Presence, Value, Packaging, Transformation Frustration & Satisfaction) &mdash; each rated 1-10</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">4</td><td style="padding:0.6rem 1rem; font-weight:600;">Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Upload a photo of the figure as field evidence (appears in the gallery)</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">5</td><td style="padding:0.6rem 1rem; font-weight:600;">Aftermarket Valuation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Enter the current market price for the figure</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">5</td><td style="padding:0.6rem 1rem; font-weight:600;">What Did You Pay?</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Select your purchase source (<span style="color:#10b981;">Overseas Retail</span>, <span style="color:#f59e0b;">US Retail</span>, or <span style="color:#ef4444;">Aftermarket/Resale</span>) and enter the price you paid</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">6</td><td style="padding:0.6rem 1rem; font-weight:600;">Community Recommendation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Yes or No &mdash; do you recommend acquiring this target?</td></tr>
                             <tr><td style="padding:0.6rem 1rem; color:var(--text-muted);">7</td><td style="padding:0.6rem 1rem; font-weight:600;">Trade Value Star Rating</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Overall 1-5 star rating for the figure</td></tr>
                         </tbody>
@@ -295,9 +295,35 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>Intel Headlines</strong> &mdash; The most recent submissions across all figures</li>
                         <li><strong>Brand Indexes</strong> &mdash; Performance breakdown by brand and product line (avg grade, submission count)</li>
                     </ul>
-                    <p style="color:var(--text-primary); line-height:1.8;">
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         When you click a figure from Action Figure Registration, you see a <strong>detailed intel page</strong> with: all submissions listed, a grade trend chart over time, a price trend chart, community recommendation votes, and a <strong>Field Evidence Gallery</strong> of uploaded photos.
                     </p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Value Signal Badge:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        Each figure displays a <strong>Value Signal</strong> badge indicating its market position. When both MSRP and secondary market data are available, the signal compares prices: <strong>UNDERVALUED</strong>, <strong>FAIR VALUE</strong>, <strong>HOLD</strong>, <strong>HOT</strong>, or <strong>OVERVALUED</strong>. When only grade data is available, a grade-only fallback is used: <strong>STRONG BUY</strong>, <strong>SOLID</strong>, <strong>MIXED</strong>, or <strong>WEAK</strong>.
+                    </p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Price Tiers Card:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        The Price Tiers card shows average prices across three purchase channels, each color-coded to match the chart: <span style="color:#10b981;"><strong>Overseas (MSRP)</strong></span> &mdash; baseline retail, <span style="color:#f59e0b;"><strong>Stateside (US Retail)</strong></span> &mdash; with tariff/shipping markup, and <span style="color:#ef4444;"><strong>Secondary Market</strong></span> &mdash; aftermarket/resale prices. Cross-tier percentage differences show how much each tier costs relative to the others.
+                    </p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Community Projections Trend Chart:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        The trend chart plots the community grade (red line, left axis) against three separate price lines by purchase source (right axis): <span style="color:#10b981;"><strong>Overseas</strong></span> (solid green), <span style="color:#f59e0b;"><strong>Stateside</strong></span> (dashed amber), and <span style="color:#ef4444;"><strong>Secondary</strong></span> (dotted red). A yellow dashed <strong>MSRP Baseline</strong> reference line shows the retail price floor. Each line can be toggled on/off independently.
+                    </p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>DTS Breakdown &amp; Scarcity:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        The DTS (Data Toyz Trading Score) breakdown shows 5 horizontal bars: Community, Buzz, Liquidity, Scarcity, and Appeal. All bars use a consistent scale where <strong>higher = better</strong>. The Scarcity bar indicates how hard a figure is to replace in the current market &mdash; higher scarcity means the figure is rarer and harder to find.
+                    </p>
+
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Smart MSRP:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        The platform uses a "Smart MSRP" system for price analysis. If an admin-set MSRP exists, that is used. Otherwise, the community's average overseas retail price serves as the MSRP baseline. This ensures price comparisons and value signals work even before an admin manually sets the MSRP.
+                    </p>
+
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Figure Title Editing:</strong></p>
                     <p style="color:var(--text-secondary); line-height:1.8;">
                         The operative who originally created a figure can rename it by clicking the \u{270F}\u{FE0F} button next to the figure title on the intel page. An inline editor appears to type the new name and save or cancel. Admins retain full editing authority over all figure titles regardless of who created them. Figures created before this feature was introduced can only be renamed by admins.
@@ -399,6 +425,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <li><strong>DM & Group Chat Messages</strong> &mdash; When a new message is sent in a DM or Group Chat you are a member of</li>
                         <li><strong>@-Mention</strong> &mdash; When someone tags you with <code style="background:var(--bg-surface); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">@yourusername</code> in a broadcast or comment</li>
                         <li><strong>New Follower</strong> &mdash; When another operative starts following you</li>
+                        <li><strong>Assessment Requests</strong> &mdash; When another operative requests your assessment on a specific figure</li>
                         <li><strong>Flagged Post (Admin)</strong> &mdash; When a broadcast you manage is flagged for review (admin-only)</li>
                     </ul>
 
