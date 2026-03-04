@@ -430,7 +430,7 @@ class TerminalApp {
                             </div>
                             <div style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;" onclick="app.viewUserProfile(app.user.username)">
                             ${this.user.avatar ? `<img src="${this.user.avatar}" class="user-avatar" style="object-fit:cover; border:none; background:transparent;" onerror="this.onerror=null; this.outerHTML='<div class=\\'user-avatar\\'>${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>';">` : `<div class="user-avatar">${escapeHTML(this.user.username).charAt(0).toUpperCase()}</div>`}
-                            <div style="line-height:1.2;">
+                            <div class="user-info-text" style="line-height:1.2;">
                                 <div style="font-weight:600; font-size:0.95rem;">${escapeHTML(this.user.username)}</div>
                                 <div style="font-size:0.75rem; color:${{ 'owner': '#a855f7', 'admin': '#fbbf24', 'moderator': '#3b82f6' }[this.user.role] || 'var(--accent)'}; text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">${{ 'owner': '\u{2B50} Owner', 'admin': '\u{2605} Admin', 'moderator': '\u{1F6E1}\u{FE0F} Moderator' }[this.user.role] || 'Analyst'}</div>
                                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">View Profile</div>
@@ -461,6 +461,10 @@ class TerminalApp {
                         <div class="nav-item-mobile ${this.currentView === 'profile' ? 'active' : ''}" data-view="profile">
                             <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                             <span class="nav-label-mobile">Profile</span>
+                        </div>
+                        <div class="nav-item-mobile" id="mobileMoreBtn">
+                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                            <span class="nav-label-mobile">More</span>
                         </div>
                     </div>
                 </nav>
@@ -560,6 +564,15 @@ class TerminalApp {
             sidebarOverlay.addEventListener('click', () => {
                 sidebar.classList.remove('open');
                 sidebarOverlay.classList.remove('active');
+            });
+        }
+        // Mobile bottom-nav "More" button — opens sidebar
+        const mobileMoreBtn = document.getElementById('mobileMoreBtn');
+        if (mobileMoreBtn && sidebar) {
+            mobileMoreBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('open');
+                if (sidebarOverlay) sidebarOverlay.classList.toggle('active');
             });
         }
         // Close sidebar on nav-item click (mobile)

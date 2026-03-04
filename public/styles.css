@@ -2294,13 +2294,13 @@ textarea:focus {
     background: var(--bg-panel-hover);
 }
 
-/* --- Sidebar Overlay (for mobile slide-out) --- */
+/* --- Sidebar Overlay (for mobile slide-out, above bottom-nav z:100) --- */
 .sidebar-overlay {
     display: none;
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 49;
+    z-index: 150;
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
 }
@@ -2871,14 +2871,14 @@ textarea:focus {
         overflow-y: auto;
     }
 
-    /* Sidebar: slide-out from left */
+    /* Sidebar: slide-out from left (z-index above bottom-nav at 100) */
     .sidebar {
         position: fixed;
         left: -280px;
         top: 0;
         bottom: 0;
         width: 280px;
-        z-index: 50;
+        z-index: 200;
         transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: none;
     }
@@ -2901,6 +2901,17 @@ textarea:focus {
 
     .topbar .user-profile {
         font-size: 0.85rem;
+        gap: 0.35rem;
+    }
+
+    /* Hide username text on mobile — avatar + bell + logout is enough */
+    .user-info-text {
+        display: none !important;
+    }
+
+    /* Hide topbar search on mobile — use Search tab in bottom nav instead */
+    .topbar-search {
+        display: none !important;
     }
 
     /* Main content: full width */
@@ -3052,14 +3063,14 @@ textarea:focus {
 /* ======================== TABLET (768px - 1023px) ======================== */
 @media (min-width: 768px) and (max-width: 1023px) {
 
-    /* Sidebar: same slide-out pattern */
+    /* Sidebar: same slide-out pattern (z-index above overlay) */
     .sidebar {
         position: fixed;
         left: -280px;
         top: 0;
         bottom: 0;
         width: 280px;
-        z-index: 50;
+        z-index: 200;
         transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: none;
     }
@@ -4736,8 +4747,8 @@ textarea:focus {
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 72px;
-    background: rgba(7, 9, 20, 0.85);
+    height: calc(72px + env(safe-area-inset-bottom));
+    background: rgba(7, 9, 20, 0.92);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border-top: 1px solid var(--border);
@@ -4745,11 +4756,15 @@ textarea:focus {
     padding-bottom: env(safe-area-inset-bottom);
 }
 
+[data-theme="light"] .bottom-nav {
+    background: rgba(255, 255, 255, 0.92);
+}
+
 .nav-items-mobile {
     display: flex;
     justify-content: space-around;
     align-items: center;
-    height: 100%;
+    height: 72px;
 }
 
 .nav-item-mobile {
@@ -4782,10 +4797,9 @@ textarea:focus {
     letter-spacing: 0.05em;
 }
 
-@media (max-width: 768px) {
-    .sidebar {
-        display: none !important;
-    }
+@media (max-width: 767px) {
+    /* Sidebar stays off-screen (positioned by earlier mobile section) —
+       NOT display:none, so the "More" button can slide it in */
 
     .hamburger-btn {
         display: none !important;
@@ -4797,7 +4811,13 @@ textarea:focus {
 
     .content-area {
         padding: 1.5rem;
-        padding-bottom: 90px !important;
+        padding-bottom: calc(90px + env(safe-area-inset-bottom)) !important;
+    }
+
+    /* Safe-area for notched iPhones */
+    .topbar {
+        padding-top: env(safe-area-inset-top) !important;
+        height: calc(60px + env(safe-area-inset-top));
     }
 }
 
