@@ -4782,32 +4782,20 @@ textarea:focus {
 
 @media (max-width: 768px) {
     .sidebar {
-        position: fixed;
-        left: -280px;
-        top: 0;
-        bottom: 0;
-        width: 280px;
-        z-index: 50;
-        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: none;
-        display: flex !important;
-    }
-
-    .sidebar.open {
-        left: 0;
-        box-shadow: 8px 0 30px rgba(0, 0, 0, 0.5);
+        display: none !important;
     }
 
     .hamburger-btn {
-        display: flex !important;
+        display: none !important;
     }
 
     .bottom-nav {
-        display: none;
+        display: block;
     }
 
     .content-area {
         padding: 1.5rem;
+        padding-bottom: 90px !important;
     }
 }
 
@@ -4914,7 +4902,7 @@ textarea:focus {
 
 @media (max-width: 768px) {
     .ticker-wrap {
-        bottom: 0;
+        bottom: 72px;
         height: 28px;
     }
 }
