@@ -444,7 +444,8 @@ h6 {
     justify-content: space-between;
     padding: 0 2rem;
     flex-shrink: 0;
-    z-index: 10;
+    z-index: 100;
+    position: relative;
     gap: 1.5rem;
 }
 
