@@ -326,10 +326,14 @@ TerminalApp.prototype.renderPulse = async function(container) {
                         <div class="stat-value" style="font-size:1.75rem; color:#10b981;">${marketIntel.transactions.lifetime.avg != null ? '$' + marketIntel.transactions.lifetime.avg.toFixed(2) : '—'}</div>
                         <div class="stat-label">Lifetime Avg</div>
                     </div>
-                    <div class="stat-box" style="padding:1.25rem;">
-                        <div class="stat-value" style="font-size:1.75rem; ${marketIntel.transactions.pctOverMsrp != null ? (marketIntel.transactions.pctOverMsrp >= 0 ? 'color:var(--danger);' : 'color:var(--success);') : 'color:var(--text-muted);'}">${marketIntel.transactions.pctOverMsrp != null ? (marketIntel.transactions.pctOverMsrp >= 0 ? '+' : '') + marketIntel.transactions.pctOverMsrp + '%' : '—'}</div>
-                        <div class="stat-label">vs MSRP ${marketIntel.msrp ? '($' + parseFloat(marketIntel.msrp).toFixed(2) + ')' : '(Not Set)'}</div>
-                    </div>
+                    ${(() => {
+                        const msPct = smartMsrp && marketIntel.transactions.lifetime.avg != null
+                            ? (((marketIntel.transactions.lifetime.avg - smartMsrp) / smartMsrp) * 100).toFixed(1) : null;
+                        return `<div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:1.75rem; ${msPct != null ? (parseFloat(msPct) >= 0 ? 'color:var(--danger);' : 'color:var(--success);') : 'color:var(--text-muted);'}">${msPct != null ? (parseFloat(msPct) >= 0 ? '+' : '') + msPct + '%' : '—'}</div>
+                        <div class="stat-label">vs MSRP ${smartMsrp ? '($' + smartMsrp.toFixed(2) + ')' : '(No baseline)'}</div>
+                    </div>`;
+                    })()}
                     <div class="stat-box" style="padding:1.25rem;">
                         <div class="stat-value" style="font-size:1.75rem; color:#f59e0b;">${marketIntel.transactions.volatility != null ? '$' + marketIntel.transactions.volatility.toFixed(2) : '—'}</div>
                         <div class="stat-label">Volatility (H − L)</div>
