@@ -12,10 +12,9 @@ TerminalApp.prototype.renderPulse = async function(container) {
     let overviewStats = {};
     let headlines = [];
     try {
-        const ptParam = this.pulsePriceType ? `?price_type=${this.pulsePriceType}` : '';
         const [subRes, miRes, cmRes] = await Promise.all([
             fetch(`${API_URL}/submissions/target/${this.currentTarget.id}`),
-            fetch(`${API_URL}/figures/${this.currentTarget.id}/market-intel${ptParam}`),
+            fetch(`${API_URL}/figures/${this.currentTarget.id}/market-intel`),
             fetch(`${API_URL}/figures/${this.currentTarget.id}/community-metrics`)
         ]);
         if (subRes.ok) figureSubs = await subRes.json();
@@ -196,15 +195,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
 
             <!-- PRICE TIERS -->
             <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
-                    <h3 style="margin:0; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">\u{1F4B2} Price Tiers</h3>
-                    <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
-                        <button type="button" class="priceTypeToggle${!this.pulsePriceType ? ' active' : ''}" onclick="app.pulsePriceType=null; app.renderPulse(document.getElementById('mainContent'));">All</button>
-                        <button type="button" class="priceTypeToggle${this.pulsePriceType==='overseas_msrp' ? ' active' : ''}" onclick="app.pulsePriceType='overseas_msrp'; app.renderPulse(document.getElementById('mainContent'));">Overseas</button>
-                        <button type="button" class="priceTypeToggle${this.pulsePriceType==='stateside_msrp' ? ' active' : ''}" onclick="app.pulsePriceType='stateside_msrp'; app.renderPulse(document.getElementById('mainContent'));">Stateside</button>
-                        <button type="button" class="priceTypeToggle${this.pulsePriceType==='secondary_market' ? ' active' : ''}" onclick="app.pulsePriceType='secondary_market'; app.renderPulse(document.getElementById('mainContent'));">Secondary</button>
-                    </div>
-                </div>
+                <h3 style="margin:0 0 1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">\u{1F4B2} Price Tiers</h3>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem; text-align:center;">
                     <div style="padding:0.75rem 0.5rem; background:rgba(16,185,129,0.05); border-radius:var(--radius-sm);">
                         <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.35rem; letter-spacing:0.05em;">OVERSEAS (MSRP)</div>
@@ -364,13 +355,15 @@ TerminalApp.prototype.renderPulse = async function(container) {
                         ${marketIntel ? `<span style="font-size:0.7rem; padding:0.2rem 0.5rem; border-radius:8px; font-weight:700; ${marketIntel.transactions.confidence === 'high' ? 'background:rgba(16,185,129,0.15); color:#10b981;' : marketIntel.transactions.confidence === 'medium' ? 'background:rgba(251,191,36,0.15); color:#fbbf24;' : 'background:rgba(239,68,68,0.15); color:#ef4444;'}">${marketIntel.transactions.total} data pt${marketIntel.transactions.total !== 1 ? 's' : ''}</span>` : ''}
                         <span title="${valueSignal.tip}" style="font-size:0.7rem; padding:0.25rem 0.65rem; border-radius:8px; font-weight:800; letter-spacing:0.06em; background:${valueSignal.bg}; color:${valueSignal.color}; cursor:help; text-transform:uppercase;">${valueSignal.label}</span>
                     </div>
-                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                        <button type="button" class="chartToggle" data-idx="0" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #ff0f39; background:rgba(255,15,57,0.15); color:#ff0f39; cursor:pointer; font-weight:600;">Community Score</button>
-                        <button type="button" class="chartToggle" data-idx="1" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #10b981; background:rgba(16,185,129,0.15); color:#10b981; cursor:pointer; font-weight:600;">Market Pricing</button>
-                        ${smartMsrp ? `<button type="button" class="chartToggle" data-idx="2" style="padding:0.3rem 0.6rem; font-size:0.75rem; border-radius:4px; border:1px solid #f59e0b; background:rgba(245,158,11,0.15); color:#f59e0b; cursor:pointer; font-weight:600;">MSRP Baseline${msrpSource === 'community' ? ' (overseas avg)' : ''}</button>` : ''}
+                    <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                        <button type="button" class="chartToggle" data-idx="0" style="padding:0.25rem 0.5rem; font-size:0.7rem; border-radius:4px; border:1px solid #ff0f39; background:rgba(255,15,57,0.15); color:#ff0f39; cursor:pointer; font-weight:600;">Grade</button>
+                        <button type="button" class="chartToggle" data-idx="1" style="padding:0.25rem 0.5rem; font-size:0.7rem; border-radius:4px; border:1px solid #10b981; background:rgba(16,185,129,0.15); color:#10b981; cursor:pointer; font-weight:600;">Overseas</button>
+                        <button type="button" class="chartToggle" data-idx="2" style="padding:0.25rem 0.5rem; font-size:0.7rem; border-radius:4px; border:1px solid #f59e0b; background:rgba(245,158,11,0.15); color:#f59e0b; cursor:pointer; font-weight:600;">Stateside</button>
+                        <button type="button" class="chartToggle" data-idx="3" style="padding:0.25rem 0.5rem; font-size:0.7rem; border-radius:4px; border:1px solid #ef4444; background:rgba(239,68,68,0.15); color:#ef4444; cursor:pointer; font-weight:600;">Secondary</button>
+                        ${smartMsrp ? `<button type="button" class="chartToggle" data-idx="4" style="padding:0.25rem 0.5rem; font-size:0.7rem; border-radius:4px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); color:#f59e0b; cursor:pointer; font-weight:600; border-style:dashed;">MSRP</button>` : ''}
                     </div>
                 </div>
-                <p style="margin:0 0 1rem; font-size:0.78rem; color:var(--text-muted); line-height:1.4;">Grade <span style="color:#ff0f39;">(left axis)</span> reflects community-assessed quality — tends to stabilize. Market pricing <span style="color:#10b981;">(right axis)</span> reflects what collectors actually paid — more volatile, driven by supply, tariffs &amp; demand. The <strong style="color:${valueSignal.color};">${valueSignal.label}</strong> signal ${smartMsrp && secondaryAvg ? 'compares grade against aftermarket premium over ' + (msrpSource === 'community' ? 'overseas avg' : 'MSRP') : 'is based on community grade alone (no pricing baseline yet)'}.</p>
+                <p style="margin:0 0 1rem; font-size:0.78rem; color:var(--text-muted); line-height:1.4;">Grade <span style="color:#ff0f39;">(left axis)</span> reflects community-assessed quality — tends to stabilize. Prices <span style="color:var(--text-secondary);">(right axis)</span> are color-coded: <span style="color:#10b981;">overseas</span>, <span style="color:#f59e0b;">stateside</span> (tariff/shipping markup), <span style="color:#ef4444;">secondary market</span> (aftermarket). Vendor prices should cluster near baseline — wider gaps signal supply pressure. <strong style="color:${valueSignal.color};">${valueSignal.label}</strong> ${smartMsrp && secondaryAvg ? '— aftermarket vs ' + (msrpSource === 'community' ? 'overseas avg' : 'MSRP') : '— grade-only (no pricing baseline yet)'}.</p>
                 <div style="height: 280px; width: 100%;">
                     <canvas id="projectionsChart"></canvas>
                 </div>
@@ -485,13 +478,13 @@ TerminalApp.prototype.renderPulse = async function(container) {
 
     setTimeout(() => {
         if (!isGuestimate && figureSubs.length > 0) {
-            // Build unified timeline from submissions (grades) + market intel (prices)
+            // Build unified timeline from submissions (grades) + market intel (prices by type)
             const timePoints = {};
             const sortedSubs = [...figureSubs].sort((a, b) => new Date(a.date) - new Date(b.date));
             sortedSubs.forEach(s => {
                 const d = new Date(s.date);
                 const key = d.toISOString().split('T')[0];
-                if (!timePoints[key]) timePoints[key] = { ts: d.getTime(), grade: null, price: null };
+                if (!timePoints[key]) timePoints[key] = { ts: d.getTime(), grade: null, overseas: null, stateside: null, secondary: null };
                 const g = (parseFloat(s.mtsTotal) + parseFloat(s.approvalScore)) / 2;
                 timePoints[key].grade = parseFloat(g.toFixed(1));
             });
@@ -499,18 +492,23 @@ TerminalApp.prototype.renderPulse = async function(container) {
                 marketIntel.timeline.forEach(t => {
                     const d = new Date(t.created_at);
                     const key = d.toISOString().split('T')[0];
-                    if (!timePoints[key]) timePoints[key] = { ts: d.getTime(), grade: null, price: null };
-                    timePoints[key].price = t.priceAvg;
+                    if (!timePoints[key]) timePoints[key] = { ts: d.getTime(), grade: null, overseas: null, stateside: null, secondary: null };
+                    const pt = t.priceType || 'secondary_market';
+                    if (pt === 'overseas_msrp') timePoints[key].overseas = t.priceAvg;
+                    else if (pt === 'stateside_msrp') timePoints[key].stateside = t.priceAvg;
+                    else timePoints[key].secondary = t.priceAvg;
                 });
             }
             const sortedTimeline = Object.entries(timePoints).sort((a, b) => a[1].ts - b[1].ts);
             const labels = sortedTimeline.map(e => new Date(e[1].ts).toLocaleDateString());
             const gradePoints = sortedTimeline.map(e => e[1].grade);
-            const pricePoints = sortedTimeline.map(e => e[1].price);
+            const overseasPts = sortedTimeline.map(e => e[1].overseas);
+            const statesidePts = sortedTimeline.map(e => e[1].stateside);
+            const secondaryPts = sortedTimeline.map(e => e[1].secondary);
 
             const chartDatasets = [
                 {
-                    label: 'Overall Target Grade',
+                    label: 'Community Grade',
                     data: gradePoints,
                     borderColor: '#ff0f39',
                     backgroundColor: 'rgba(255, 15, 57, 0.1)',
@@ -520,12 +518,37 @@ TerminalApp.prototype.renderPulse = async function(container) {
                     spanGaps: true
                 },
                 {
-                    label: 'Market Price (USD)',
-                    data: pricePoints,
+                    label: 'Overseas (MSRP)',
+                    data: overseasPts,
                     borderColor: '#10b981',
+                    backgroundColor: 'transparent',
+                    tension: 0.3,
+                    pointStyle: 'circle',
+                    pointRadius: 4,
+                    yAxisID: 'y1',
+                    spanGaps: true
+                },
+                {
+                    label: 'Stateside (US Retail)',
+                    data: statesidePts,
+                    borderColor: '#f59e0b',
                     backgroundColor: 'transparent',
                     borderDash: [5, 5],
                     tension: 0.3,
+                    pointStyle: 'rect',
+                    pointRadius: 4,
+                    yAxisID: 'y1',
+                    spanGaps: true
+                },
+                {
+                    label: 'Secondary Market',
+                    data: secondaryPts,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'transparent',
+                    borderDash: [2, 4],
+                    tension: 0.3,
+                    pointStyle: 'triangle',
+                    pointRadius: 5,
                     yAxisID: 'y1',
                     spanGaps: true
                 }
