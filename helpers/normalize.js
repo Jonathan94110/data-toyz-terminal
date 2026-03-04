@@ -13,7 +13,8 @@ const COL_MAP = {
     edited_at: 'editedAt', post_id: 'postId', flagged_by: 'flaggedBy',
     follower_id: 'followerId', following_id: 'followingId',
     post_author: 'postAuthor', post_content: 'postContent', post_date: 'postDate',
-    flag_count: 'flagCount'
+    flag_count: 'flagCount',
+    hasimage: 'hasImage', submissioncount: 'submissionCount'
 };
 function normalizeRow(row) {
     if (!row) return row;

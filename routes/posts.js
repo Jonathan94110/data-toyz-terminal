@@ -20,21 +20,22 @@ router.get('/', async (req, res) => {
         // Main query + total count in parallel
         // Exclude imagePath (can be MB of base64), add hasImage flag
         // Replace correlated subquery with LEFT JOIN aggregate
+        // Cast COUNT to integer to avoid pg bigint-as-string issue
         const [postsRes, countRes] = await Promise.all([
             db.query(`
                 SELECT p.id, p.author, p.content, p.sentiment, p.date, p.edited_at,
-                       (p.imagepath IS NOT NULL) AS "hasImage",
-                       COALESCE(sc.cnt, 0) AS "submissionCount"
+                       (p.imagepath IS NOT NULL) AS hasimage,
+                       COALESCE(sc.cnt, 0)::int AS submissioncount
                 FROM Posts p
-                LEFT JOIN (SELECT author, COUNT(*) AS cnt FROM Submissions GROUP BY author) sc ON sc.author = p.author
+                LEFT JOIN (SELECT author, COUNT(*)::int AS cnt FROM Submissions GROUP BY author) sc ON sc.author = p.author
                 ORDER BY p.id DESC
                 LIMIT $1 OFFSET $2
             `, [limit, offset]),
-            db.query("SELECT COUNT(*) FROM Posts")
+            db.query("SELECT COUNT(*)::int AS count FROM Posts")
         ]);
 
         const postIds = postsRes.rows.map(p => p.id);
-        const total = parseInt(countRes.rows[0].count);
+        const total = countRes.rows[0].count;
         const posts = normalizeRows(postsRes.rows);
 
         if (postIds.length > 0) {
@@ -107,7 +108,7 @@ router.get('/:postId/image', async (req, res) => {
             return res.status(404).json({ error: 'No image found.' });
         }
         const dataUri = result.rows[0].imagepath;
-        const matches = dataUri.match(/^data:(.+);base64,(.+)$/);
+        const matches = dataUri.match(/^data:(.+?);base64,([\s\S]+)$/);
         if (!matches) return res.status(400).json({ error: 'Invalid image data.' });
 
         const contentType = matches[1];
@@ -351,10 +352,10 @@ router.get('/:postId', async (req, res) => {
     try {
         const postRes = await db.query(`
             SELECT p.id, p.author, p.content, p.sentiment, p.date, p.edited_at,
-                   (p.imagepath IS NOT NULL) AS "hasImage",
-                   COALESCE(sc.cnt, 0) AS "submissionCount"
+                   (p.imagepath IS NOT NULL) AS hasimage,
+                   COALESCE(sc.cnt, 0)::int AS submissioncount
             FROM Posts p
-            LEFT JOIN (SELECT author, COUNT(*) AS cnt FROM Submissions GROUP BY author) sc ON sc.author = p.author
+            LEFT JOIN (SELECT author, COUNT(*)::int AS cnt FROM Submissions GROUP BY author) sc ON sc.author = p.author
             WHERE p.id = $1
         `, [req.params.postId]);
         if (!postRes.rows[0]) return res.status(404).json({ error: "Broadcast not found." });

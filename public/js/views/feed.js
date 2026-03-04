@@ -14,8 +14,9 @@ TerminalApp.prototype.renderFeed = async function (container) {
         const res = await this.authFetch(`${API_URL}/posts?limit=20&offset=0`);
         if (res.ok) {
             const data = await res.json();
-            posts = data.posts || data;  // support both new {posts,total} and legacy array format
-            this._feedTotal = data.total || posts.length;
+            // Support both new {posts,total} format and legacy array format
+            posts = Array.isArray(data) ? data : (Array.isArray(data.posts) ? data.posts : []);
+            this._feedTotal = (typeof data.total === 'number') ? data.total : posts.length;
             this._feedOffset = posts.length;
         }
     } catch (e) {
@@ -293,8 +294,8 @@ TerminalApp.prototype._loadMorePosts = async function () {
         const res = await this.authFetch(`${API_URL}/posts?limit=20&offset=${this._feedOffset}`);
         if (!res.ok) throw new Error('Failed to load posts');
         const data = await res.json();
-        const posts = data.posts || data;
-        this._feedTotal = data.total || this._feedTotal;
+        const posts = Array.isArray(data) ? data : (Array.isArray(data.posts) ? data.posts : []);
+        this._feedTotal = (typeof data.total === 'number') ? data.total : this._feedTotal;
         this._feedOffset += posts.length;
 
         const timeline = document.getElementById('timeline');
