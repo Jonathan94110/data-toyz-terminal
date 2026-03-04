@@ -123,8 +123,9 @@ router.post('/', requireAuth, async (req, res) => {
             log.error('Brand check error (non-fatal)', { error: brandErr.message || brandErr });
         }
 
-        const result = await db.query("INSERT INTO Figures (name, brand, classTie, line, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-            [name, brand, classTie, line, req.user.username]);
+        const msrp = req.body.msrp != null && req.body.msrp !== '' ? parseFloat(req.body.msrp) : null;
+        const result = await db.query("INSERT INTO Figures (name, brand, classTie, line, created_by, msrp) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+            [name, brand, classTie, line, req.user.username, msrp]);
 
         try {
             // Batch insert notifications for all opted-in users (single query instead of N+1 loop)

@@ -28,7 +28,7 @@ TerminalApp.prototype.renderAddTarget = function(container) {
                         <label class="form-label">Product Line</label>
                         <input type="text" name="line" required placeholder="e.g. Studio Series, Masterpiece, Legacy" style="width:100%; padding:0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                     </div>
-                    <div class="form-group" style="margin-bottom:2rem;">
+                    <div class="form-group" style="margin-bottom:1.5rem;">
                         <label class="form-label">Size Class / Tier</label>
                         <select name="classTie" required style="width:100%; padding:0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
                             <option value="Core">Core</option>
@@ -40,6 +40,14 @@ TerminalApp.prototype.renderAddTarget = function(container) {
                             <option value="Masterpiece">Masterpiece</option>
                             <option value="Legends">Legends</option>
                         </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:2rem;">
+                        <label class="form-label">Retail Price (MSRP) <span style="font-weight:400; color:var(--text-muted);">— optional</span></label>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:1.25rem; color:var(--text-muted);">$</span>
+                            <input type="number" name="msrp" id="addTargetMsrp" step="0.01" min="0" placeholder="e.g. 89.99" style="width:100%; max-width:200px; padding:0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); font-size:1.1rem;">
+                        </div>
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">What's the manufacturer's retail price? This sets the baseline for value analysis. If you're not sure, leave it blank — community pricing data will fill in later.</p>
                     </div>
                     <button type="submit" class="btn" style="width:100%; padding:1rem; font-size:1.1rem;">Register Target</button>
                 </form>
@@ -143,6 +151,9 @@ TerminalApp.prototype.submitNewTarget = async function(form) {
         data.brand = data.brandOther.trim();
     }
     delete data.brandOther;
+
+    // MSRP: convert to number or null
+    data.msrp = data.msrp && data.msrp.trim() !== '' ? parseFloat(data.msrp) : null;
 
     try {
         const req = await this.authFetch(`${API_URL}/figures`, {
