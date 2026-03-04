@@ -11,57 +11,116 @@ const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
 // Fetch timeline broadcasts, replies, and reactions (with pagination)
+// Optimized: excludes base64 imagePath from list payload, parallelizes queries, uses Map grouping
 router.get('/', async (req, res) => {
     try {
-        const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
         const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
-        const postsRes = await db.query(`
-            SELECT p.*, (SELECT COUNT(*) FROM Submissions s WHERE s.author = p.author) as "submissionCount" 
-            FROM Posts p 
-            ORDER BY p.id DESC 
-            LIMIT $1 OFFSET $2
-        `, [limit, offset]);
+        // Main query + total count in parallel
+        // Exclude imagePath (can be MB of base64), add hasImage flag
+        // Replace correlated subquery with LEFT JOIN aggregate
+        const [postsRes, countRes] = await Promise.all([
+            db.query(`
+                SELECT p.id, p.author, p.content, p.sentiment, p.date, p.edited_at,
+                       (p."imagePath" IS NOT NULL) AS "hasImage",
+                       COALESCE(sc.cnt, 0) AS "submissionCount"
+                FROM Posts p
+                LEFT JOIN (SELECT author, COUNT(*) AS cnt FROM Submissions GROUP BY author) sc ON sc.author = p.author
+                ORDER BY p.id DESC
+                LIMIT $1 OFFSET $2
+            `, [limit, offset]),
+            db.query("SELECT COUNT(*) FROM Posts")
+        ]);
+
         const postIds = postsRes.rows.map(p => p.id);
-
-        let comments = [];
-        let reactions = [];
-        if (postIds.length > 0) {
-            const commentsRes = await db.query(
-                `SELECT * FROM Comments WHERE postId = ANY($1) ORDER BY id ASC`, [postIds]
-            );
-            const reactionsRes = await db.query(
-                `SELECT * FROM Reactions WHERE postId = ANY($1)`, [postIds]
-            );
-            comments = normalizeRows(commentsRes.rows);
-            reactions = normalizeRows(reactionsRes.rows);
-        }
-
+        const total = parseInt(countRes.rows[0].count);
         const posts = normalizeRows(postsRes.rows);
 
-        posts.forEach(p => {
-            p.comments = comments.filter(c => c.postId === p.id);
-            p.reactions = reactions.filter(r => r.postId === p.id);
-        });
+        if (postIds.length > 0) {
+            // Parallelize comments, reactions, and admin flag queries
+            const parallelQueries = [
+                db.query(`SELECT * FROM Comments WHERE "postId" = ANY($1) ORDER BY id ASC`, [postIds]),
+                db.query(`SELECT * FROM Reactions WHERE "postId" = ANY($1)`, [postIds])
+            ];
 
-        const authHeader = req.headers['authorization'];
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            try {
-                const token = authHeader.split(' ')[1];
-                const decoded = jwt.verify(token, JWT_SECRET);
-                const userResult = await db.query("SELECT role FROM Users WHERE id = $1", [decoded.id]);
-                if (userResult.rows[0] && ['owner', 'admin', 'moderator'].includes(userResult.rows[0].role)) {
-                    const flagsRes = await db.query("SELECT post_id, COUNT(*) as flag_count FROM Flags GROUP BY post_id");
-                    const flagMap = {};
-                    flagsRes.rows.forEach(f => { flagMap[f.post_id] = parseInt(f.flag_count); });
-                    posts.forEach(p => { p.flagCount = flagMap[p.id] || 0; });
-                }
-            } catch (e) { /* not admin or invalid token, ignore */ }
+            // Check admin status and queue flag query if needed
+            let isAdmin = false;
+            const authHeader = req.headers['authorization'];
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                try {
+                    const token = authHeader.split(' ')[1];
+                    const decoded = jwt.verify(token, JWT_SECRET);
+                    const userResult = await db.query("SELECT role FROM Users WHERE id = $1", [decoded.id]);
+                    if (userResult.rows[0] && ['owner', 'admin', 'moderator'].includes(userResult.rows[0].role)) {
+                        isAdmin = true;
+                        parallelQueries.push(
+                            db.query("SELECT post_id, COUNT(*) as flag_count FROM Flags WHERE post_id = ANY($1) GROUP BY post_id", [postIds])
+                        );
+                    }
+                } catch (e) { /* not admin or invalid token, ignore */ }
+            }
+
+            const results = await Promise.all(parallelQueries);
+            const comments = normalizeRows(results[0].rows);
+            const reactions = normalizeRows(results[1].rows);
+
+            // Use Maps for O(1) grouping instead of O(n) filter per post
+            const commentMap = new Map();
+            const reactionMap = new Map();
+            comments.forEach(c => {
+                if (!commentMap.has(c.postId)) commentMap.set(c.postId, []);
+                commentMap.get(c.postId).push(c);
+            });
+            reactions.forEach(r => {
+                if (!reactionMap.has(r.postId)) reactionMap.set(r.postId, []);
+                reactionMap.get(r.postId).push(r);
+            });
+
+            posts.forEach(p => {
+                p.comments = commentMap.get(p.id) || [];
+                p.reactions = reactionMap.get(p.id) || [];
+            });
+
+            // Attach flag counts for admin users
+            if (isAdmin && results[2]) {
+                const flagMap = {};
+                results[2].rows.forEach(f => { flagMap[f.post_id] = parseInt(f.flag_count); });
+                posts.forEach(p => { p.flagCount = flagMap[p.id] || 0; });
+            }
+        } else {
+            posts.forEach(p => { p.comments = []; p.reactions = []; });
         }
 
-        res.json(posts);
+        res.json({ posts, total, limit, offset });
     } catch (err) {
         log.error('Get posts error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
+// Serve post image as raw binary (avoids sending MB of base64 in list JSON)
+router.get('/:postId/image', async (req, res) => {
+    try {
+        const result = await db.query('SELECT "imagePath" FROM Posts WHERE id = $1', [req.params.postId]);
+        if (!result.rows[0] || !result.rows[0].imagePath) {
+            return res.status(404).json({ error: 'No image found.' });
+        }
+        const dataUri = result.rows[0].imagePath;
+        const matches = dataUri.match(/^data:(.+);base64,(.+)$/);
+        if (!matches) return res.status(400).json({ error: 'Invalid image data.' });
+
+        const contentType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+
+        res.set({
+            'Content-Type': contentType,
+            'Content-Length': buffer.length,
+            'Cache-Control': 'public, max-age=86400'  // cache images for 24h
+        });
+        res.send(buffer);
+    } catch (err) {
+        log.error('Get post image error', { error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.' });
     }
 });
@@ -287,15 +346,24 @@ router.post('/:postId/flag', requireAuth, async (req, res) => {
     }
 });
 
-// Get a single post by ID
+// Get a single post by ID (also excludes imagePath, uses hasImage flag)
 router.get('/:postId', async (req, res) => {
     try {
-        const postRes = await db.query("SELECT * FROM Posts WHERE id = $1", [req.params.postId]);
+        const postRes = await db.query(`
+            SELECT p.id, p.author, p.content, p.sentiment, p.date, p.edited_at,
+                   (p."imagePath" IS NOT NULL) AS "hasImage",
+                   COALESCE(sc.cnt, 0) AS "submissionCount"
+            FROM Posts p
+            LEFT JOIN (SELECT author, COUNT(*) AS cnt FROM Submissions GROUP BY author) sc ON sc.author = p.author
+            WHERE p.id = $1
+        `, [req.params.postId]);
         if (!postRes.rows[0]) return res.status(404).json({ error: "Broadcast not found." });
 
         const post = normalizeRow(postRes.rows[0]);
-        const commentsRes = await db.query("SELECT * FROM Comments WHERE postId = $1 ORDER BY id ASC", [req.params.postId]);
-        const reactionsRes = await db.query("SELECT * FROM Reactions WHERE postId = $1", [req.params.postId]);
+        const [commentsRes, reactionsRes] = await Promise.all([
+            db.query('SELECT * FROM Comments WHERE "postId" = $1 ORDER BY id ASC', [req.params.postId]),
+            db.query('SELECT * FROM Reactions WHERE "postId" = $1', [req.params.postId])
+        ]);
 
         post.comments = normalizeRows(commentsRes.rows);
         post.reactions = normalizeRows(reactionsRes.rows);
