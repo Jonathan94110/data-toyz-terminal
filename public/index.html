@@ -5,6 +5,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Toyz | Trade Value Terminal</title>
+    <!-- Nuke stale service workers & caches FIRST (inline so no external script needed) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.unregister(); });
+            });
+            if ('caches' in window) {
+                caches.keys().then(function(keys) {
+                    keys.forEach(function(k) { caches.delete(k); });
+                });
+            }
+        }
+    </script>
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ff2a5f">
@@ -16,7 +29,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800;900&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=41">
+    <link rel="stylesheet" href="styles.css?v=42">
     <!-- Chart.js for Projections Graph -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -26,26 +39,26 @@
     <div class="ambient-orb orb-2"></div>
     <div id="app"></div>
     <!-- Core -->
-    <script src="js/globals.js?v=30"></script>
-    <script src="js/app-core.js?v=49"></script>
+    <script src="js/globals.js?v=31"></script>
+    <script src="js/app-core.js?v=50"></script>
     <!-- Views -->
-    <script src="js/views/auth.js?v=26"></script>
-    <script src="js/views/feed.js?v=30"></script>
-    <script src="js/views/search.js?v=33"></script>
-    <script src="js/views/add-target.js?v=32"></script>
-    <script src="js/views/pulse.js?v=31"></script>
-    <script src="js/views/submission.js?v=30"></script>
-    <script src="js/views/dashboard.js?v=28"></script>
-    <script src="js/views/leaderboards.js?v=29"></script>
-    <script src="js/views/figure-leaderboard.js?v=2"></script>
-    <script src="js/views/profile.js?v=31"></script>
-    <script src="js/views/docs.js?v=33"></script>
-    <script src="js/views/scorecard.js?v=2"></script>
-    <script src="js/views/admin.js?v=38"></script>
-    <script src="js/views/market-pulse.js?v=33"></script>
-    <script src="js/views/trade-advisor.js?v=2"></script>
-    <script src="js/views/user-profile.js?v=33"></script>
-    <script src="js/views/rooms.js?v=25"></script>
+    <script src="js/views/auth.js?v=27"></script>
+    <script src="js/views/feed.js?v=31"></script>
+    <script src="js/views/search.js?v=34"></script>
+    <script src="js/views/add-target.js?v=33"></script>
+    <script src="js/views/pulse.js?v=32"></script>
+    <script src="js/views/submission.js?v=31"></script>
+    <script src="js/views/dashboard.js?v=29"></script>
+    <script src="js/views/leaderboards.js?v=30"></script>
+    <script src="js/views/figure-leaderboard.js?v=3"></script>
+    <script src="js/views/profile.js?v=32"></script>
+    <script src="js/views/docs.js?v=34"></script>
+    <script src="js/views/scorecard.js?v=3"></script>
+    <script src="js/views/admin.js?v=39"></script>
+    <script src="js/views/market-pulse.js?v=34"></script>
+    <script src="js/views/trade-advisor.js?v=3"></script>
+    <script src="js/views/user-profile.js?v=34"></script>
+    <script src="js/views/rooms.js?v=26"></script>
 
     <!-- Global Ticker Tape -->
     <div id="globalTicker" class="ticker-wrap" style="display: none;">

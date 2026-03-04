@@ -5,6 +5,7 @@ const { JWT_SECRET } = require('../helpers/config');
 // --- Role hierarchy: owner > admin > moderator > analyst --- //
 const ROLE_HIERARCHY = { owner: 4, admin: 3, moderator: 2, analyst: 1 };
 function getRoleLevel(role) { return ROLE_HIERARCHY[role] || 1; }
+const AUTH_RENEW_GRACE_SECONDS = 12 * 60 * 60;
 
 // --- LRU user cache (15-second TTL) to avoid DB hit on every request --- //
 const userCache = new Map();
@@ -85,11 +86,19 @@ async function requireAuthRenew(req, res, next) {
     let decoded;
     try {
         const token = authHeader.split(' ')[1];
-        // Accept expired tokens — signature is still verified
+        // Verify signature but allow expiry check in custom grace logic below.
         decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
     } catch (jwtErr) {
         // Signature invalid or malformed token — reject
         return res.status(401).json({ error: 'Invalid token. Please log in again.' });
+    }
+
+    // Prevent indefinite session resurrection: only allow recently-expired tokens to renew.
+    if (decoded.exp) {
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (decoded.exp + AUTH_RENEW_GRACE_SECONDS < nowSec) {
+            return res.status(401).json({ error: 'Session expired. Please log in again.' });
+        }
     }
 
     try {
