@@ -288,7 +288,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
                     ${mb('Community Demand', cm.dts.community_demand, 20, '#ff2a5f')}
                     ${mb('Buzz Momentum', cm.dts.buzz, 20, '#ff2a5f')}
                     ${mb('Trade Liquidity', cm.dts.liquidity, 20, '#ff2a5f')}
-                    ${mb('Replaceability Risk', cm.dts.risk, 20, '#ff2a5f')}
+                    ${mb('Scarcity', cm.dts.risk != null ? 20 - cm.dts.risk : null, 20, '#ff2a5f')}
                     ${mb('Cross-Faction Appeal', cm.dts.appeal, 20, '#ff2a5f')}
 
                     <h4 style="margin:1.5rem 0 1rem; font-size:0.9rem; color:#10b981; text-transform:uppercase; letter-spacing:0.05em;">Physical Quality (0-10 scale)</h4>
