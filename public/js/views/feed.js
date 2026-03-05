@@ -405,16 +405,20 @@ TerminalApp.prototype._setupFeedDelegation = function (timeline, container) {
                 body: JSON.stringify({ content })
             });
             if (!res.ok) throw new Error("Reply failed.");
+            const result = await res.json();
 
             const cDate = new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
             const author = self.user.username;
             const commentHtml = `
-                <div style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
+                <div class="comment-item" data-commentid="${result.id}" data-postid="${postId}" style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
                     <div style="display:flex; justify-content:space-between; margin-bottom: 0.25rem;">
                         <span style="font-weight:700; font-size: 0.9rem; color:var(--accent);" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(author).replace(/'/g, "\\'")}')">${escapeHTML(author)}</span>
-                        <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
+                            <button class="editCommentBtn" data-commentid="${result.id}" data-postid="${postId}" style="background:none; border:none; color:var(--text-muted); font-size:0.7rem; cursor:pointer; padding:0;">✏️</button>
+                        </div>
                     </div>
-                    <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(content))}</div>
+                    <div class="comment-content" style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(content))}</div>
                 </div>
             `;
 
