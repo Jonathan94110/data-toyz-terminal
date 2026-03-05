@@ -8,14 +8,14 @@ const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
-// User search (for inviting to rooms) — MUST be before /:username routes
+// User search (for mentions and inviting to rooms) — MUST be before /:username routes
 router.get('/search', requireAuth, async (req, res) => {
     const q = req.query.q;
     if (!q || q.trim().length === 0) return res.json([]);
     try {
         const result = await db.query(
-            "SELECT id, username, avatar FROM Users WHERE LOWER(username) LIKE LOWER($1) AND username != $2 AND suspended = false LIMIT 10",
-            [`%${q.trim()}%`, req.user.username]
+            "SELECT id, username, avatar FROM Users WHERE LOWER(username) LIKE LOWER($1) AND suspended = false LIMIT 10",
+            [`%${q.trim()}%`]
         );
         res.json(result.rows);
     } catch (err) {

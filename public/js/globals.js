@@ -254,10 +254,15 @@ function setupMentionHelper(el) {
         const query = getMentionQuery();
         if (query === null) { hideDropdown(); return; }
 
-        // Show @everyone immediately even with empty query
+        // Show @everyone immediately when query is empty
         if (query.length === 0) {
             renderResults([], '');
             return;
+        }
+
+        // Immediately show @everyone if it matches while waiting for API
+        if ('everyone'.startsWith(query.toLowerCase())) {
+            renderResults([], query);
         }
 
         clearTimeout(debounceTimer);
@@ -271,9 +276,16 @@ function setupMentionHelper(el) {
                 if (resp.ok) {
                     const users = await resp.json();
                     if (getMentionQuery() !== null) renderResults(users, currentQuery);
+                } else {
+                    // API error — still show @everyone if it matches
+                    if (getMentionQuery() !== null) renderResults([], currentQuery);
                 }
-            } catch (e) { /* ignore network errors */ }
-        }, 200);
+            } catch (e) {
+                // Network error — still show @everyone if it matches
+                const fallbackQuery = getMentionQuery();
+                if (fallbackQuery !== null) renderResults([], fallbackQuery);
+            }
+        }, 150);
     }
 
     el.addEventListener('input', function() {
