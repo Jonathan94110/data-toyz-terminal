@@ -583,7 +583,16 @@ router.post('/:id/request-assessment', requireAuth, async (req, res) => {
         if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
             return res.status(400).json({ error: 'At least one recipient is required.' });
         }
-        if (recipients.length > 20) {
+        const normalizedRecipients = recipients
+            .filter(r => typeof r === 'string')
+            .map(r => r.trim())
+            .filter(Boolean);
+        const uniqueRecipients = Array.from(new Set(normalizedRecipients));
+
+        if (uniqueRecipients.length === 0) {
+            return res.status(400).json({ error: 'At least one valid recipient is required.' });
+        }
+        if (uniqueRecipients.length > 20) {
             return res.status(400).json({ error: 'Maximum 20 recipients per request.' });
         }
 
@@ -595,17 +604,16 @@ router.post('/:id/request-assessment', requireAuth, async (req, res) => {
 
         const message = `${req.user.username} requested your assessment on ${figureName}`;
         let sent = 0;
-        for (const recipient of recipients) {
-            if (typeof recipient !== 'string' || !recipient.trim()) continue;
-            await createNotification(
-                recipient.trim(),
+        for (const recipient of uniqueRecipients) {
+            const delivered = await createNotification(
+                recipient,
                 'assessment_request',
                 message,
                 'figure',
                 parseInt(figureId),
                 req.user.username
             );
-            sent++;
+            if (delivered) sent++;
         }
 
         res.json({ message: `Assessment request sent to ${sent} user${sent !== 1 ? 's' : ''}.`, sent });

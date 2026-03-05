@@ -42,16 +42,17 @@ function buildNotificationEmail(recipientName, message, type, linkType, linkId) 
 }
 
 async function createNotification(recipient, type, message, linkType, linkId, sender) {
-    if (recipient === sender) return;
+    if (recipient === sender) return false;
     try {
         // Look up recipient's user id and email for preference check
         const userResult = await db.query("SELECT id, email FROM Users WHERE username = $1", [recipient]);
-        if (!userResult.rows[0]) return;
+        if (!userResult.rows[0]) return false;
 
         const recipientUser = userResult.rows[0];
         const prefs = await getNotificationPrefs(recipientUser.id);
         const inappKey = `${type}_inapp`;
         const emailKey = `${type}_email`;
+        let delivered = false;
 
         // Check in-app preference (default true if pref not found)
         const sendInapp = !prefs || prefs[inappKey] !== false;
@@ -63,6 +64,7 @@ async function createNotification(recipient, type, message, linkType, linkId, se
                  VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [recipient, type, message, linkType, linkId, sender, new Date().toISOString()]
             );
+            delivered = true;
         }
 
         if (sendEmail && resend && recipientUser.email) {
@@ -80,13 +82,16 @@ async function createNotification(recipient, type, message, linkType, linkId, se
                         html: buildNotificationEmail(recipient, message, type, linkType, linkId)
                     });
                     emailThrottle.set(recipient, now);
+                    delivered = true;
                 } catch (emailErr) {
                     log.error('Failed to send notification email', { error: emailErr.message });
                 }
             }
         }
+        return delivered;
     } catch (e) {
         log.error('Failed to create notification', { error: e.message || e });
+        return false;
     }
 }
 
