@@ -3,13 +3,7 @@
 const API_URL = '/api';
 let MOCK_FIGURES = [];
 
-// PWA: Unregister stale service workers (SW disabled during active development)
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => r.unregister());
-    });
-    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
-}
+// Service worker cleanup already runs inline in index.html <head> (earliest possible)
 
 // PWA: Capture install prompt
 let deferredInstallPrompt = null;
