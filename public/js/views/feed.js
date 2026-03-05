@@ -161,13 +161,17 @@ TerminalApp.prototype._buildPostCard = function (p, index, sharedPostId) {
         commentsHtml = '<div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">';
         p.comments.forEach(c => {
             const cDate = new Date(c.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+            const isMyComment = this.user.username === c.author;
             commentsHtml += `
-                <div style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
+                <div class="comment-item" data-commentid="${c.id}" data-postid="${p.id}" style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
                     <div style="display:flex; justify-content:space-between; margin-bottom: 0.25rem;">
-                        <span style="font-weight:700; font-size: 0.9rem; color:${this.user.username === c.author ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(c.author).replace(/'/g, "\\'")}')">${escapeHTML(c.author)}</span>
-                        <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
+                        <span style="font-weight:700; font-size: 0.9rem; color:${isMyComment ? 'var(--accent)' : 'var(--text-primary)'};" class="user-link" onclick="event.stopPropagation(); app.viewUserProfile('${escapeHTML(c.author).replace(/'/g, "\\'")}')">${escapeHTML(c.author)}</span>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}${c.editedAt ? ' <span style="font-style:italic;">(edited)</span>' : ''}</span>
+                            ${isMyComment ? `<button class="editCommentBtn" data-commentid="${c.id}" data-postid="${p.id}" style="background:none; border:none; color:var(--text-muted); font-size:0.7rem; cursor:pointer; padding:0;">✏️</button>` : ''}
+                        </div>
                     </div>
-                    <div style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(c.content))}</div>
+                    <div class="comment-content" style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(c.content))}</div>
                 </div>
             `;
         });
@@ -542,6 +546,62 @@ TerminalApp.prototype._setupFeedDelegation = function (timeline, container) {
                 flagBtn.disabled = false;
                 flagBtn.textContent = '\ud83d\udea9 Report';
             }
+            return;
+        }
+
+        // --- EDIT COMMENT ---
+        const editCommentBtn = e.target.closest('.editCommentBtn');
+        if (editCommentBtn) {
+            e.stopPropagation();
+            const commentItem = editCommentBtn.closest('.comment-item');
+            const contentEl = commentItem.querySelector('.comment-content');
+            const currentText = contentEl.textContent;
+
+            contentEl.innerHTML = `
+                <textarea class="editCommentTextarea" style="width:100%; min-height:60px; padding:0.5rem; background:var(--bg-surface); border:1px solid var(--accent); color:var(--text-primary); border-radius:var(--radius-sm); font-family:var(--font-body); resize:vertical; font-size:0.9rem;">${escapeHTML(currentText)}</textarea>
+                <div style="display:flex; gap:0.5rem; margin-top:0.4rem;">
+                    <button class="saveCommentEditBtn btn" style="padding:0.3rem 0.75rem; font-size:0.8rem;">Save</button>
+                    <button class="cancelCommentEditBtn" style="padding:0.3rem 0.75rem; font-size:0.8rem; background:none; border:1px solid var(--border-light); color:var(--text-secondary); border-radius:var(--radius-sm); cursor:pointer;">Cancel</button>
+                </div>
+            `;
+            editCommentBtn.style.display = 'none';
+            contentEl.querySelector('.editCommentTextarea').focus();
+            return;
+        }
+
+        // --- SAVE COMMENT EDIT ---
+        const saveCommentBtn = e.target.closest('.saveCommentEditBtn');
+        if (saveCommentBtn) {
+            const commentItem = saveCommentBtn.closest('.comment-item');
+            const contentEl = commentItem.querySelector('.comment-content');
+            const newContent = contentEl.querySelector('.editCommentTextarea').value.trim();
+            if (!newContent) return;
+            const commentId = commentItem.dataset.commentid;
+            const postId = commentItem.dataset.postid;
+            try {
+                saveCommentBtn.disabled = true;
+                saveCommentBtn.innerText = '...';
+                const res = await self.authFetch(`${API_URL}/posts/${postId}/comments/${commentId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ content: newContent })
+                });
+                if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+                contentEl.innerHTML = `<span style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(newContent))}</span>`;
+                // Show edit button again and add (edited) indicator
+                const editBtn = commentItem.querySelector('.editCommentBtn');
+                if (editBtn) editBtn.style.display = '';
+                const dateSpan = commentItem.querySelector('div > div > span[style*="font-size:0.7rem"]');
+                if (dateSpan && !dateSpan.innerHTML.includes('(edited)')) {
+                    dateSpan.innerHTML += ' <span style="font-style:italic;">(edited)</span>';
+                }
+            } catch (err) { alert(err.message); }
+            return;
+        }
+
+        // --- CANCEL COMMENT EDIT ---
+        const cancelCommentBtn = e.target.closest('.cancelCommentEditBtn');
+        if (cancelCommentBtn) {
+            self.renderFeed(container);
             return;
         }
 

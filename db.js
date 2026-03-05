@@ -358,6 +358,15 @@ async function initDB() {
             await pool.query(`ALTER TABLE Submissions ADD COLUMN edited_at TEXT`);
         }
 
+        // Migration: add edited_at column to Comments for edit tracking
+        const commentEditedCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'comments' AND column_name = 'edited_at'
+        `);
+        if (commentEditedCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Comments ADD COLUMN edited_at TEXT`);
+        }
+
         // Migration: add follow, mention, flag notification preferences
         const followInappCheck = await pool.query(`
             SELECT column_name FROM information_schema.columns

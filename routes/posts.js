@@ -165,6 +165,31 @@ router.post('/:postId/comments', requireAuth, async (req, res) => {
     }
 });
 
+// Edit a threaded reply
+router.put('/:postId/comments/:commentId', requireAuth, async (req, res) => {
+    const { content } = req.body;
+    const { postId, commentId } = req.params;
+
+    if (!content || !content.trim()) return res.status(400).json({ error: "Content cannot be empty." });
+    if (content.length > 5000) return res.status(400).json({ error: "Content must be 5000 characters or fewer." });
+
+    try {
+        const comment = await db.query("SELECT author FROM Comments WHERE id = $1 AND postid = $2", [commentId, postId]);
+        if (!comment.rows[0]) return res.status(404).json({ error: "Reply not found." });
+        if (comment.rows[0].author !== req.user.username) {
+            return res.status(403).json({ error: "You can only edit your own replies." });
+        }
+
+        const now = new Date().toISOString();
+        await db.query("UPDATE Comments SET content = $1, edited_at = $2 WHERE id = $3", [content.trim(), now, commentId]);
+
+        res.json({ message: "Reply updated.", editedAt: now });
+    } catch (err) {
+        log.error('Edit comment error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Toggle a reaction on a broadcast
 router.post('/:postId/react', requireAuth, async (req, res) => {
     const author = req.user.username;
