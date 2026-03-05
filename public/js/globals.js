@@ -263,13 +263,14 @@ function setupMentionHelper(el) {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async () => {
             try {
-                const resp = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(query)}`, {
+                const currentQuery = getMentionQuery();
+                if (currentQuery === null) { hideDropdown(); return; }
+                const resp = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(currentQuery)}`, {
                     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
                 });
                 if (resp.ok) {
                     const users = await resp.json();
-                    // Re-check query is still valid (user may have moved cursor)
-                    if (getMentionQuery() !== null) renderResults(users, query);
+                    if (getMentionQuery() !== null) renderResults(users, currentQuery);
                 }
             } catch (e) { /* ignore network errors */ }
         }, 200);
