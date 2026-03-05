@@ -271,7 +271,7 @@ function setupMentionHelper(el) {
                 const currentQuery = getMentionQuery();
                 if (currentQuery === null) { hideDropdown(); return; }
                 const resp = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(currentQuery)}`, {
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('terminal_token') }
                 });
                 if (resp.ok) {
                     const users = await resp.json();
