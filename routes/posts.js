@@ -190,6 +190,27 @@ router.put('/:postId/comments/:commentId', requireAuth, async (req, res) => {
     }
 });
 
+// Delete a threaded reply
+router.delete('/:postId/comments/:commentId', requireAuth, async (req, res) => {
+    const { postId, commentId } = req.params;
+
+    try {
+        const comment = await db.query("SELECT author FROM Comments WHERE id = $1 AND postid = $2", [commentId, postId]);
+        if (!comment.rows[0]) return res.status(404).json({ error: "Reply not found." });
+
+        const isAdmin = ['owner', 'admin', 'moderator'].includes(req.user.role);
+        if (comment.rows[0].author !== req.user.username && !isAdmin) {
+            return res.status(403).json({ error: "You can only delete your own replies." });
+        }
+
+        await db.query("DELETE FROM Comments WHERE id = $1", [commentId]);
+        res.json({ message: "Reply deleted." });
+    } catch (err) {
+        log.error('Delete comment error', { error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.' });
+    }
+});
+
 // Toggle a reaction on a broadcast
 router.post('/:postId/react', requireAuth, async (req, res) => {
     const author = req.user.username;

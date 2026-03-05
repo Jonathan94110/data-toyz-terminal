@@ -162,6 +162,7 @@ TerminalApp.prototype._buildPostCard = function (p, index, sharedPostId) {
         p.comments.forEach(c => {
             const cDate = new Date(c.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
             const isMyComment = this.user.username === c.author;
+            const isAdmin = ['owner', 'admin', 'moderator'].includes(this.user.role);
             commentsHtml += `
                 <div class="comment-item" data-commentid="${c.id}" data-postid="${p.id}" style="margin-bottom: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--border-light);">
                     <div style="display:flex; justify-content:space-between; margin-bottom: 0.25rem;">
@@ -169,6 +170,7 @@ TerminalApp.prototype._buildPostCard = function (p, index, sharedPostId) {
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}${c.editedAt ? ' <span style="font-style:italic;">(edited)</span>' : ''}</span>
                             ${isMyComment ? `<button class="editCommentBtn" data-commentid="${c.id}" data-postid="${p.id}" style="background:none; border:none; color:var(--text-muted); font-size:0.7rem; cursor:pointer; padding:0;">✏️</button>` : ''}
+                            ${isMyComment || isAdmin ? `<button class="deleteCommentBtn" data-commentid="${c.id}" data-postid="${p.id}" style="background:none; border:none; color:var(--text-muted); font-size:0.7rem; cursor:pointer; padding:0;">🗑️</button>` : ''}
                         </div>
                     </div>
                     <div class="comment-content" style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(c.content))}</div>
@@ -416,6 +418,7 @@ TerminalApp.prototype._setupFeedDelegation = function (timeline, container) {
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <span style="font-size:0.7rem; color:var(--text-muted);">${cDate}</span>
                             <button class="editCommentBtn" data-commentid="${result.id}" data-postid="${postId}" style="background:none; border:none; color:var(--text-muted); font-size:0.7rem; cursor:pointer; padding:0;">✏️</button>
+                            <button class="deleteCommentBtn" data-commentid="${result.id}" data-postid="${postId}" style="background:none; border:none; color:var(--text-muted); font-size:0.7rem; cursor:pointer; padding:0;">🗑️</button>
                         </div>
                     </div>
                     <div class="comment-content" style="font-size:0.9rem; color:var(--text-secondary); white-space:pre-wrap;">${renderFigureLinks(renderMentions(content))}</div>
@@ -569,7 +572,9 @@ TerminalApp.prototype._setupFeedDelegation = function (timeline, container) {
                 </div>
             `;
             editCommentBtn.style.display = 'none';
-            contentEl.querySelector('.editCommentTextarea').focus();
+            const editTA = contentEl.querySelector('.editCommentTextarea');
+            setupFigureLinkHelper(editTA);
+            editTA.focus();
             return;
         }
 
@@ -606,6 +611,22 @@ TerminalApp.prototype._setupFeedDelegation = function (timeline, container) {
         const cancelCommentBtn = e.target.closest('.cancelCommentEditBtn');
         if (cancelCommentBtn) {
             self.renderFeed(container);
+            return;
+        }
+
+        // --- DELETE COMMENT ---
+        const deleteCommentBtn = e.target.closest('.deleteCommentBtn');
+        if (deleteCommentBtn) {
+            e.stopPropagation();
+            if (!confirm('Delete this reply? This cannot be undone.')) return;
+            const commentItem = deleteCommentBtn.closest('.comment-item');
+            const commentId = commentItem.dataset.commentid;
+            const postId = commentItem.dataset.postid;
+            try {
+                const res = await self.authFetch(`${API_URL}/posts/${postId}/comments/${commentId}`, { method: 'DELETE' });
+                if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+                commentItem.remove();
+            } catch (err) { alert(err.message); }
             return;
         }
 
