@@ -16,7 +16,7 @@ Data Toyz Terminal is a collaborative market intelligence platform built for col
 
 ### Market Intelligence
 
-- **Figure Database** — Search, catalog, and manage action figures across brands and lines with mandatory MSRP on registration
+- **Figure Database** — Search, catalog, and manage action figures across brands and lines with mandatory MSRP on registration and duplicate detection
 - **Intelligence Reports** — Submit detailed scorecards with DTS (demand, buzz, liquidity, scarcity, appeal), product quality grades, approval scores, and color-coded pricing by source
 - **Color-Coded Price Tracking** — Three distinct price lines by purchase source: Overseas (green), Stateside (amber), and Secondary Market (red) with MSRP baseline reference
 - **Price Tiers** — Side-by-side comparison of average prices across all three purchase channels with cross-tier percentage diffs
@@ -31,7 +31,7 @@ Data Toyz Terminal is a collaborative market intelligence platform built for col
 
 ### Community
 
-- **Feed** — Broadcast posts with sentiment tagging, image attachments, threaded replies, reactions, and @mentions
+- **Feed** — Broadcast posts with sentiment tagging, image attachments, threaded replies, reactions, @mentions with live autocomplete, and @everyone broadcasts
 - **Chat Rooms** — Direct messages and group channels with typing indicators, reactions, and unread tracking
 - **User Profiles** — Follow/unfollow system, submission history, title progression, and avatar customization
 - **Request Assessment** — Share figures with other users to request their scorecard submission via in-app notifications
