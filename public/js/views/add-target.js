@@ -96,31 +96,80 @@ TerminalApp.prototype.renderAddTarget = function(container) {
         } catch (e) { /* fallback: empty select */ }
     })();
 
-    // Live duplicate check on name input (uses client-side MOCK_FIGURES)
+    // Live duplicate check + autocomplete dropdown on name input
     let dupTimer = null;
+    let dupDropdown = null;
     const nameInput = document.getElementById('addTargetName');
     const dupWarning = document.getElementById('dupWarning');
     if (nameInput && dupWarning) {
+        function getDupDropdown() {
+            if (!dupDropdown) {
+                dupDropdown = document.createElement('div');
+                dupDropdown.className = 'figure-autocomplete';
+                dupDropdown.style.zIndex = '9999';
+                document.body.appendChild(dupDropdown);
+            }
+            const rect = nameInput.getBoundingClientRect();
+            dupDropdown.style.top = (rect.bottom + 4) + 'px';
+            dupDropdown.style.left = rect.left + 'px';
+            dupDropdown.style.width = rect.width + 'px';
+            return dupDropdown;
+        }
+        function hideDupDropdown() {
+            if (dupDropdown) dupDropdown.style.display = 'none';
+            dupWarning.style.display = 'none';
+        }
+
         nameInput.addEventListener('input', () => {
             clearTimeout(dupTimer);
             const q = nameInput.value.trim();
-            if (q.length < 3) { dupWarning.style.display = 'none'; return; }
+            if (q.length < 2) { hideDupDropdown(); return; }
             dupTimer = setTimeout(() => {
                 const normalize = s => s.toLowerCase().replace(/[\s\-_.]/g, '');
                 const normQ = normalize(q);
+                const qLower = q.toLowerCase();
                 const matches = (typeof MOCK_FIGURES !== 'undefined' ? MOCK_FIGURES : []).filter(f => {
                     const normName = normalize(f.name);
-                    return normName.includes(normQ) || normQ.includes(normName) || levenClose(normName, normQ);
-                }).slice(0, 5);
+                    const nameLower = f.name.toLowerCase();
+                    return normName.includes(normQ) || normQ.includes(normName) || nameLower.includes(qLower) || levenClose(normName, normQ);
+                }).slice(0, 8);
+
                 if (matches.length > 0) {
+                    const dd = getDupDropdown();
+                    dd.innerHTML = `<div style="padding:0.4rem 0.75rem; font-size:0.75rem; color:#fbbf24; font-weight:600; border-bottom:1px solid var(--border); background:rgba(251,191,36,0.08);">EXISTING FIGURES — click to view instead of creating a duplicate</div>` +
+                        matches.map(m =>
+                            `<div class="figure-ac-item" data-id="${m.id}" style="display:flex; justify-content:space-between; align-items:center;">
+                                <span class="figure-ac-name">${escapeHTML(m.name)}</span>
+                                <span class="figure-ac-brand">${escapeHTML(m.brand || '')}</span>
+                            </div>`
+                        ).join('');
+                    dd.style.display = 'block';
+
+                    dd.querySelectorAll('.figure-ac-item').forEach(item => {
+                        item.addEventListener('mousedown', function(ev) {
+                            ev.preventDefault();
+                            hideDupDropdown();
+                            app.selectTarget(parseInt(this.dataset.id));
+                        });
+                    });
+
+                    // Also show inline warning
                     dupWarning.style.display = 'block';
-                    dupWarning.innerHTML = `<strong>Similar figures already exist:</strong><br>` +
-                        matches.map(m => `&bull; <a href="#" onclick="event.preventDefault(); app.selectTarget(${m.id});" style="color:#fbbf24; text-decoration:underline;">${escapeHTML(m.name)}</a>`).join('<br>') +
-                        `<br><span style="font-size:0.8rem; color:var(--text-muted);">If your figure is already listed, search for it instead of creating a duplicate.</span>`;
+                    dupWarning.innerHTML = `<strong>&#9888; ${matches.length} similar figure${matches.length > 1 ? 's' : ''} already exist${matches.length === 1 ? 's' : ''}.</strong> Please check the dropdown above before registering.`;
                 } else {
-                    dupWarning.style.display = 'none';
+                    hideDupDropdown();
                 }
-            }, 300);
+            }, 200);
+        });
+
+        nameInput.addEventListener('blur', () => {
+            setTimeout(hideDupDropdown, 200);
+        });
+        nameInput.addEventListener('focus', () => {
+            // Re-trigger check if there's already text
+            if (nameInput.value.trim().length >= 2) {
+                nameInput.dispatchEvent(new Event('input'));
+            }
         });
     }
 };
