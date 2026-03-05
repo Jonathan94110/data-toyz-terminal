@@ -103,9 +103,12 @@ TerminalApp.prototype.renderFeed = async function (container) {
 
     // Clean up any autocomplete dropdowns from previous renders
     document.querySelectorAll('.figure-autocomplete').forEach(el => el.remove());
-    // Auto-bracket + autocomplete helper for figure linking (&[Figure Name])
+    // Auto-bracket + autocomplete helper for figure linking (*[Figure Name])
     setupFigureLinkHelper(document.getElementById('postContent'));
     document.querySelectorAll('.replyContent').forEach(el => setupFigureLinkHelper(el));
+    // @mention autocomplete for user tagging
+    setupMentionHelper(document.getElementById('postContent'));
+    document.querySelectorAll('.replyContent').forEach(el => setupMentionHelper(el));
 
     // --- EVENT DELEGATION on #timeline ---
     // Single listeners instead of per-post loops for reactions, replies, edit, delete, flag, share
@@ -315,7 +318,7 @@ TerminalApp.prototype._loadMorePosts = async function () {
 
         // Wire autocomplete on new reply inputs
         timeline.querySelectorAll('.replyContent').forEach(el => {
-            if (!el._figureLinkReady) setupFigureLinkHelper(el);
+            if (!el._figureLinkReady) { setupFigureLinkHelper(el); setupMentionHelper(el); }
         });
 
         // Update Load More button
@@ -484,6 +487,7 @@ TerminalApp.prototype._setupFeedDelegation = function (timeline, container) {
                 </div>
             `;
             setupFigureLinkHelper(contentEl.querySelector('.editTextarea'));
+            setupMentionHelper(contentEl.querySelector('.editTextarea'));
             return;
         }
 
@@ -574,6 +578,7 @@ TerminalApp.prototype._setupFeedDelegation = function (timeline, container) {
             editCommentBtn.style.display = 'none';
             const editTA = contentEl.querySelector('.editCommentTextarea');
             setupFigureLinkHelper(editTA);
+            setupMentionHelper(editTA);
             editTA.focus();
             return;
         }

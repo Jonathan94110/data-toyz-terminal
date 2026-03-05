@@ -174,6 +174,138 @@ function setupFigureLinkHelper(el) {
     });
 }
 
+// Live autocomplete for @mentions — searches users via API, always shows @everyone
+function setupMentionHelper(el) {
+    let dropdown = null;
+    let selectedIdx = -1;
+    let debounceTimer = null;
+
+    function getDropdown() {
+        if (!dropdown) {
+            dropdown = document.createElement('div');
+            dropdown.className = 'figure-autocomplete';
+            document.body.appendChild(dropdown);
+        }
+        const rect = el.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+        return dropdown;
+    }
+
+    function hideDropdown() {
+        if (dropdown) dropdown.style.display = 'none';
+        selectedIdx = -1;
+    }
+
+    function isVisible() {
+        return dropdown && dropdown.style.display === 'block';
+    }
+
+    // Detect if cursor is right after @... and return the partial query
+    function getMentionQuery() {
+        const pos = el.selectionStart;
+        const before = el.value.substring(0, pos);
+        const match = before.match(/@(\w*)$/);
+        if (!match) return null;
+        return match[1]; // partial username (can be empty string right after @)
+    }
+
+    function selectUser(username) {
+        const pos = el.selectionStart;
+        const before = el.value.substring(0, pos);
+        const match = before.match(/@(\w*)$/);
+        if (match) {
+            const start = pos - match[1].length;
+            el.value = before.substring(0, start) + username + ' ' + el.value.substring(pos);
+            el.selectionStart = el.selectionEnd = start + username.length + 1;
+        }
+        hideDropdown();
+        el.focus();
+    }
+
+    function renderResults(users, query) {
+        selectedIdx = -1;
+        const dd = getDropdown();
+        // Always include @everyone if it matches
+        let items = [];
+        if ('everyone'.startsWith(query.toLowerCase())) {
+            items.push({ username: 'everyone', label: '@everyone — notify all users' });
+        }
+        users.forEach(u => items.push({ username: u.username, label: u.username }));
+        if (items.length === 0) { hideDropdown(); return; }
+
+        dd.innerHTML = items.map(u =>
+            `<div class="figure-ac-item" data-name="${escapeHTML(u.username)}">
+                <span class="figure-ac-name" style="${u.username === 'everyone' ? 'color:#ff8e3c; font-weight:700;' : ''}">${escapeHTML(u.label)}</span>
+            </div>`
+        ).join('');
+        dd.style.display = 'block';
+
+        dd.querySelectorAll('.figure-ac-item').forEach(item => {
+            item.addEventListener('mousedown', function(ev) {
+                ev.preventDefault();
+                selectUser(this.dataset.name);
+            });
+        });
+    }
+
+    async function showMatches() {
+        const query = getMentionQuery();
+        if (query === null) { hideDropdown(); return; }
+
+        // Show @everyone immediately even with empty query
+        if (query.length === 0) {
+            renderResults([], '');
+            return;
+        }
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+            try {
+                const resp = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                });
+                if (resp.ok) {
+                    const users = await resp.json();
+                    // Re-check query is still valid (user may have moved cursor)
+                    if (getMentionQuery() !== null) renderResults(users, query);
+                }
+            } catch (e) { /* ignore network errors */ }
+        }, 200);
+    }
+
+    el.addEventListener('input', function() {
+        showMatches();
+    });
+
+    el.addEventListener('keydown', function(e) {
+        if (!isVisible()) return;
+        const items = dropdown.querySelectorAll('.figure-ac-item');
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIdx = Math.min(selectedIdx + 1, items.length - 1);
+            items.forEach((it, i) => it.classList.toggle('active', i === selectedIdx));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIdx = Math.max(selectedIdx - 1, 0);
+            items.forEach((it, i) => it.classList.toggle('active', i === selectedIdx));
+        } else if ((e.key === 'Enter' || e.key === 'Tab') && selectedIdx >= 0) {
+            e.preventDefault();
+            selectUser(items[selectedIdx].dataset.name);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            hideDropdown();
+        }
+    });
+
+    el.addEventListener('blur', function() {
+        setTimeout(hideDropdown, 150);
+    });
+}
+
 // S-6: XSS Prevention — escape HTML entities in user-generated content
 function escapeHTML(str) {
     if (!str) return '';
