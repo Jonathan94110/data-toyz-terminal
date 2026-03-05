@@ -103,7 +103,7 @@ TerminalApp.prototype.renderFeed = async function (container) {
 
     // Clean up any autocomplete dropdowns from previous renders
     document.querySelectorAll('.figure-autocomplete').forEach(el => el.remove());
-    // Auto-bracket + autocomplete helper for figure linking (@[Figure Name])
+    // Auto-bracket + autocomplete helper for figure linking (&[Figure Name])
     setupFigureLinkHelper(document.getElementById('postContent'));
     document.querySelectorAll('.replyContent').forEach(el => setupFigureLinkHelper(el));
 

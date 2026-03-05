@@ -22,11 +22,13 @@ function renderMentions(text) {
     });
 }
 
-// Render @[Figure Name] as clickable figure links (runs AFTER escapeHTML + renderMentions)
+// Render &[Figure Name] as clickable figure links (runs AFTER escapeHTML + renderMentions)
+// Also supports legacy @[Figure Name] syntax for backward compatibility
 // Also auto-links bare figure names that exist in the catalog (longest match first)
 function renderFigureLinks(html) {
-    // Step 1: Handle explicit @[Figure Name] syntax
-    html = html.replace(/@\[([^\]]+)\]/g, (match, rawName) => {
+    // Step 1: Handle explicit &[Figure Name] (new) and @[Figure Name] (legacy) syntax
+    // After escapeHTML, & becomes &amp; so we match &amp;[...] as well as @[...]
+    html = html.replace(/(?:&amp;|@)\[([^\]]+)\]/g, (match, rawName) => {
         const name = rawName.trim();
         const figure = MOCK_FIGURES.find(f => f.name.toLowerCase() === name.toLowerCase());
         if (figure) {
@@ -53,7 +55,7 @@ function renderFigureLinks(html) {
     return html;
 }
 
-// Auto-insert brackets + live autocomplete when typing @[...] for figure linking
+// Auto-insert brackets + live autocomplete when typing &[...] for figure linking
 function setupFigureLinkHelper(el) {
     let dropdown = null;
     let selectedIdx = -1;
@@ -80,11 +82,11 @@ function setupFigureLinkHelper(el) {
         return dropdown && dropdown.style.display === 'block';
     }
 
-    // Detect if cursor is inside @[...] brackets and return the partial query
+    // Detect if cursor is inside &[...] brackets and return the partial query
     function getBracketQuery() {
         const pos = el.selectionStart;
         const before = el.value.substring(0, pos);
-        const openIdx = before.lastIndexOf('@[');
+        const openIdx = before.lastIndexOf('&[');
         if (openIdx === -1) return null;
         const partial = before.substring(openIdx + 2);
         if (partial.includes(']')) return null;
@@ -95,7 +97,7 @@ function setupFigureLinkHelper(el) {
         const val = el.value;
         const pos = el.selectionStart;
         const before = val.substring(0, pos);
-        const openIdx = before.lastIndexOf('@[');
+        const openIdx = before.lastIndexOf('&[');
         const closeIdx = val.indexOf(']', pos);
         if (openIdx !== -1 && closeIdx !== -1) {
             el.value = val.substring(0, openIdx + 2) + name + val.substring(closeIdx);
@@ -131,8 +133,8 @@ function setupFigureLinkHelper(el) {
     }
 
     el.addEventListener('input', function(e) {
-        // Auto-insert brackets on @
-        if (e.data === '@') {
+        // Auto-insert brackets on &
+        if (e.data === '&') {
             const pos = this.selectionStart;
             const val = this.value;
             if (val[pos] !== '[') {
