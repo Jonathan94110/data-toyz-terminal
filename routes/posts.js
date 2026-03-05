@@ -147,7 +147,13 @@ router.post('/:postId/comments', requireAuth, async (req, res) => {
         const mentions = content.match(/@(\w+)/g);
         if (mentions) {
             const uniqueMentions = [...new Set(mentions.map(m => m.slice(1)))].filter(m => m !== author);
-            if (uniqueMentions.length > 0) {
+
+            if (uniqueMentions.includes('everyone')) {
+                const allUsers = await db.query("SELECT username FROM Users WHERE username != $1", [author]);
+                for (const u of allUsers.rows) {
+                    await createNotification(u.username, 'mention', `${author} mentioned @everyone in a reply`, 'post', parseInt(postId), author);
+                }
+            } else if (uniqueMentions.length > 0) {
                 const validUsers = await db.query("SELECT username FROM Users WHERE username = ANY($1::text[])", [uniqueMentions]);
                 const validSet = new Set(validUsers.rows.map(r => r.username));
                 for (const mentioned of uniqueMentions) {
@@ -269,7 +275,14 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
         const mentions = content.match(/@(\w+)/g);
         if (mentions) {
             const uniqueMentions = [...new Set(mentions.map(m => m.slice(1)))].filter(m => m !== author);
-            if (uniqueMentions.length > 0) {
+
+            // @everyone: notify all users except the author
+            if (uniqueMentions.includes('everyone')) {
+                const allUsers = await db.query("SELECT username FROM Users WHERE username != $1", [author]);
+                for (const u of allUsers.rows) {
+                    await createNotification(u.username, 'mention', `${author} mentioned @everyone in a broadcast`, 'post', result.rows[0].id, author);
+                }
+            } else if (uniqueMentions.length > 0) {
                 const validUsers = await db.query("SELECT username FROM Users WHERE username = ANY($1::text[])", [uniqueMentions]);
                 const validSet = new Set(validUsers.rows.map(r => r.username));
                 for (const mentioned of uniqueMentions) {

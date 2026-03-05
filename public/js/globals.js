@@ -18,6 +18,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
 // Render @mentions as clickable links (runs AFTER escapeHTML for XSS safety)
 function renderMentions(text) {
     return escapeHTML(text).replace(/@(\w+)/g, (match, username) => {
+        if (username === 'everyone') {
+            return `<span class="mention-link" style="color:#ff8e3c; cursor:default; font-weight:700;">@everyone</span>`;
+        }
         return `<span class="mention-link user-link" onclick="event.stopPropagation(); app.viewUserProfile('${username}')" style="color:var(--accent); cursor:pointer; font-weight:600;">@${username}</span>`;
     });
 }
