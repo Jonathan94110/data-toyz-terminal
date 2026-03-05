@@ -293,7 +293,7 @@ TerminalApp.prototype.renderSubmission = function(container) {
                 <!-- SECTION 2: 4-AXIS FORECASTING -->
                 <div class="card form-section">
                     <div class="section-header">
-                        <h3>2. Shelf Presence Longevity</h3>
+                        <h3>2. Shelf Presence &amp; Longevity</h3>
                         <p>How long will this figure hold its value and relevance?</p>
                         <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">
                             <strong>Bullish</strong> = price likely to rise &nbsp;|&nbsp; <strong>Neutral</strong> = stable/minimal movement &nbsp;|&nbsp; <strong>Bearish</strong> = price likely to decline
