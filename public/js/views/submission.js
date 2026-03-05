@@ -293,8 +293,8 @@ TerminalApp.prototype.renderSubmission = function(container) {
                 <!-- SECTION 2: 4-AXIS FORECASTING -->
                 <div class="card form-section">
                     <div class="section-header">
-                        <h3>2. Risk Forecasting</h3>
-                        <p>Assign risk bias and timeframe.</p>
+                        <h3>2. Shelf Presence Longevity</h3>
+                        <p>How long will this figure hold its value and relevance?</p>
                         <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.5;">
                             <strong>Bullish</strong> = price likely to rise &nbsp;|&nbsp; <strong>Neutral</strong> = stable/minimal movement &nbsp;|&nbsp; <strong>Bearish</strong> = price likely to decline
                         </p>
@@ -611,7 +611,8 @@ TerminalApp.prototype.submitIntel = async function(form) {
     delete data.pt_secondary;
 
     // Calculate scores
-    const mtsTotal = parseFloat(data.mts_community) + parseFloat(data.mts_buzz) + parseFloat(data.mts_liquidity) + parseFloat(data.mts_risk) + parseFloat(data.mts_appeal);
+    // Replaceability Risk is inverted: low risk = high scarcity value (20 - risk)
+    const mtsTotal = parseFloat(data.mts_community) + parseFloat(data.mts_buzz) + parseFloat(data.mts_liquidity) + (20 - parseFloat(data.mts_risk)) + parseFloat(data.mts_appeal);
 
     const pqSum = parseFloat(data.pq_build) + parseFloat(data.pq_paint) + parseFloat(data.pq_articulation) + parseFloat(data.pq_accuracy) + parseFloat(data.pq_presence) + parseFloat(data.pq_value) + parseFloat(data.pq_packaging) + parseFloat(data.trans_frustration) + parseFloat(data.trans_satisfaction);
     // Approval rating out of 100 based on the 9 physical categories out of 10
