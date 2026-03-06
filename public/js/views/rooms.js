@@ -391,7 +391,7 @@ TerminalApp.prototype._renderMessage = function(m, self) {
                 ${!isOwn ? `<div class="msg-author">${escapeHTML(m.author)}</div>` : ''}
                 <div class="msg-bubble">
                     ${m.content ? `<div class="msg-content">${escapeHTML(m.content)}</div>` : ''}
-                    ${m.image ? `<img src="${m.image}" class="msg-image" alt="attachment">` : ''}
+                    ${m.hasImage ? `<img src="${API_URL}/rooms/${m.roomId}/messages/${m.id}/image" class="msg-image" loading="lazy" alt="attachment">` : ''}
                 </div>
                 <div class="msg-reactions">
                     ${emojis.map(e => {

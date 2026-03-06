@@ -284,7 +284,7 @@ router.get('/:roomId/messages', requireAuth, requireRoomMember, async (req, res)
             roomId: m.room_id,
             author: m.author,
             content: m.content,
-            image: m.image,
+            hasImage: !!m.image,
             createdAt: m.created_at,
             reactions: reactions.filter(r => r.message_id === m.id).map(r => ({ author: r.author, emoji: r.emoji }))
         }));
@@ -329,10 +329,32 @@ router.post('/:roomId/messages', requireAuth, requireRoomMember, messageLimiter,
 
         res.status(201).json({
             id: result.rows[0].id, roomId: parseInt(req.params.roomId), author: req.user.username,
-            content: content || null, image, createdAt: now, reactions: []
+            content: content || null, hasImage: !!image, createdAt: now, reactions: []
         });
     } catch (err) {
         log.error('Send message error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
+// Serve message image (separate endpoint to avoid base64 in JSON payloads)
+router.get('/:roomId/messages/:messageId/image', requireAuth, requireRoomMember, async (req, res) => {
+    try {
+        const result = await db.query('SELECT image FROM Messages WHERE id = $1 AND room_id = $2', [req.params.messageId, req.params.roomId]);
+        if (!result.rows[0] || !result.rows[0].image) {
+            return res.status(404).json({ error: 'No image found.' });
+        }
+        const dataUri = result.rows[0].image;
+        const matches = dataUri.match(/^data:(.+);base64,(.+)$/);
+        if (matches) {
+            const buffer = Buffer.from(matches[2], 'base64');
+            res.set('Content-Type', matches[1]);
+            res.set('Cache-Control', 'private, max-age=86400');
+            return res.send(buffer);
+        }
+        res.status(404).json({ error: 'Invalid image data.' });
+    } catch (err) {
+        log.error('Get message image error', { refId: req.requestId, error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
@@ -402,7 +424,7 @@ router.get('/:roomId/poll', requireAuth, requireRoomMember, async (req, res) => 
 
         const formattedMessages = messages.rows.map(m => ({
             id: m.id, roomId: m.room_id, author: m.author, content: m.content,
-            image: m.image, createdAt: m.created_at,
+            hasImage: !!m.image, createdAt: m.created_at,
             reactions: reactions.filter(r => r.message_id === m.id).map(r => ({ author: r.author, emoji: r.emoji }))
         }));
 

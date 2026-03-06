@@ -574,6 +574,8 @@ TerminalApp.prototype.renderPulse = async function(container) {
 
             const ctx = document.getElementById('projectionsChart');
             if (ctx) {
+                // Destroy previous chart instance if it exists
+                if (ctx._chartInstance) { try { ctx._chartInstance.destroy(); } catch(e) {} }
                 const pulseChart = new Chart(ctx.getContext('2d'), {
                     type: 'line',
                     data: { labels, datasets: chartDatasets },
@@ -613,6 +615,10 @@ TerminalApp.prototype.renderPulse = async function(container) {
                         }
                     });
                 });
+                // Store reference for cleanup on view change
+                ctx._chartInstance = pulseChart;
+                if (!this._activeCharts) this._activeCharts = [];
+                this._activeCharts.push(pulseChart);
             }
 
             let galleryHtml = '';

@@ -610,23 +610,36 @@ class TerminalApp {
             clearInterval(this._chatPollInterval);
             this._chatPollInterval = null;
         }
+        // Clean up orphaned autocomplete dropdowns on every view change
+        document.querySelectorAll('.figure-autocomplete').forEach(function(el) { el.remove(); });
+        // Destroy any active Chart.js instances to free canvas memory
+        if (this._activeCharts) {
+            this._activeCharts.forEach(function(c) { try { c.destroy(); } catch(e) {} });
+            this._activeCharts = null;
+        }
 
-        if (this.currentView === 'feed') this.renderFeed(contentArea);
-        else if (this.currentView === 'rooms') this.renderRoomsList(contentArea);
-        else if (this.currentView === 'room_chat') this.renderRoomChat(contentArea);
-        else if (this.currentView === 'market_pulse') this.renderMarketPulse(contentArea);
-        else if (this.currentView === 'search') this.renderSearch(contentArea);
-        else if (this.currentView === 'dashboard') this.renderDashboard(contentArea);
-        else if (this.currentView === 'figure_leaderboard') this.renderFigureLeaderboard(contentArea);
-        else if (this.currentView === 'leaderboards') this.renderLeaderboards(contentArea);
-        else if (this.currentView === 'pulse') this.renderPulse(contentArea);
-        else if (this.currentView === 'submission') this.renderSubmission(contentArea);
-        else if (this.currentView === 'add_target') this.renderAddTarget(contentArea);
-        else if (this.currentView === 'profile') this.renderProfile(contentArea);
-        else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
-        else if (this.currentView === 'scorecard') this.renderScorecard(contentArea);
-        else if (this.currentView === 'docs') this.renderDocs(contentArea);
-        else if (this.currentView === 'admin' && ['owner', 'admin', 'moderator'].includes(this.user.role)) this.renderAdmin(contentArea);
+        // Wrap view rendering in try/catch so a single bad render doesn't crash the app
+        try {
+            if (this.currentView === 'feed') this.renderFeed(contentArea);
+            else if (this.currentView === 'rooms') this.renderRoomsList(contentArea);
+            else if (this.currentView === 'room_chat') this.renderRoomChat(contentArea);
+            else if (this.currentView === 'market_pulse') this.renderMarketPulse(contentArea);
+            else if (this.currentView === 'search') this.renderSearch(contentArea);
+            else if (this.currentView === 'dashboard') this.renderDashboard(contentArea);
+            else if (this.currentView === 'figure_leaderboard') this.renderFigureLeaderboard(contentArea);
+            else if (this.currentView === 'leaderboards') this.renderLeaderboards(contentArea);
+            else if (this.currentView === 'pulse') this.renderPulse(contentArea);
+            else if (this.currentView === 'submission') this.renderSubmission(contentArea);
+            else if (this.currentView === 'add_target') this.renderAddTarget(contentArea);
+            else if (this.currentView === 'profile') this.renderProfile(contentArea);
+            else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
+            else if (this.currentView === 'scorecard') this.renderScorecard(contentArea);
+            else if (this.currentView === 'docs') this.renderDocs(contentArea);
+            else if (this.currentView === 'admin' && ['owner', 'admin', 'moderator'].includes(this.user.role)) this.renderAdmin(contentArea);
+        } catch (err) {
+            console.error('View render crashed:', this.currentView, err);
+            if (contentArea) contentArea.innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Something went wrong loading this view. <button class="btn" style="margin-top:1rem;" onclick="app.currentView=\'search\'; app.renderCurrentView();">Go Home</button></div>';
+        }
     }
 }
 
