@@ -45,6 +45,7 @@ class TerminalApp {
         this.editingSubmission = null;
         this._isPopState = false;
         this._historyReady = false;
+        this._isTabHidden = false;
 
         // Browser back/forward button support
         window.addEventListener('popstate', (e) => {
@@ -585,13 +586,17 @@ class TerminalApp {
 
         // Poll notifications
         if (this._notifInterval) clearInterval(this._notifInterval);
-        this._notifInterval = setInterval(() => this.updateNotifBadge(), 30000);
+        var self = this;
+        this._notifInterval = setInterval(function() { if (!self._isTabHidden) self.updateNotifBadge(); }, 30000);
         this.updateNotifBadge();
 
         // Poll rooms unread badge
         if (this._roomsPollInterval) clearInterval(this._roomsPollInterval);
-        this._roomsPollInterval = setInterval(() => this.updateRoomsBadge(), 15000);
+        this._roomsPollInterval = setInterval(function() { if (!self._isTabHidden) self.updateRoomsBadge(); }, 15000);
         this.updateRoomsBadge();
+
+        // Visibility detection for smart polling
+        this._setupVisibilityDetection();
 
         this.renderCurrentView();
     }
@@ -626,6 +631,17 @@ class TerminalApp {
 }
 
 // --- Navigation & utility methods (prototype extensions) --- //
+
+TerminalApp.prototype._setupVisibilityDetection = function() {
+    var self = this;
+    document.addEventListener('visibilitychange', function() {
+        self._isTabHidden = document.hidden;
+        if (!document.hidden) {
+            self.updateNotifBadge();
+            self.updateRoomsBadge();
+        }
+    });
+};
 
 TerminalApp.prototype.logout = function () {
     // Revoke token server-side (best-effort, don't block on failure)

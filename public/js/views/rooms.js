@@ -345,7 +345,10 @@ TerminalApp.prototype.renderRoomChat = async function(container) {
 
         // Start polling for new messages
         if (this._chatPollInterval) clearInterval(this._chatPollInterval);
-        this._chatPollInterval = setInterval(() => this._pollRoomMessages(roomId, self), 3000);
+        var app = this;
+        this._chatPollInterval = setInterval(function() {
+            if (!app._isTabHidden) app._pollRoomMessages(roomId, self);
+        }, 5000);
 
         // Reaction click delegation
         chatMessages.addEventListener('click', async (e) => {

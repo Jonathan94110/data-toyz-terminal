@@ -10,6 +10,7 @@ const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
+const { invalidateCache } = require('../middleware/cache');
 
 // Get submissions for a specific figure (public, with optional auth for cost_basis privacy)
 router.get('/target/:targetId', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
@@ -165,6 +166,9 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
             await createNotification(row.author, 'co_reviewer', `${req.user.username} also reviewed ${req.body.targetName}`, 'figure', parseInt(req.body.targetId), req.user.username);
         }
 
+        invalidateCache('/api/stats');
+        invalidateCache('/api/figures');
+        invalidateCache('/api/submissions');
         res.status(201).json({ id: submissionId, message: "Intelligence report successfully committed." });
     } catch (err) {
         log.error('Submit intelligence error', { refId: req.requestId, error: err.message || err });
@@ -181,6 +185,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
             return res.status(403).json({ error: 'You can only retract your own intelligence.' });
         }
         await db.query("DELETE FROM Submissions WHERE id = $1", [req.params.id]);
+        invalidateCache('/api/stats');
+        invalidateCache('/api/figures');
+        invalidateCache('/api/submissions');
         res.json({ message: "Intelligence retracted" });
     } catch (err) {
         log.error('Delete submission error', { refId: req.requestId, error: err.message || err });
@@ -263,6 +270,9 @@ router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
 
         await auditLog('SUBMISSION_EDIT', req.user.username, `submission_id:${req.params.id}`, 'User edited their intelligence report', req.ip);
 
+        invalidateCache('/api/stats');
+        invalidateCache('/api/figures');
+        invalidateCache('/api/submissions');
         res.json({ message: "Intelligence report updated.", editedAt: now });
     } catch (err) {
         log.error('Edit submission error', { refId: req.requestId, error: err.message || err });

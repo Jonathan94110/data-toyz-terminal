@@ -6,6 +6,7 @@ const { normalizeRows } = require('../helpers/normalize');
 const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
 const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
+const { cacheResponse, invalidateCache } = require('../middleware/cache');
 
 // Shared helpers for market data endpoints
 function getDateRanges() {
@@ -49,7 +50,7 @@ function buildPriceMaps(priceRows, changeRows) {
 }
 
 // Get all figures
-router.get('/', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
+router.get('/', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(30000), async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM Figures ORDER BY name ASC");
         res.json(normalizeRows(result.rows));
@@ -141,6 +142,8 @@ router.post('/', requireAuth, async (req, res) => {
             );
         } catch (notifErr) { log.error('New figure notification error', { error: notifErr.message || notifErr }); }
 
+        invalidateCache('/api/figures');
+        invalidateCache('/api/stats');
         res.status(201).json({ id: result.rows[0].id, message: "Target added successfully." });
     } catch (err) {
         log.error('Create figure error', { refId: req.requestId, error: err.message || err });
@@ -201,6 +204,8 @@ router.put('/name/:id', requireAuth, async (req, res) => {
         await db.query("UPDATE Figures SET name = $1 WHERE id = $2", [name.trim(), req.params.id]);
         // Cascade: keep Submissions.targetName in sync so intel logs reflect the fix
         await db.query("UPDATE Submissions SET targetName = $1 WHERE targetId = $2", [name.trim(), req.params.id]);
+        invalidateCache('/api/figures');
+        invalidateCache('/api/stats');
         res.json({ message: 'Figure name updated.', name: name.trim() });
     } catch (err) {
         log.error('Edit figure name error', { refId: req.requestId, error: err.message || err });
@@ -266,7 +271,7 @@ router.get('/ranked', async (req, res) => {
 });
 
 // Market-ranked figures — MUST be before /:id
-router.get('/market-ranked', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
+router.get('/market-ranked', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(30000), async (req, res) => {
     try {
         const sort = ['price', 'grade', 'approval', 'change', 'submissions'].includes(req.query.sort) ? req.query.sort : 'price';
         const order = req.query.order === 'asc' ? 'asc' : 'desc';
@@ -327,7 +332,7 @@ router.get('/market-ranked', blockBadBots, dataEndpointLimiter, trackDataRequest
 });
 
 // Public figure leaderboard with filtering, sorting, and admin overrides
-router.get('/leaderboard', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
+router.get('/leaderboard', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(30000), async (req, res) => {
     try {
         const mode = ['top_rated', 'rising', 'most_reviewed', 'sleepers'].includes(req.query.mode) ? req.query.mode : 'top_rated';
         const brand = req.query.brand || null;
@@ -653,6 +658,7 @@ router.post('/:id/comments', requireAuth, async (req, res) => {
             `INSERT INTO FigureComments (figure_id, author, content, created_at) VALUES ($1, $2, $3, $4) RETURNING *`,
             [id, req.user.username, content.trim(), new Date().toISOString()]
         );
+        invalidateCache('/api/figures/' + req.params.id);
         res.status(201).json(result.rows[0]);
     } catch (err) {
         log.error('Failed to post figure comment', { refId: req.requestId, error: err.message });
@@ -661,7 +667,7 @@ router.post('/:id/comments', requireAuth, async (req, res) => {
 });
 
 // Market intelligence
-router.get('/:id/market-intel', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
+router.get('/:id/market-intel', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(15000), async (req, res) => {
     try {
         const figureId = req.params.id;
 
@@ -764,6 +770,8 @@ router.post('/:id/market-transactions', requireAuth, async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
             [figureId, high, avg, low, txPriceType, txSource, req.user.username, txDate]
         );
+        invalidateCache('/api/figures');
+        invalidateCache('/api/stats');
         res.status(201).json({ id: result.rows[0].id, message: 'Market transaction recorded.' });
     } catch (err) {
         log.error('Market transaction error', { refId: req.requestId, error: err.message || err });
@@ -803,7 +811,7 @@ router.get('/:id/market-intel/user-cost', requireAuth, async (req, res) => {
 });
 
 // Community metrics
-router.get('/:id/community-metrics', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
+router.get('/:id/community-metrics', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(15000), async (req, res) => {
     try {
         const figureId = req.params.id;
         const result = await db.query(

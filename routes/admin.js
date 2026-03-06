@@ -8,6 +8,7 @@ const { validatePassword } = require('../helpers/validation');
 const { normalizeRows } = require('../helpers/normalize');
 const { auditLog } = require('../helpers/audit');
 const { requireAuth, requireAdmin, requireRole, invalidateUserCache, getRoleLevel } = require('../middleware/auth');
+const { invalidateCache, invalidateAll } = require('../middleware/cache');
 
 // Reset user password
 router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
@@ -163,6 +164,8 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
             throw txErr;
         }
 
+        invalidateAll();
+
         await auditLog('ADMIN_DELETE_USER', req.user.username, username, 'User and all associated data purged', req.ip);
 
         res.json({ message: "User purged from the system." });
@@ -212,6 +215,8 @@ router.post('/figures/merge', requireAuth, requireAdmin, async (req, res) => {
 
         await client.query("COMMIT");
 
+        invalidateAll();
+
         log.info('Figures merged', { sourceId, targetId, sourceName: source.rows[0].name, targetName: target.rows[0].name });
         res.json({
             message: `Merged "${source.rows[0].name}" into "${target.rows[0].name}". ${subResult.rowCount} submissions, ${mtResult.rowCount} market transactions, ${fcResult.rowCount} comments moved.`
@@ -238,6 +243,7 @@ router.delete('/figures/:id', requireAuth, requireAdmin, async (req, res) => {
         await client.query("DELETE FROM Submissions WHERE targetId = $1", [req.params.id]);
         await client.query("DELETE FROM Figures WHERE id = $1", [req.params.id]);
         await client.query("COMMIT");
+        invalidateAll();
         res.json({ message: "Target and all associated intel purged." });
     } catch (err) {
         if (client) {
@@ -262,6 +268,8 @@ router.put('/figures/:id', requireAuth, requireAdmin, async (req, res) => {
 
         await db.query("UPDATE Figures SET name = $1, brand = $2, classTie = $3, line = $4, msrp = $5 WHERE id = $6",
             [name, brand, classTie, line, msrp !== undefined && msrp !== '' ? parseFloat(msrp) : null, req.params.id]);
+        invalidateCache('/api/figures');
+        invalidateCache('/api/stats');
         res.json({ message: "Target updated successfully." });
     } catch (err) {
         log.error('Admin edit figure error', { refId: req.requestId, error: err.message || err });
@@ -371,6 +379,9 @@ router.put('/brands/:id', requireAuth, requireAdmin, async (req, res) => {
         const figResult = await client.query("UPDATE Figures SET brand = $1 WHERE brand = $2", [newName, oldName]);
         await client.query("COMMIT");
 
+        invalidateCache('/api/figures');
+        invalidateCache('/api/stats');
+
         log.info('Brand renamed', { oldName, newName, figuresUpdated: figResult.rowCount });
         res.json({ message: `Brand renamed from "${oldName}" to "${newName}". ${figResult.rowCount} figure(s) updated.` });
     } catch (err) {
@@ -455,6 +466,7 @@ router.delete('/users/:username/submissions', requireAuth, requireAdmin, async (
         if (username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot wipe admin submissions." });
 
         const result = await db.query("DELETE FROM Submissions WHERE author = $1", [username]);
+        invalidateAll();
         await auditLog('ADMIN_WIPE_SUBMISSIONS', req.user.username, username, `Wiped ${result.rowCount} submissions`, req.ip);
 
         res.json({ message: `Removed ${result.rowCount} submissions for ${username}.`, count: result.rowCount });
@@ -504,6 +516,8 @@ router.put('/figures/:id/leaderboard', requireAuth, requireAdmin, async (req, re
             [!!lb_pinned, !!lb_hidden, rankVal, catVal, req.params.id]
         );
 
+        invalidateCache('/api/figures');
+
         await auditLog('ADMIN_LB_UPDATE', req.user.username, fig.rows[0].name,
             `Leaderboard: pinned=${!!lb_pinned}, hidden=${!!lb_hidden}, rank=${rankVal}, category=${catVal}`, req.ip);
 
@@ -522,6 +536,7 @@ router.put('/figures/:id/visibility', requireAuth, requireRole('moderator'), asy
         if (!fig.rows[0]) return res.status(404).json({ error: 'Figure not found.' });
 
         await db.query("UPDATE Figures SET lb_hidden = $1 WHERE id = $2", [!!hidden, req.params.id]);
+        invalidateCache('/api/figures');
 
         await auditLog('MOD_LB_VISIBILITY', req.user.username, fig.rows[0].name,
             `Leaderboard visibility: ${hidden ? 'hidden' : 'visible'}`, req.ip);
