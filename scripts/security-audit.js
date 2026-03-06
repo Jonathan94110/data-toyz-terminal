@@ -19,10 +19,12 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
 const MIDDLEWARE_DIR = path.join(ROOT, 'middleware');
 
 let passed = 0, warned = 0, failed = 0;
+const failures = [];
+const warnings = [];
 
 function pass(msg) { console.log(`  \x1b[32m✓\x1b[0m ${msg}`); passed++; }
-function warn(msg, detail) { console.log(`  \x1b[33m⚠\x1b[0m ${msg}${detail ? ' — ' + detail : ''}`); warned++; }
-function fail(msg, detail) { console.log(`  \x1b[31m✗\x1b[0m ${msg}${detail ? ' — ' + detail : ''}`); failed++; }
+function warn(msg, detail) { console.log(`  \x1b[33m⚠\x1b[0m ${msg}${detail ? ' — ' + detail : ''}`); warned++; warnings.push(detail ? `${msg} — ${detail}` : msg); }
+function fail(msg, detail) { console.log(`  \x1b[31m✗\x1b[0m ${msg}${detail ? ' — ' + detail : ''}`); failed++; failures.push(detail ? `${msg} — ${detail}` : msg); }
 
 function readFile(filePath) {
     try { return fs.readFileSync(filePath, 'utf8'); } catch { return null; }
@@ -468,6 +470,18 @@ checkDependencies();
 // Summary
 console.log('\n\x1b[36m━━━ SUMMARY ━━━\x1b[0m\n');
 console.log(`  \x1b[32m${passed} passed\x1b[0m  \x1b[33m${warned} warnings\x1b[0m  \x1b[31m${failed} failed\x1b[0m\n`);
+
+// Write machine-readable report for the alert email script
+const report = {
+    timestamp: new Date().toISOString(),
+    passed,
+    warnings: warned,
+    failed,
+    failureDetails: failures,
+    warningDetails: warnings
+};
+const reportPath = path.join(ROOT, 'security-report.json');
+fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
 if (failed > 0) {
     console.log('  \x1b[31mAction required: Fix failed checks before deploying.\x1b[0m\n');

@@ -21,4 +21,23 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npm run security-check
+
+      # Run the audit — continue even if it fails so the alert step can fire
+      - name: Run security audit
+        id: audit
+        continue-on-error: true
+        run: npm run security-check
+
+      # Send red-flag email if audit found failures or warnings
+      - name: Send alert email if threats detected
+        if: always()
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SECURITY_ALERT_EMAIL: ${{ secrets.SECURITY_ALERT_EMAIL }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+        run: npm run security-alert
+
+      # Fail the workflow if the audit failed (after email is sent)
+      - name: Fail if audit detected issues
+        if: steps.audit.outcome == 'failure'
+        run: exit 1
