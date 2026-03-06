@@ -9,7 +9,7 @@ const { getNotificationPrefs } = require('../helpers/notifications');
 router.get('/preferences', requireAuth, async (req, res) => {
     try {
         const prefs = await getNotificationPrefs(req.user.id);
-        if (!prefs) return res.status(500).json({ error: 'Failed to load preferences.' });
+        if (!prefs) return res.status(500).json({ error: 'Failed to load preferences.', refId: req.requestId });
         res.json(prefs);
     } catch (err) {
         log.error('Get notification prefs error', { refId: req.requestId, error: err.message || err });

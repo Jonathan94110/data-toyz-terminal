@@ -634,8 +634,8 @@ router.get('/:id/comments', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        log.error('Failed to fetch figure comments', { error: err.message });
-        res.status(500).json({ error: 'Failed to fetch comments' });
+        log.error('Failed to fetch figure comments', { refId: req.requestId, error: err.message });
+        res.status(500).json({ error: 'Failed to fetch comments', refId: req.requestId });
     }
 });
 
@@ -655,8 +655,8 @@ router.post('/:id/comments', requireAuth, async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        log.error('Failed to post figure comment', { error: err.message });
-        res.status(500).json({ error: 'Failed to post comment' });
+        log.error('Failed to post figure comment', { refId: req.requestId, error: err.message });
+        res.status(500).json({ error: 'Failed to post comment', refId: req.requestId });
     }
 });
 

@@ -625,7 +625,7 @@ router.get('/audit-logs', requireAuth, requireAdmin, async (req, res) => {
         });
     } catch (err) {
         log.error('Admin audit-logs error', { refId: req.requestId, error: err.message || err });
-        res.status(500).json({ error: 'Failed to load audit logs.' });
+        res.status(500).json({ error: 'Failed to load audit logs.', refId: req.requestId });
     }
 });
 

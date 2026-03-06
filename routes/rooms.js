@@ -18,8 +18,8 @@ async function requireRoomMember(req, res, next) {
         req.roomMember = result.rows[0];
         next();
     } catch (err) {
-        log.error('Room membership check failed', { error: err.message });
-        res.status(500).json({ error: 'Failed to verify channel membership.' });
+        log.error('Room membership check failed', { refId: req.requestId, error: err.message });
+        res.status(500).json({ error: 'Failed to verify channel membership.', refId: req.requestId });
     }
 }
 
