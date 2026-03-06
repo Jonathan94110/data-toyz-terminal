@@ -59,10 +59,14 @@ function renderFigureLinks(html) {
 
 // Auto-insert brackets + live autocomplete when typing *[...] for figure linking
 function setupFigureLinkHelper(el) {
+    // Cleanup any previous helper on this element
+    if (el._acFigureDestroy) el._acFigureDestroy();
     let dropdown = null;
     let selectedIdx = -1;
 
     function getDropdown() {
+        // If cached dropdown was removed from DOM (cleanup on re-render), reset
+        if (dropdown && !dropdown.parentNode) dropdown = null;
         if (!dropdown) {
             dropdown = document.createElement('div');
             dropdown.className = 'figure-autocomplete';
@@ -79,6 +83,12 @@ function setupFigureLinkHelper(el) {
         if (dropdown) dropdown.style.display = 'none';
         selectedIdx = -1;
     }
+
+    // Expose destroy for cleanup when element is removed from DOM
+    el._acFigureDestroy = function() {
+        if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+        dropdown = null;
+    };
 
     function isVisible() {
         return dropdown && dropdown.style.display === 'block';
@@ -176,11 +186,15 @@ function setupFigureLinkHelper(el) {
 
 // Live autocomplete for @mentions — searches users via API, always shows @everyone
 function setupMentionHelper(el) {
+    // Cleanup any previous helper on this element
+    if (el._acMentionDestroy) el._acMentionDestroy();
     let dropdown = null;
     let selectedIdx = -1;
     let debounceTimer = null;
 
     function getDropdown() {
+        // If cached dropdown was removed from DOM (cleanup on re-render), reset
+        if (dropdown && !dropdown.parentNode) dropdown = null;
         if (!dropdown) {
             dropdown = document.createElement('div');
             dropdown.className = 'figure-autocomplete';
@@ -197,6 +211,13 @@ function setupMentionHelper(el) {
         if (dropdown) dropdown.style.display = 'none';
         selectedIdx = -1;
     }
+
+    // Expose destroy for cleanup when element is removed from DOM
+    el._acMentionDestroy = function() {
+        clearTimeout(debounceTimer);
+        if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+        dropdown = null;
+    };
 
     function isVisible() {
         return dropdown && dropdown.style.display === 'block';
