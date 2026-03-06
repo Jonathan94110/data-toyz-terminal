@@ -21,7 +21,7 @@ jobs:
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          NODE_ENV: production
+          NODE_ENV: test
         run: |
           node server.js &
           echo "Waiting for server to be ready..."
