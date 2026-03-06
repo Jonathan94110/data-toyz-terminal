@@ -9,9 +9,10 @@ const { auditLog } = require('../helpers/audit');
 const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
+const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
 
 // Get submissions for a specific figure (public, with optional auth for cost_basis privacy)
-router.get('/target/:targetId', async (req, res) => {
+router.get('/target/:targetId', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     let currentUser = null;
     try {
         const authHeader = req.headers['authorization'];

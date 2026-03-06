@@ -5,6 +5,7 @@ const log = require('../logger.js');
 const { normalizeRows } = require('../helpers/normalize');
 const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
+const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
 
 // Shared helpers for market data endpoints
 function getDateRanges() {
@@ -48,7 +49,7 @@ function buildPriceMaps(priceRows, changeRows) {
 }
 
 // Get all figures
-router.get('/', async (req, res) => {
+router.get('/', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM Figures ORDER BY name ASC");
         res.json(normalizeRows(result.rows));
@@ -265,7 +266,7 @@ router.get('/ranked', async (req, res) => {
 });
 
 // Market-ranked figures — MUST be before /:id
-router.get('/market-ranked', async (req, res) => {
+router.get('/market-ranked', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const sort = ['price', 'grade', 'approval', 'change', 'submissions'].includes(req.query.sort) ? req.query.sort : 'price';
         const order = req.query.order === 'asc' ? 'asc' : 'desc';
@@ -326,7 +327,7 @@ router.get('/market-ranked', async (req, res) => {
 });
 
 // Public figure leaderboard with filtering, sorting, and admin overrides
-router.get('/leaderboard', async (req, res) => {
+router.get('/leaderboard', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const mode = ['top_rated', 'rising', 'most_reviewed', 'sleepers'].includes(req.query.mode) ? req.query.mode : 'top_rated';
         const brand = req.query.brand || null;
@@ -660,7 +661,7 @@ router.post('/:id/comments', requireAuth, async (req, res) => {
 });
 
 // Market intelligence
-router.get('/:id/market-intel', async (req, res) => {
+router.get('/:id/market-intel', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const figureId = req.params.id;
 
@@ -802,7 +803,7 @@ router.get('/:id/market-intel/user-cost', requireAuth, async (req, res) => {
 });
 
 // Community metrics
-router.get('/:id/community-metrics', async (req, res) => {
+router.get('/:id/community-metrics', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const figureId = req.params.id;
         const result = await db.query(

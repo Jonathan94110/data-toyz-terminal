@@ -8,7 +8,8 @@ const { resend, RESEND_FROM_EMAIL, APP_URL } = require('../helpers/config');
 const { validatePassword, escapeHTML } = require('../helpers/validation');
 const { auditLog } = require('../helpers/audit');
 const { generateToken } = require('../helpers/token');
-const { requireAuth, requireAuthRenew, invalidateUserCache } = require('../middleware/auth');
+const { requireAuth, requireAuthRenew, invalidateUserCache, invalidateBlacklistCache } = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
 const { authAttemptLimiter } = require('../middleware/rateLimiters');
 // Register a new operative
 router.post('/register', async (req, res) => {
@@ -198,6 +199,33 @@ router.post('/reset-password', authAttemptLimiter, async (req, res) => {
         res.json({ message: 'Passcode successfully reset. You may now log in.' });
     } catch (e) {
         log.error('Reset password error', { refId: req.requestId, error: e.message || e });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
+// Logout — revoke current token
+router.post('/logout', requireAuth, async (req, res) => {
+    try {
+        const token = req.headers['authorization'].split(' ')[1];
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+        const decoded = jwt.decode(token);
+        const expiresAt = decoded && decoded.exp
+            ? new Date(decoded.exp * 1000).toISOString()
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        await db.query(
+            `INSERT INTO TokenBlacklist (token_hash, user_id, expires_at, created_at)
+             VALUES ($1, $2, $3, $4) ON CONFLICT (token_hash) DO NOTHING`,
+            [tokenHash, req.user.id, expiresAt, new Date().toISOString()]
+        );
+
+        invalidateBlacklistCache();
+        await auditLog('LOGOUT', req.user.username, req.user.username, 'User logged out', req.ip);
+
+        res.json({ message: 'Logged out successfully.' });
+    } catch (err) {
+        log.error('Logout error', { refId: req.requestId, error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });

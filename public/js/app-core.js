@@ -628,6 +628,13 @@ class TerminalApp {
 // --- Navigation & utility methods (prototype extensions) --- //
 
 TerminalApp.prototype.logout = function () {
+    // Revoke token server-side (best-effort, don't block on failure)
+    if (this.token) {
+        fetch(API_URL + '/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' }
+        }).catch(function () {}); // Fire-and-forget
+    }
     this.token = null;
     this.user = null;
     localStorage.removeItem('terminal_token');

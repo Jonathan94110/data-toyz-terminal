@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const db = require('../db.js');
 const { JWT_SECRET } = require('../helpers/config');
 
@@ -34,6 +35,32 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
+// --- Token blacklist cache (revoked tokens) --- //
+const blacklistCache = new Set();
+let blacklistCacheTs = 0;
+const BLACKLIST_CACHE_TTL = 30000; // 30 seconds
+
+async function isTokenBlacklisted(tokenHash) {
+    if (Date.now() - blacklistCacheTs > BLACKLIST_CACHE_TTL) {
+        try {
+            const result = await db.query(
+                "SELECT token_hash FROM TokenBlacklist WHERE expires_at > $1",
+                [new Date().toISOString()]
+            );
+            blacklistCache.clear();
+            for (const row of result.rows) blacklistCache.add(row.token_hash);
+            blacklistCacheTs = Date.now();
+        } catch (e) {
+            return false; // Fail open on DB error — same as user cache pattern
+        }
+    }
+    return blacklistCache.has(tokenHash);
+}
+
+function invalidateBlacklistCache() {
+    blacklistCacheTs = 0; // Force refresh on next check
+}
+
 // --- C-3: Session invalidation on password change --- //
 async function requireAuth(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -42,12 +69,18 @@ async function requireAuth(req, res, next) {
     }
 
     // Step 1: Verify JWT signature & expiry (auth error → 401)
-    let decoded;
+    let decoded, token;
     try {
-        const token = authHeader.split(' ')[1];
+        token = authHeader.split(' ')[1];
         decoded = jwt.verify(token, JWT_SECRET);
     } catch (jwtErr) {
         return res.status(401).json({ error: 'Invalid or expired token. Please log in again.' });
+    }
+
+    // Step 1b: Check token blacklist (revoked via logout)
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    if (await isTokenBlacklisted(tokenHash)) {
+        return res.status(401).json({ error: 'Token has been revoked. Please log in again.' });
     }
 
     // Step 2: Look up user in DB (DB error → 500 so client retries, not 401 which logs out)
@@ -83,14 +116,20 @@ async function requireAuthRenew(req, res, next) {
         return res.status(401).json({ error: 'Authentication required. Please log in.' });
     }
 
-    let decoded;
+    let decoded, token;
     try {
-        const token = authHeader.split(' ')[1];
+        token = authHeader.split(' ')[1];
         // Verify signature but allow expiry check in custom grace logic below.
         decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
     } catch (jwtErr) {
         // Signature invalid or malformed token — reject
         return res.status(401).json({ error: 'Invalid token. Please log in again.' });
+    }
+
+    // Check token blacklist (revoked via logout)
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    if (await isTokenBlacklisted(tokenHash)) {
+        return res.status(401).json({ error: 'Token has been revoked. Please log in again.' });
     }
 
     // Prevent indefinite session resurrection: only allow recently-expired tokens to renew.
@@ -141,4 +180,4 @@ function requireAdmin(req, res, next) {
     next();
 }
 
-module.exports = { requireAuth, requireAuthRenew, requireAdmin, requireRole, invalidateUserCache, getRoleLevel, ROLE_HIERARCHY };
+module.exports = { requireAuth, requireAuthRenew, requireAdmin, requireRole, invalidateUserCache, invalidateBlacklistCache, getRoleLevel, ROLE_HIERARCHY };

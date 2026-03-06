@@ -690,4 +690,60 @@ router.put('/ticker-settings', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// Full database backup (JSON download)
+router.post('/backup', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const tables = [
+            { name: 'users', query: 'SELECT id, username, email, avatar, role, suspended, created_at FROM Users ORDER BY id' },
+            { name: 'figures', query: 'SELECT * FROM Figures ORDER BY id' },
+            { name: 'submissions', query: 'SELECT * FROM Submissions ORDER BY id' },
+            { name: 'market_transactions', query: 'SELECT * FROM MarketTransactions ORDER BY id' },
+            { name: 'posts', query: 'SELECT * FROM Posts ORDER BY id' },
+            { name: 'comments', query: 'SELECT * FROM Comments ORDER BY id' },
+            { name: 'reactions', query: 'SELECT * FROM Reactions ORDER BY id' },
+            { name: 'rooms', query: 'SELECT * FROM Rooms ORDER BY id' },
+            { name: 'room_members', query: 'SELECT * FROM RoomMembers ORDER BY id' },
+            { name: 'messages', query: 'SELECT * FROM Messages ORDER BY id' },
+            { name: 'message_reactions', query: 'SELECT * FROM MessageReactions ORDER BY id' },
+            { name: 'notifications', query: 'SELECT * FROM Notifications ORDER BY id' },
+            { name: 'notification_prefs', query: 'SELECT * FROM NotificationPrefs ORDER BY id' },
+            { name: 'figure_comments', query: 'SELECT * FROM FigureComments ORDER BY id' },
+            { name: 'follows', query: 'SELECT * FROM Follows ORDER BY id' },
+            { name: 'flags', query: 'SELECT * FROM Flags ORDER BY id' },
+            { name: 'audit_log', query: 'SELECT * FROM AuditLog ORDER BY id' },
+            { name: 'approved_brands', query: 'SELECT * FROM ApprovedBrands ORDER BY id' },
+            { name: 'pending_brands', query: 'SELECT * FROM PendingBrands ORDER BY id' },
+            { name: 'site_settings', query: 'SELECT * FROM SiteSettings ORDER BY key' },
+            { name: 'typing_indicators', query: 'SELECT * FROM TypingIndicators ORDER BY id' }
+        ];
+
+        const backup = {
+            version: '1.0',
+            created_at: new Date().toISOString(),
+            created_by: req.user.username,
+            tables: {}
+        };
+
+        for (const t of tables) {
+            try {
+                const result = await db.query(t.query);
+                backup.tables[t.name] = { count: result.rows.length, rows: result.rows };
+            } catch (e) {
+                backup.tables[t.name] = { count: 0, rows: [], error: e.message };
+            }
+        }
+
+        await auditLog('ADMIN_BACKUP', req.user.username, null,
+            `Full backup downloaded (${Object.keys(backup.tables).length} tables)`, req.ip);
+
+        const filename = `datatoyz-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/json');
+        res.json(backup);
+    } catch (err) {
+        log.error('Admin backup error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'Backup failed.', refId: req.requestId });
+    }
+});
+
 module.exports = router;

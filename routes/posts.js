@@ -9,10 +9,11 @@ const { auditLog } = require('../helpers/audit');
 const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
+const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
 
 // Fetch timeline broadcasts, replies, and reactions (with pagination)
 // Optimized: excludes base64 imagePath from list payload, parallelizes queries, uses Map grouping
-router.get('/', async (req, res) => {
+router.get('/', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
         const offset = Math.max(parseInt(req.query.offset) || 0, 0);

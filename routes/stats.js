@@ -3,9 +3,10 @@ const router = express.Router();
 const db = require('../db.js');
 const log = require('../logger.js');
 const { normalizeRow } = require('../helpers/normalize');
+const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
 
 // 6. Global Market Overview stats
-router.get('/overview', async (req, res) => {
+router.get('/overview', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
@@ -76,7 +77,7 @@ router.get('/overview', async (req, res) => {
 });
 
 // 7. Brand/Line Index aggregates
-router.get('/indexes', async (req, res) => {
+router.get('/indexes', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const result = await db.query(`
             SELECT f.brand, f.line,
@@ -105,7 +106,7 @@ router.get('/indexes', async (req, res) => {
 });
 
 // Market Volume time-series
-router.get('/market-volume', async (req, res) => {
+router.get('/market-volume', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const period = req.query.period === 'weekly' ? 'weekly' : 'daily';
         const lookbackMs = period === 'daily' ? 90 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
@@ -150,7 +151,7 @@ router.get('/market-volume', async (req, res) => {
 });
 
 // Brand Index aggregates with price data
-router.get('/brand-index', async (req, res) => {
+router.get('/brand-index', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
@@ -247,7 +248,7 @@ router.get('/headlines', async (req, res) => {
 });
 
 // ── Weekly Movers Report ────────────────────────────────────
-router.get('/weekly-movers', async (req, res) => {
+router.get('/weekly-movers', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const now = Date.now();
         const d7  = new Date(now -  7 * 24 * 60 * 60 * 1000).toISOString();
@@ -419,7 +420,7 @@ router.get('/weekly-movers', async (req, res) => {
 });
 
 // ── Brand Health Dashboard ──────────────────────────────────
-router.get('/brand-health', async (req, res) => {
+router.get('/brand-health', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
@@ -566,7 +567,7 @@ router.get('/brand-health', async (req, res) => {
 });
 
 // ── Market Trends Timeline ──────────────────────────────────
-router.get('/market-trends', async (req, res) => {
+router.get('/market-trends', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
     try {
         const periodParam = req.query.period || '90d';
         let days, bucketExprTx, bucketExprSub;
