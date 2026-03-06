@@ -7,7 +7,7 @@
  *
  * Required env vars:
  *   RESEND_API_KEY       — Resend API key (already in your Render env)
- *   SECURITY_ALERT_EMAIL — Recipient email for alerts
+ *   SECURITY_ALERT_EMAIL — Recipient email for alerts (defaults to jwsounds@gmail.com)
  *   RESEND_FROM_EMAIL    — Sender address (optional, defaults to onboarding@resend.dev)
  */
 
@@ -34,15 +34,11 @@ async function sendAlert() {
 
     // 3. Check required env vars
     const RESEND_API_KEY = process.env.RESEND_API_KEY;
-    const ALERT_EMAIL = process.env.SECURITY_ALERT_EMAIL;
+    const ALERT_EMAIL = process.env.SECURITY_ALERT_EMAIL || 'jwsounds@gmail.com';
     const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Data Toyz Terminal <onboarding@resend.dev>';
 
     if (!RESEND_API_KEY) {
         console.error('RESEND_API_KEY not set — cannot send alert email.');
-        process.exit(1);
-    }
-    if (!ALERT_EMAIL) {
-        console.error('SECURITY_ALERT_EMAIL not set — cannot send alert email.');
         process.exit(1);
     }
 
