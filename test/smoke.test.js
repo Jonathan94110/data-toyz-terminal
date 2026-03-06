@@ -14,7 +14,7 @@ const results = [];
 function request(method, path, { body, token, headers: extraHeaders } = {}) {
     return new Promise((resolve, reject) => {
         const url = new URL(path, BASE);
-        const headers = { 'Content-Type': 'application/json', ...extraHeaders };
+        const headers = { 'Content-Type': 'application/json', 'User-Agent': 'DataToyzSmokeTest/1.0', ...extraHeaders };
         const options = {
             method,
             hostname: url.hostname,
