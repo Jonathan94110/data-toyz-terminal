@@ -30,8 +30,8 @@ router.get('/target/:targetId', async (req, res) => {
         });
         res.json(rows);
     } catch (err) {
-        log.error('Get submissions by target error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get submissions by target error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -74,8 +74,8 @@ router.get('/user/:username', async (req, res) => {
 
         res.json({ rows, total, page, limit, totalPages: Math.ceil(total / limit) });
     } catch (err) {
-        log.error('Get submissions by user error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get submissions by user error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -88,8 +88,8 @@ router.get('/:id', requireAuth, async (req, res) => {
         try { row.data = JSON.parse(row.jsonData); } catch (e) { row.data = {}; }
         res.json(row);
     } catch (err) {
-        log.error('Get submission by id error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get submission by id error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -99,8 +99,8 @@ router.get('/', async (req, res) => {
         const result = await db.query("SELECT author FROM Submissions");
         res.json(result.rows);
     } catch (err) {
-        log.error('Get all submissions error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get all submissions error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -166,8 +166,8 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
 
         res.status(201).json({ id: submissionId, message: "Intelligence report successfully committed." });
     } catch (err) {
-        log.error('Submit intelligence error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Submit intelligence error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -182,8 +182,8 @@ router.delete('/:id', requireAuth, async (req, res) => {
         await db.query("DELETE FROM Submissions WHERE id = $1", [req.params.id]);
         res.json({ message: "Intelligence retracted" });
     } catch (err) {
-        log.error('Delete submission error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Delete submission error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -264,8 +264,8 @@ router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
 
         res.json({ message: "Intelligence report updated.", editedAt: now });
     } catch (err) {
-        log.error('Edit submission error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Edit submission error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 

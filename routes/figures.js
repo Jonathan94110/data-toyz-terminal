@@ -53,8 +53,8 @@ router.get('/', async (req, res) => {
         const result = await db.query("SELECT * FROM Figures ORDER BY name ASC");
         res.json(normalizeRows(result.rows));
     } catch (err) {
-        log.error('Get figures error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get figures error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -142,8 +142,8 @@ router.post('/', requireAuth, async (req, res) => {
 
         res.status(201).json({ id: result.rows[0].id, message: "Target added successfully." });
     } catch (err) {
-        log.error('Create figure error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Create figure error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -158,8 +158,8 @@ router.get('/brands', async (req, res) => {
             const fallback = await db.query("SELECT DISTINCT brand FROM Figures ORDER BY brand ASC");
             res.json(fallback.rows.map(r => r.brand));
         } catch (e) {
-            log.error('Get brands error', { error: err.message || err });
-            res.status(500).json({ error: 'An internal error occurred.' });
+            log.error('Get brands error', { refId: req.requestId, error: err.message || err });
+            res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
         }
     }
 });
@@ -202,8 +202,8 @@ router.put('/name/:id', requireAuth, async (req, res) => {
         await db.query("UPDATE Submissions SET targetName = $1 WHERE targetId = $2", [name.trim(), req.params.id]);
         res.json({ message: 'Figure name updated.', name: name.trim() });
     } catch (err) {
-        log.error('Edit figure name error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Edit figure name error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -231,8 +231,8 @@ router.get('/top-rated', async (req, res) => {
             submissions: parseInt(r.submissions)
         })));
     } catch (err) {
-        log.error('Top rated figures error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Top rated figures error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -259,8 +259,8 @@ router.get('/ranked', async (req, res) => {
             avgGrade: r.avggrade ? parseFloat(r.avggrade).toFixed(1) : null
         })));
     } catch (err) {
-        log.error('Ranked figures error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Ranked figures error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -320,8 +320,8 @@ router.get('/market-ranked', async (req, res) => {
 
         res.json(merged);
     } catch (err) {
-        log.error('Market-ranked figures error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Market-ranked figures error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -438,8 +438,8 @@ router.get('/leaderboard', async (req, res) => {
 
         res.json({ figures, total, page, pageSize: limit, brands: allBrands });
     } catch (err) {
-        log.error('Figure leaderboard error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Figure leaderboard error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -513,7 +513,7 @@ router.get('/compare', async (req, res) => {
                     }
                     if (data.recommendation === 'yes') { yesVotes++; recCount++; }
                     if (data.recommendation === 'no') { noVotes++; recCount++; }
-                } catch (e) { /* skip bad json */ }
+                } catch (e) { log.warn('Skipped malformed jsonData in submission', { submissionId: row.id }); }
             }
 
             const n = jsonRes.rows.length || 1;
@@ -569,8 +569,8 @@ router.get('/compare', async (req, res) => {
 
         res.json({ figures: [fig1, fig2] });
     } catch (err) {
-        log.error('Compare figures error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Compare figures error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -618,8 +618,8 @@ router.post('/:id/request-assessment', requireAuth, async (req, res) => {
 
         res.json({ message: `Assessment request sent to ${sent} user${sent !== 1 ? 's' : ''}.`, sent });
     } catch (err) {
-        log.error('Request assessment error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Request assessment error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -673,9 +673,7 @@ router.get('/:id/market-intel', async (req, res) => {
         const priceType = req.query.price_type;
         const VALID_PT = ['overseas_msrp', 'stateside_msrp', 'secondary_market'];
         const filterByType = priceType && VALID_PT.includes(priceType);
-        const ptClause = filterByType ? ' AND price_type = $' : '';
         const baseParams = filterByType ? [figureId, priceType] : [figureId];
-        const ptIdx = filterByType ? baseParams.length : 0; // index for the price_type param
 
         const timelineRes = await db.query(
             `SELECT id, price_high, price_avg, price_low, price_type, source, submitted_by, created_at
@@ -734,8 +732,8 @@ router.get('/:id/market-intel', async (req, res) => {
             marketSignal
         });
     } catch (err) {
-        log.error('Market intel error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Market intel error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -767,8 +765,8 @@ router.post('/:id/market-transactions', requireAuth, async (req, res) => {
         );
         res.status(201).json({ id: result.rows[0].id, message: 'Market transaction recorded.' });
     } catch (err) {
-        log.error('Market transaction error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Market transaction error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -798,8 +796,8 @@ router.get('/:id/market-intel/user-cost', requireAuth, async (req, res) => {
 
         res.json({ costBasis, currentMarketAvg, gainLoss, gainLossPct });
     } catch (err) {
-        log.error('User cost basis error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('User cost basis error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -855,7 +853,7 @@ router.get('/:id/community-metrics', async (req, res) => {
                 }
                 if (data.recommendation === 'yes') yesVotes++;
                 if (data.recommendation === 'no') noVotes++;
-            } catch (e) { /* skip bad json */ }
+            } catch (e) { log.warn('Skipped malformed jsonData in submission', { submissionId: row.id }); }
         }
 
         const n = rows.length;
@@ -913,8 +911,8 @@ router.get('/:id/community-metrics', async (req, res) => {
             }
         });
     } catch (err) {
-        log.error('Community metrics error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Community metrics error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 

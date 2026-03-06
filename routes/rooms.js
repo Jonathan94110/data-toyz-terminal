@@ -80,8 +80,8 @@ router.post('/', requireAuth, async (req, res) => {
         const allMembers = await db.query("SELECT username, role, joined_at FROM RoomMembers WHERE room_id = $1", [roomId]);
         res.status(201).json({ id: roomId, name: type === 'dm' ? null : name.trim(), type, createdBy: req.user.username, createdAt: now, members: allMembers.rows });
     } catch (err) {
-        log.error('Create room error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Create room error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -124,8 +124,8 @@ router.get('/', requireAuth, async (req, res) => {
 
         res.json(result);
     } catch (err) {
-        log.error('List rooms error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('List rooms error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -150,8 +150,8 @@ router.get('/unread-total', requireAuth, async (req, res) => {
         `, [req.user.username]);
         res.json({ unread: parseInt(result.rows[0].total) });
     } catch (err) {
-        log.error('Unread total error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Unread total error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -171,8 +171,8 @@ router.get('/:roomId', requireAuth, requireRoomMember, async (req, res) => {
         const r = room.rows[0];
         res.json({ id: r.id, name: r.name, type: r.type, createdBy: r.created_by, members: members.rows });
     } catch (err) {
-        log.error('Get room error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get room error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -186,8 +186,8 @@ router.put('/:roomId', requireAuth, requireRoomMember, async (req, res) => {
         await db.query("UPDATE Rooms SET name = $1 WHERE id = $2", [name.trim(), req.params.roomId]);
         res.json({ message: 'Channel name updated.', name: name.trim() });
     } catch (err) {
-        log.error('Update room error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Update room error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -212,8 +212,8 @@ router.post('/:roomId/members', requireAuth, requireRoomMember, async (req, res)
         await createNotification(username, 'message', `${req.user.username} added you to "${room.rows[0].name}"`, 'room', parseInt(req.params.roomId), req.user.username);
         res.json({ message: `${username} added to channel.` });
     } catch (err) {
-        log.error('Add room member error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Add room member error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -247,8 +247,8 @@ router.delete('/:roomId/members/:username', requireAuth, requireRoomMember, asyn
 
         res.json({ message: isLeavingSelf ? 'You have left the channel.' : `${targetUsername} removed from channel.` });
     } catch (err) {
-        log.error('Remove room member error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Remove room member error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -294,8 +294,8 @@ router.get('/:roomId/messages', requireAuth, requireRoomMember, async (req, res)
 
         res.json(result.reverse());
     } catch (err) {
-        log.error('Get room messages error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get room messages error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -332,8 +332,8 @@ router.post('/:roomId/messages', requireAuth, requireRoomMember, messageLimiter,
             content: content || null, image, createdAt: now, reactions: []
         });
     } catch (err) {
-        log.error('Send message error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Send message error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -362,8 +362,8 @@ router.post('/:roomId/messages/:messageId/react', requireAuth, requireRoomMember
             res.json({ action: 'updated' });
         }
     } catch (err) {
-        log.error('Message react error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Message react error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -378,8 +378,8 @@ router.delete('/:roomId/messages/:messageId', requireAuth, requireRoomMember, as
         await db.query("DELETE FROM Messages WHERE id = $1", [req.params.messageId]);
         res.json({ message: 'Message redacted.' });
     } catch (err) {
-        log.error('Delete message error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Delete message error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -419,8 +419,8 @@ router.get('/:roomId/poll', requireAuth, requireRoomMember, async (req, res) => 
 
         res.json({ messages: formattedMessages, typing: typing.rows.map(r => r.username) });
     } catch (err) {
-        log.error('Room poll error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Room poll error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -434,8 +434,8 @@ router.post('/:roomId/typing', requireAuth, requireRoomMember, messageLimiter, a
         );
         res.json({ ok: true });
     } catch (err) {
-        log.error('Typing indicator error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Typing indicator error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 

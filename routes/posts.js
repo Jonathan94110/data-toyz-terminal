@@ -95,8 +95,8 @@ router.get('/', async (req, res) => {
 
         res.json({ posts, total, limit, offset });
     } catch (err) {
-        log.error('Get posts error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get posts error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -121,8 +121,8 @@ router.get('/:postId/image', async (req, res) => {
         });
         res.send(buffer);
     } catch (err) {
-        log.error('Get post image error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get post image error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -166,8 +166,8 @@ router.post('/:postId/comments', requireAuth, async (req, res) => {
 
         res.status(201).json({ id: result.rows[0].id, message: "Reply transmitted." });
     } catch (err) {
-        log.error('Post comment error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Post comment error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -191,8 +191,8 @@ router.put('/:postId/comments/:commentId', requireAuth, async (req, res) => {
 
         res.json({ message: "Reply updated.", editedAt: now });
     } catch (err) {
-        log.error('Edit comment error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Edit comment error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -212,8 +212,8 @@ router.delete('/:postId/comments/:commentId', requireAuth, async (req, res) => {
         await db.query("DELETE FROM Comments WHERE id = $1", [commentId]);
         res.json({ message: "Reply deleted." });
     } catch (err) {
-        log.error('Delete comment error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Delete comment error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -248,8 +248,8 @@ router.post('/:postId/react', requireAuth, async (req, res) => {
             res.status(201).json({ action: 'added' });
         }
     } catch (err) {
-        log.error('Post react error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Post react error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -295,8 +295,8 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
 
         res.status(201).json({ id: result.rows[0].id, message: "Broadcast transmitted securely." });
     } catch (err) {
-        log.error('Create post error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Create post error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -329,8 +329,8 @@ router.put('/:postId', requireAuth, async (req, res) => {
 
         res.json({ message: "Broadcast updated.", editedAt: now });
     } catch (err) {
-        log.error('Edit post error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Edit post error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -357,8 +357,8 @@ router.delete('/:postId', requireAuth, async (req, res) => {
 
         res.json({ message: "Broadcast purged." });
     } catch (err) {
-        log.error('Delete post error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Delete post error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -401,8 +401,8 @@ router.post('/:postId/flag', requireAuth, async (req, res) => {
         if (err.message && err.message.includes('unique')) {
             return res.status(409).json({ error: "You have already flagged this broadcast." });
         }
-        log.error('Flag post error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Flag post error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -430,8 +430,8 @@ router.get('/:postId', async (req, res) => {
 
         res.json(post);
     } catch (err) {
-        log.error('Get single post error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get single post error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 

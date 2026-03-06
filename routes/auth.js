@@ -41,8 +41,8 @@ router.post('/register', async (req, res) => {
             if (e.message.includes("username")) return res.status(409).json({ error: "Username already active." });
             if (e.message.includes("email")) return res.status(409).json({ error: "Email already active." });
         }
-        log.error('Register error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Register error', { refId: req.requestId, error: e.message || e });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -71,8 +71,8 @@ router.post('/login', authAttemptLimiter, async (req, res) => {
 
         res.json({ ...userData, token });
     } catch (e) {
-        log.error('Login error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Login error', { refId: req.requestId, error: e.message || e });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -92,8 +92,8 @@ router.get('/me', requireAuthRenew, async (req, res) => {
         const freshToken = generateToken(user);
         res.json({ ...user, token: freshToken });
     } catch (e) {
-        log.error('Get current user error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get current user error', { refId: req.requestId, error: e.message || e });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -120,8 +120,8 @@ router.post('/change-password', requireAuth, async (req, res) => {
 
         res.json({ message: "Passcode successfully updated." });
     } catch (e) {
-        log.error('Change password error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Change password error', { refId: req.requestId, error: e.message || e });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -166,7 +166,7 @@ router.post('/forgot-password', authAttemptLimiter, async (req, res) => {
 
         res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
     } catch (e) {
-        log.error('Forgot password error', { error: e.message || e });
+        log.error('Forgot password error', { refId: req.requestId, error: e.message || e });
         res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
     }
 });
@@ -197,8 +197,8 @@ router.post('/reset-password', authAttemptLimiter, async (req, res) => {
 
         res.json({ message: 'Passcode successfully reset. You may now log in.' });
     } catch (e) {
-        log.error('Reset password error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Reset password error', { refId: req.requestId, error: e.message || e });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 

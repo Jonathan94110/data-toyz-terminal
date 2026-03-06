@@ -10,6 +10,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db.js');
 const log = require('../logger.js');
+const { requireAuth } = require('../middleware/auth');
 
 // ── helpers ──────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ async function fetchFigureData(figureId) {
             }
             if (data.recommendation === 'yes') yesVotes++;
             if (data.recommendation === 'no') noVotes++;
-        } catch (e) { /* skip bad json */ }
+        } catch (e) { log.warn('Skipped malformed jsonData in submission', { submissionId: row.id }); }
     }
 
     const reviewCount = subs.length;
@@ -252,7 +253,7 @@ function determineVerdict(blendedScore, starDelta, lowDataRatio, figures) {
 
 // ── POST /analyze ────────────────────────────────────────
 
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', requireAuth, async (req, res) => {
     try {
         const { yourSide, theirSide } = req.body;
 
@@ -393,8 +394,8 @@ router.post('/analyze', async (req, res) => {
         });
 
     } catch (err) {
-        log.error('Trade Advisor analysis error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred during trade analysis.' });
+        log.error('Trade Advisor analysis error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred during trade analysis.', refId: req.requestId });
     }
 });
 

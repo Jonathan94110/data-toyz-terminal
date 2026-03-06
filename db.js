@@ -27,15 +27,24 @@ setInterval(() => {
     });
 }, 60000);
 
-pool.connect((err, client, release) => {
-    if (err) {
-        log.error('Error acquiring database client', { error: err.message });
-    } else {
+// --- Startup connection with retry (handles cold-start Neon wake-ups) --- //
+(async function connectWithRetry(attempt = 1) {
+    const MAX_RETRIES = 5;
+    try {
+        const client = await pool.connect();
         log.info('Connected to Vercel/Neon Postgres Database');
+        client.release();
         initDB();
-        release();
+    } catch (err) {
+        if (attempt < MAX_RETRIES) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 8000); // 1s, 2s, 4s, 8s
+            log.warn(`DB connection attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${delay}ms`, { error: err.message });
+            setTimeout(() => connectWithRetry(attempt + 1), delay);
+        } else {
+            log.error(`DB connection failed after ${MAX_RETRIES} attempts`, { error: err.message });
+        }
     }
-});
+})();
 
 async function initDB() {
     try {
