@@ -876,7 +876,7 @@ TerminalApp.prototype.loadNotifications = async function () {
                 const linkType = item.dataset.linkType;
                 const linkId = item.dataset.linkId;
                 await this.authFetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
-                if (linkType === 'post') { this.currentView = 'feed'; this.renderApp(); }
+                if (linkType === 'post') { sessionStorage.setItem('sharedPostId', linkId); this.currentView = 'feed'; this.renderApp(); }
                 else if (linkType === 'figure') { this.selectTarget(parseInt(linkId)); }
                 else if (linkType === 'room') { sessionStorage.setItem('activeRoomId', linkId); this.currentView = 'room_chat'; this.renderApp(); }
                 dropdown.style.display = 'none';
