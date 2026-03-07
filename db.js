@@ -435,6 +435,16 @@ async function initDB() {
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN pending_brand_email BOOLEAN DEFAULT false`);
         }
 
+        // Migration: add category column to Figures for action figure support
+        const categoryCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'figures' AND column_name = 'category'
+        `);
+        if (categoryCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Figures ADD COLUMN category TEXT NOT NULL DEFAULT 'transformer'`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_figures_category ON Figures(category)`);
+        }
+
         // Migration: add created_by column to Figures for ownership tracking
         const createdByCheck = await pool.query(`
             SELECT column_name FROM information_schema.columns

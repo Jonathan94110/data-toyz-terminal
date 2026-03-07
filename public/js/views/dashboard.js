@@ -12,7 +12,7 @@ TerminalApp.prototype.renderDashboard = async function (container) {
 
     let data = { rows: [], total: 0, page: 1, limit: 20, totalPages: 0 };
     try {
-        const res = await fetch(`${API_URL}/submissions/user/${this.user.username}?page=${page}&limit=20${qParam}`);
+        const res = await fetch(`${API_URL}/submissions/user/${this.user.username}?page=${page}&limit=20${qParam}&category=${getActiveCategory()}`);
         if (res.ok) {
             const json = await res.json();
             // Handle both array and paginated object responses

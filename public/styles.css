@@ -343,9 +343,54 @@ h6 {
     overflow-y: auto;
 }
 
+/* Category Switcher */
+.category-switcher {
+    display: flex;
+    gap: 0;
+    margin: 0 1rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.cat-btn {
+    flex: 1;
+    padding: 0.55rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.cat-btn.active {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: #fff;
+}
+.cat-btn:hover:not(.active) {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
 .sidebar.collapsed {
     width: 68px;
 }
+.sidebar.collapsed .category-switcher {
+    margin: 0 0.35rem 0.75rem;
+}
+.sidebar.collapsed .cat-btn {
+    font-size: 0;
+    padding: 0.45rem 0;
+}
+.sidebar.collapsed .cat-btn::after {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+.sidebar.collapsed .cat-btn[data-category="transformer"]::after { content: "TF"; }
+.sidebar.collapsed .cat-btn[data-category="action_figure"]::after { content: "AF"; }
 
 .sidebar.collapsed .sidebar-brand {
     padding: 0 0.5rem 1.5rem;

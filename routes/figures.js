@@ -52,7 +52,12 @@ function buildPriceMaps(priceRows, changeRows) {
 // Get all figures
 router.get('/', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(30000), async (req, res) => {
     try {
-        const result = await db.query("SELECT * FROM Figures ORDER BY name ASC");
+        const category = req.query.category;
+        let query = "SELECT * FROM Figures";
+        const params = [];
+        if (category) { query += " WHERE category = $1"; params.push(category); }
+        query += " ORDER BY name ASC";
+        const result = await db.query(query, params);
         res.json(normalizeRows(result.rows));
     } catch (err) {
         log.error('Get figures error', { refId: req.requestId, error: err.message || err });
@@ -64,8 +69,12 @@ router.get('/', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheRespon
 router.post('/', requireAuth, async (req, res) => {
     const { name, classTie, line } = req.body;
     const brand = (req.body.brand || '').trim();
+    const category = req.body.category || 'transformer';
     if (!name || !brand || !classTie || !line) {
         return res.status(400).json({ error: "Missing required figure fields." });
+    }
+    if (!['transformer', 'action_figure'].includes(category)) {
+        return res.status(400).json({ error: "Invalid category." });
     }
 
     try {
@@ -136,8 +145,8 @@ router.post('/', requireAuth, async (req, res) => {
         }
 
         const msrp = req.body.msrp != null && req.body.msrp !== '' ? parseFloat(req.body.msrp) : null;
-        const result = await db.query("INSERT INTO Figures (name, brand, classTie, line, created_by, msrp) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-            [name, brand, classTie, line, req.user.username, msrp]);
+        const result = await db.query("INSERT INTO Figures (name, brand, classTie, line, created_by, msrp, category) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+            [name, brand, classTie, line, req.user.username, msrp, category]);
 
         // Fire-and-forget: notify all users about new figure (respects in-app + email preferences)
         const figMsg = `${req.user.username} added "${name}" to the catalog`;
@@ -223,17 +232,21 @@ router.put('/name/:id', requireAuth, async (req, res) => {
 // Top rated figures — MUST be before /:id
 router.get('/top-rated', async (req, res) => {
     try {
+        const category = req.query.category;
+        const catFilter = category ? "WHERE f.category = $1" : "";
+        const catParams = category ? [category] : [];
         const result = await db.query(`
             SELECT s.targetId, s.targetName, f.brand, f.classTie, f.line,
                    AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade,
                    COUNT(*) as submissions
             FROM Submissions s
             LEFT JOIN Figures f ON f.id = s.targetId
+            ${catFilter}
             GROUP BY s.targetId, s.targetName, f.brand, f.classTie, f.line
             HAVING COUNT(*) >= 1
             ORDER BY avgGrade DESC
             LIMIT 10
-        `);
+        `, catParams);
         res.json(result.rows.map(r => ({
             id: r.targetid,
             name: r.targetname,
@@ -252,21 +265,26 @@ router.get('/top-rated', async (req, res) => {
 // Ranked figures — MUST be before /:id
 router.get('/ranked', async (req, res) => {
     try {
+        const category = req.query.category;
+        const catFilter = category ? "WHERE f.category = $1" : "";
+        const catParams = category ? [category] : [];
         const result = await db.query(`
-            SELECT f.id, f.name, f.brand, f.classTie, f.line, f.created_by,
+            SELECT f.id, f.name, f.brand, f.classTie, f.line, f.created_by, f.category,
                    COUNT(s.id) as submissions,
                    AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade
             FROM Figures f
             LEFT JOIN Submissions s ON f.id = s.targetId
-            GROUP BY f.id, f.name, f.brand, f.classTie, f.line, f.created_by
+            ${catFilter}
+            GROUP BY f.id, f.name, f.brand, f.classTie, f.line, f.created_by, f.category
             ORDER BY f.name ASC
-        `);
+        `, catParams);
         res.json(result.rows.map(r => ({
             id: r.id,
             name: r.name,
             brand: r.brand,
             classTie: r.classtie,
             line: r.line,
+            category: r.category || 'transformer',
             createdBy: r.created_by || null,
             submissions: parseInt(r.submissions) || 0,
             avgGrade: r.avggrade ? parseFloat(r.avggrade).toFixed(1) : null
@@ -283,8 +301,12 @@ router.get('/market-ranked', blockBadBots, dataEndpointLimiter, trackDataRequest
         const sort = ['price', 'grade', 'approval', 'change', 'submissions'].includes(req.query.sort) ? req.query.sort : 'price';
         const order = req.query.order === 'asc' ? 'asc' : 'desc';
         const brand = req.query.brand || null;
+        const mrCategory = req.query.category || null;
 
         const { d30, d60 } = getDateRanges();
+
+        const mrParams = [];
+        const mrWhere = mrCategory ? (mrParams.push(mrCategory), `WHERE f.category = $${mrParams.length}`) : "";
 
         const [r1, r2, r3] = await Promise.all([
             db.query(`
@@ -293,8 +315,9 @@ router.get('/market-ranked', blockBadBots, dataEndpointLimiter, trackDataRequest
                        AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade,
                        AVG(s.approvalScore) as avg_approval
                 FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+                ${mrWhere}
                 GROUP BY f.id, f.name, f.brand, f.classTie, f.line
-            `),
+            `, mrParams),
             latestPriceQuery(),
             priceChangeQuery(d30, d60)
         ]);
@@ -343,10 +366,15 @@ router.get('/leaderboard', blockBadBots, dataEndpointLimiter, trackDataRequest, 
     try {
         const mode = ['top_rated', 'rising', 'most_reviewed', 'sleepers'].includes(req.query.mode) ? req.query.mode : 'top_rated';
         const brand = req.query.brand || null;
+        const figCategory = req.query.category || null;
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 25));
 
         const { d30, d60 } = getDateRanges();
+
+        const lbParams = [];
+        let lbWhere = "WHERE COALESCE(f.lb_hidden, false) = false";
+        if (figCategory) { lbParams.push(figCategory); lbWhere += ` AND f.category = $${lbParams.length}`; }
 
         const [r1, r2, r3] = await Promise.all([
             db.query(`
@@ -357,9 +385,9 @@ router.get('/leaderboard', blockBadBots, dataEndpointLimiter, trackDataRequest, 
                        COUNT(CASE WHEN COALESCE(s.ownership_status, 'in_hand') = 'in_hand' THEN 1 END) as in_hand_count,
                        COUNT(DISTINCT CASE WHEN COALESCE(s.ownership_status, 'in_hand') = 'in_hand' THEN s.author END) as unique_owner_count
                 FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
-                WHERE COALESCE(f.lb_hidden, false) = false
+                ${lbWhere}
                 GROUP BY f.id
-            `),
+            `, lbParams),
             latestPriceQuery(),
             priceChangeQuery(d30, d60)
         ]);

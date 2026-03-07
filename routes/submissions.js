@@ -57,15 +57,25 @@ router.get('/user/:username', async (req, res) => {
             paramIdx++;
         }
 
+        // Category filter (joins through Figures)
+        const category = req.query.category;
+        let catJoin = '';
+        if (category) {
+            catJoin = ' JOIN Figures f ON f.id = s.targetId';
+            conditions.push(`f.category = $${paramIdx}`);
+            params.push(category);
+            paramIdx++;
+        }
+
         const where = conditions.join(' AND ');
 
         // Total count for pagination
-        const countRes = await db.query(`SELECT COUNT(*) as total FROM Submissions s WHERE ${where}`, params);
+        const countRes = await db.query(`SELECT COUNT(*) as total FROM Submissions s${catJoin} WHERE ${where}`, params);
         const total = parseInt(countRes.rows[0].total);
 
         // Paginated results
         const result = await db.query(
-            `SELECT s.* FROM Submissions s WHERE ${where} ORDER BY s.id DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+            `SELECT s.* FROM Submissions s${catJoin} WHERE ${where} ORDER BY s.id DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
             [...params, limit, offset]
         );
         const rows = normalizeRows(result.rows);
