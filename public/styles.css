@@ -339,7 +339,8 @@ h6 {
     -webkit-backdrop-filter: blur(20px);
     background: rgba(10, 11, 20, 0.85);
     transition: width 0.25s ease;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .sidebar.collapsed {
