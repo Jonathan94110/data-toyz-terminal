@@ -548,9 +548,14 @@ class TerminalApp {
                 dropdown.style.display = 'none';
             }
         });
-        document.addEventListener('click', (e) => {
+        // Remove previous document click handler to prevent listener stacking
+        if (this._docClickHandler) {
+            document.removeEventListener('click', this._docClickHandler);
+        }
+        this._docClickHandler = (e) => {
             if (!bell.contains(e.target)) dropdown.style.display = 'none';
-        });
+        };
+        document.addEventListener('click', this._docClickHandler);
 
         // Mobile hamburger menu
         const hamburgerBtn = document.getElementById('hamburgerBtn');
@@ -646,14 +651,19 @@ class TerminalApp {
 // --- Navigation & utility methods (prototype extensions) --- //
 
 TerminalApp.prototype._setupVisibilityDetection = function() {
+    // Remove previous listener to prevent stacking on every renderApp() call
+    if (this._visibilityHandler) {
+        document.removeEventListener('visibilitychange', this._visibilityHandler);
+    }
     var self = this;
-    document.addEventListener('visibilitychange', function() {
+    this._visibilityHandler = function() {
         self._isTabHidden = document.hidden;
         if (!document.hidden) {
             self.updateNotifBadge();
             self.updateRoomsBadge();
         }
-    });
+    };
+    document.addEventListener('visibilitychange', this._visibilityHandler);
 };
 
 TerminalApp.prototype.logout = function () {
