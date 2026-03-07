@@ -461,6 +461,7 @@ class TerminalApp {
                     setActiveCategory(newCat);
                     this.loadFigures();
                     this.renderApp();
+                    this.startTicker();
                 }
             });
         });
