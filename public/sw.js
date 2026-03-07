@@ -1,6 +1,6 @@
 // Self-destructing service worker — clears all caches and unregisters itself.
-// This exists solely to break the stale-cache cycle on mobile devices
-// that still have an old service worker registered.
+// No client.navigate() — that was causing iOS Safari "Can't open this page" errors
+// by creating reload loops when combined with the inline SW cleanup in index.html.
 
 self.addEventListener('install', function () {
     self.skipWaiting();
@@ -12,10 +12,6 @@ self.addEventListener('activate', function (event) {
             return Promise.all(keys.map(function (k) { return caches.delete(k); }));
         }).then(function () {
             return self.registration.unregister();
-        }).then(function () {
-            return self.clients.matchAll();
-        }).then(function (clients) {
-            clients.forEach(function (client) { client.navigate(client.url); });
         })
     );
 });

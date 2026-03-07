@@ -136,6 +136,11 @@ app.all('/api/{*path}', (req, res) => {
     res.status(404).json({ error: 'API endpoint not found.' });
 });
 
+// --- SPA fallback: serve index.html for any non-API, non-file route --- //
+app.get('{*path}', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // --- Global error handler (catches unhandled throws / async rejections) --- //
 app.use((err, req, res, _next) => {
     const refId = req.requestId || 'unknown';
