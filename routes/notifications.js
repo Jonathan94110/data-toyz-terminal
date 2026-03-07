@@ -28,7 +28,8 @@ router.put('/preferences', requireAuth, async (req, res) => {
         'follow_inapp', 'follow_email',
         'mention_inapp', 'mention_email',
         'flag_inapp', 'flag_email',
-        'assessment_request_inapp', 'assessment_request_email'
+        'assessment_request_inapp', 'assessment_request_email',
+        'pending_brand_inapp', 'pending_brand_email'
     ];
 
     try {

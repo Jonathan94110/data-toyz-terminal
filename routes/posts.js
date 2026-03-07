@@ -384,15 +384,14 @@ router.post('/:postId/flag', requireAuth, async (req, res) => {
             [postId, flaggedBy, reason || null, new Date().toISOString()]
         );
 
-        // Batch insert flag notifications for all admins
+        // Fire-and-forget: notify admins/owners about flagged post (respects in-app + email preferences)
         const flagMsg = `${flaggedBy} flagged a broadcast by ${post.rows[0].author}`;
-        await db.query(
-            `INSERT INTO Notifications (recipient, type, message, link_type, link_id, sender, created_at)
-             SELECT u.username, 'flag', $1, 'post', $2, $3, $4
-             FROM Users u
-             WHERE u.role = 'admin'`,
-            [flagMsg, parseInt(postId), flaggedBy, new Date().toISOString()]
-        );
+        db.query("SELECT username FROM Users WHERE role IN ('owner', 'admin') AND suspended = false AND username != $1", [flaggedBy])
+            .then(adminsResult => {
+                adminsResult.rows.forEach(a => {
+                    createNotification(a.username, 'flag', flagMsg, 'post', parseInt(postId), flaggedBy).catch(() => {});
+                });
+            }).catch(() => {});
 
         await auditLog('POST_FLAG', flaggedBy, `post_id:${postId}`,
             `User flagged broadcast by ${post.rows[0].author}${reason ? ': ' + reason.slice(0, 100) : ''}`, req.ip);

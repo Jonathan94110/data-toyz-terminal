@@ -18,7 +18,7 @@ async function getNotificationPrefs(userId) {
 }
 
 function buildNotificationEmail(recipientName, message, type, linkType, linkId) {
-    const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', new_figure: '🎯', hq_updates: '📡', message: '🔒', follow: '👥', mention: '📢', flag: '🚩', assessment_request: '📊' };
+    const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', new_figure: '🎯', hq_updates: '📡', message: '🔒', follow: '👥', mention: '📢', flag: '🚩', assessment_request: '📊', pending_brand: '🏷️' };
     const icon = icons[type] || '🔔';
     // Build direct link based on notification context
     let actionUrl = APP_URL;
@@ -26,6 +26,7 @@ function buildNotificationEmail(recipientName, message, type, linkType, linkId) 
     if (linkType === 'post' && linkId) { actionUrl = APP_URL; actionLabel = 'VIEW POST'; }
     else if (linkType === 'figure' && linkId) { actionUrl = `${APP_URL}?figure=${linkId}`; actionLabel = 'VIEW TARGET'; }
     else if (linkType === 'room' && linkId) { actionUrl = APP_URL; actionLabel = 'OPEN ROOM'; }
+    else if (linkType === 'admin') { actionUrl = APP_URL; actionLabel = 'OPEN ADMIN PANEL'; }
     return `
         <div style="font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 560px; margin: 0 auto; background: #0f1729; color: #e2e8f0; border-radius: 12px; overflow: hidden;">
             <div style="background: linear-gradient(135deg, #ff2a5f, #ff8e3c); padding: 1.5rem 2rem;">
