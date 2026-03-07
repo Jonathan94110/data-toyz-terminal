@@ -10,9 +10,18 @@
 
 Data Toyz Terminal is a collaborative market intelligence platform built for collectors, traders, and analysts of collectible action figures. It provides real-time trade value assessments, community-driven grading, market analytics, and social features — all wrapped in an immersive intelligence-themed interface.
 
+The platform supports **two categories** — **Transformers** and **Action Figures** (GI Joe, Star Wars, He-Man, Voltron, etc.) — each with independent catalogs, leaderboards, and market analytics. A sidebar toggle switches between categories instantly.
+
 ---
 
 ## Features
+
+### Categories & Scoring
+- **Dual Categories** — Transformers and Action Figures with independent catalogs, filtered via sidebar toggle
+- **Category-Specific Tiers** — Transformers: Core/Deluxe/Voyager/Leader/Commander/Titan/Masterpiece; Action Figures: 3.75"/6"/7"/12"
+- **Transformation Opt-In** — "Has Transformation?" checkbox defaults by category; overridable for edge cases (M.A.S.K., Voltron, Go-Bots)
+- **Dynamic Scoring** — Approval Score formula adjusts: /90 with transformation sliders, /70 without
+- **Category-Filtered Brands** — Brand dropdown shows only brands relevant to the active category
 
 ### Market Intelligence
 
