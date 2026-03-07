@@ -167,15 +167,34 @@ router.post('/', requireAuth, async (req, res) => {
     }
 });
 
-// Get approved brands for dropdown
+// Get approved brands for dropdown (filtered by category)
 router.get('/brands', async (req, res) => {
+    const category = req.query.category;
     try {
-        const result = await db.query("SELECT DISTINCT name FROM ApprovedBrands ORDER BY name ASC");
-        res.json(result.rows.map(r => r.name));
+        if (category) {
+            // Return only brands that have figures in this category
+            const result = await db.query(
+                "SELECT DISTINCT brand FROM Figures WHERE category = $1 ORDER BY brand ASC",
+                [category]
+            );
+            // Also include approved brands not yet used in this category
+            const approved = await db.query("SELECT DISTINCT name FROM ApprovedBrands ORDER BY name ASC").catch(() => ({ rows: [] }));
+            const figBrands = new Set(result.rows.map(r => r.brand));
+            // For transformer category, include approved brands; for others, only show brands with existing figures
+            if (category === 'transformer') {
+                approved.rows.forEach(r => figBrands.add(r.name));
+            }
+            res.json([...figBrands].sort());
+        } else {
+            const result = await db.query("SELECT DISTINCT name FROM ApprovedBrands ORDER BY name ASC");
+            res.json(result.rows.map(r => r.name));
+        }
     } catch (err) {
         // Fallback: if ApprovedBrands table doesn't exist yet, use distinct from Figures
         try {
-            const fallback = await db.query("SELECT DISTINCT brand FROM Figures ORDER BY brand ASC");
+            const catFilter = category ? " WHERE category = $1" : "";
+            const catParams = category ? [category] : [];
+            const fallback = await db.query("SELECT DISTINCT brand FROM Figures" + catFilter + " ORDER BY brand ASC", catParams);
             res.json(fallback.rows.map(r => r.brand));
         } catch (e) {
             log.error('Get brands error', { refId: req.requestId, error: err.message || err });

@@ -56,7 +56,7 @@ TerminalApp.prototype.renderAddTarget = function(container) {
     // Brand dropdown: populate from DB + "Other" option
     (async () => {
         try {
-            const res = await fetch(`${API_URL}/figures/brands`);
+            const res = await fetch(`${API_URL}/figures/brands?category=${getActiveCategory()}`);
             if (res.ok) {
                 const brands = [...new Set(await res.json())];
                 const sel = document.getElementById('brandSelect');
