@@ -434,7 +434,7 @@ TerminalApp.prototype._setupCompareAutocomplete = function (inputId, dropId, hid
     const showMatches = () => {
         const q = input.value.trim().toLowerCase();
         if (q.length < 1) { dropdown.style.display = 'none'; return; }
-        const matches = (typeof figures !== 'undefined' ? figures : []).filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
+        const matches = (typeof MOCK_FIGURES !== 'undefined' ? MOCK_FIGURES : []).filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
         if (matches.length === 0) { dropdown.style.display = 'none'; return; }
 
         selectedIdx = -1;

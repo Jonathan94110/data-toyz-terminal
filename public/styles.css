@@ -4929,3 +4929,45 @@ textarea:focus {
     }
 }
 
+/* ========================================
+   MOBILE PERFORMANCE — Disable GPU-heavy effects
+   blur() filters + backdrop-filter force expensive
+   GPU compositing layers that crash low-memory devices
+   ======================================== */
+@media (max-width: 768px) {
+    /* Kill ambient orbs entirely — 80px blur + infinite animation = GPU killer */
+    .ambient-orb {
+        display: none !important;
+    }
+
+    /* Replace all backdrop-filter blur with simple semi-transparent backgrounds */
+    .card,
+    .auth-card,
+    .stat-box,
+    .search-bar,
+    .segmented-control,
+    .intel-stat-card,
+    .intel-search-input,
+    .lb-podium-card,
+    .lb-stat-card,
+    .room-card,
+    .notif-dropdown,
+    .sc-section,
+    .ta-container,
+    .showcase-card,
+    .mp-header,
+    .mp-tabs,
+    .room-modal-overlay,
+    .sidebar-overlay {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    /* Auth page decorative blurs */
+    .auth-container::before,
+    .auth-container::after {
+        filter: none !important;
+        opacity: 0.08;
+    }
+}
+

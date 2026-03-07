@@ -45,6 +45,7 @@ class TerminalApp {
         this.editingSubmission = null;
         this._isPopState = false;
         this._historyReady = false;
+        this._isTabHidden = false;
 
         // Browser back/forward button support
         window.addEventListener('popstate', (e) => {
@@ -585,13 +586,17 @@ class TerminalApp {
 
         // Poll notifications
         if (this._notifInterval) clearInterval(this._notifInterval);
-        this._notifInterval = setInterval(() => this.updateNotifBadge(), 30000);
+        var self = this;
+        this._notifInterval = setInterval(function() { if (!self._isTabHidden) self.updateNotifBadge(); }, 30000);
         this.updateNotifBadge();
 
         // Poll rooms unread badge
         if (this._roomsPollInterval) clearInterval(this._roomsPollInterval);
-        this._roomsPollInterval = setInterval(() => this.updateRoomsBadge(), 15000);
+        this._roomsPollInterval = setInterval(function() { if (!self._isTabHidden) self.updateRoomsBadge(); }, 15000);
         this.updateRoomsBadge();
+
+        // Visibility detection for smart polling
+        this._setupVisibilityDetection();
 
         this.renderCurrentView();
     }
@@ -605,29 +610,60 @@ class TerminalApp {
             clearInterval(this._chatPollInterval);
             this._chatPollInterval = null;
         }
+        // Clean up orphaned autocomplete dropdowns on every view change
+        document.querySelectorAll('.figure-autocomplete').forEach(function(el) { el.remove(); });
+        // Destroy any active Chart.js instances to free canvas memory
+        if (this._activeCharts) {
+            this._activeCharts.forEach(function(c) { try { c.destroy(); } catch(e) {} });
+            this._activeCharts = null;
+        }
 
-        if (this.currentView === 'feed') this.renderFeed(contentArea);
-        else if (this.currentView === 'rooms') this.renderRoomsList(contentArea);
-        else if (this.currentView === 'room_chat') this.renderRoomChat(contentArea);
-        else if (this.currentView === 'market_pulse') this.renderMarketPulse(contentArea);
-        else if (this.currentView === 'search') this.renderSearch(contentArea);
-        else if (this.currentView === 'dashboard') this.renderDashboard(contentArea);
-        else if (this.currentView === 'figure_leaderboard') this.renderFigureLeaderboard(contentArea);
-        else if (this.currentView === 'leaderboards') this.renderLeaderboards(contentArea);
-        else if (this.currentView === 'pulse') this.renderPulse(contentArea);
-        else if (this.currentView === 'submission') this.renderSubmission(contentArea);
-        else if (this.currentView === 'add_target') this.renderAddTarget(contentArea);
-        else if (this.currentView === 'profile') this.renderProfile(contentArea);
-        else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
-        else if (this.currentView === 'scorecard') this.renderScorecard(contentArea);
-        else if (this.currentView === 'docs') this.renderDocs(contentArea);
-        else if (this.currentView === 'admin' && ['owner', 'admin', 'moderator'].includes(this.user.role)) this.renderAdmin(contentArea);
+        // Wrap view rendering in try/catch so a single bad render doesn't crash the app
+        try {
+            if (this.currentView === 'feed') this.renderFeed(contentArea);
+            else if (this.currentView === 'rooms') this.renderRoomsList(contentArea);
+            else if (this.currentView === 'room_chat') this.renderRoomChat(contentArea);
+            else if (this.currentView === 'market_pulse') this.renderMarketPulse(contentArea);
+            else if (this.currentView === 'search') this.renderSearch(contentArea);
+            else if (this.currentView === 'dashboard') this.renderDashboard(contentArea);
+            else if (this.currentView === 'figure_leaderboard') this.renderFigureLeaderboard(contentArea);
+            else if (this.currentView === 'leaderboards') this.renderLeaderboards(contentArea);
+            else if (this.currentView === 'pulse') this.renderPulse(contentArea);
+            else if (this.currentView === 'submission') this.renderSubmission(contentArea);
+            else if (this.currentView === 'add_target') this.renderAddTarget(contentArea);
+            else if (this.currentView === 'profile') this.renderProfile(contentArea);
+            else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
+            else if (this.currentView === 'scorecard') this.renderScorecard(contentArea);
+            else if (this.currentView === 'docs') this.renderDocs(contentArea);
+            else if (this.currentView === 'admin' && ['owner', 'admin', 'moderator'].includes(this.user.role)) this.renderAdmin(contentArea);
+        } catch (err) {
+            console.error('View render crashed:', this.currentView, err);
+            if (contentArea) contentArea.innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Something went wrong loading this view. <button class="btn" style="margin-top:1rem;" onclick="app.currentView=\'search\'; app.renderCurrentView();">Go Home</button></div>';
+        }
     }
 }
 
 // --- Navigation & utility methods (prototype extensions) --- //
 
+TerminalApp.prototype._setupVisibilityDetection = function() {
+    var self = this;
+    document.addEventListener('visibilitychange', function() {
+        self._isTabHidden = document.hidden;
+        if (!document.hidden) {
+            self.updateNotifBadge();
+            self.updateRoomsBadge();
+        }
+    });
+};
+
 TerminalApp.prototype.logout = function () {
+    // Revoke token server-side (best-effort, don't block on failure)
+    if (this.token) {
+        fetch(API_URL + '/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + this.token, 'Content-Type': 'application/json' }
+        }).catch(function () {}); // Fire-and-forget
+    }
     this.token = null;
     this.user = null;
     localStorage.removeItem('terminal_token');
@@ -853,7 +889,7 @@ TerminalApp.prototype.loadNotifications = async function () {
                 const linkType = item.dataset.linkType;
                 const linkId = item.dataset.linkId;
                 await this.authFetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
-                if (linkType === 'post') { this.currentView = 'feed'; this.renderApp(); }
+                if (linkType === 'post') { sessionStorage.setItem('sharedPostId', linkId); this.currentView = 'feed'; this.renderApp(); }
                 else if (linkType === 'figure') { this.selectTarget(parseInt(linkId)); }
                 else if (linkType === 'room') { sessionStorage.setItem('activeRoomId', linkId); this.currentView = 'room_chat'; this.renderApp(); }
                 dropdown.style.display = 'none';

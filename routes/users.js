@@ -19,8 +19,8 @@ router.get('/search', requireAuth, async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        log.error('User search error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('User search error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -45,7 +45,7 @@ router.get('/me/export', requireAuth, async (req, res) => {
         });
     } catch (e) {
         log.error('Data export error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -73,31 +73,48 @@ router.put('/:id', requireAuth, upload.single('avatar'), async (req, res) => {
         updateQuery += `WHERE id = $${paramIndex}`;
         params.push(req.params.id);
 
-        await db.query(updateQuery, params);
-
         if (oldUsername && oldUsername !== username) {
-            await db.query("UPDATE Submissions SET author = $1 WHERE author = $2", [username, oldUsername]);
-            await db.query("UPDATE Posts SET author = $1 WHERE author = $2", [username, oldUsername]);
-            await db.query("UPDATE Comments SET author = $1 WHERE author = $2", [username, oldUsername]);
-            await db.query("UPDATE Reactions SET author = $1 WHERE author = $2", [username, oldUsername]);
-            await db.query("UPDATE Messages SET author = $1 WHERE author = $2", [username, oldUsername]);
-            await db.query("UPDATE MessageReactions SET author = $1 WHERE author = $2", [username, oldUsername]);
-            await db.query("UPDATE RoomMembers SET username = $1 WHERE username = $2", [username, oldUsername]);
-            await db.query("UPDATE Notifications SET recipient = $1 WHERE recipient = $2", [username, oldUsername]);
-            await db.query("UPDATE Notifications SET sender = $1 WHERE sender = $2", [username, oldUsername]);
-            await db.query("UPDATE Flags SET flagged_by = $1 WHERE flagged_by = $2", [username, oldUsername]);
-            await db.query("UPDATE FigureComments SET author = $1 WHERE author = $2", [username, oldUsername]);
-            await db.query("UPDATE MarketTransactions SET submitted_by = $1 WHERE submitted_by = $2", [username, oldUsername]);
-            await db.query("UPDATE TypingIndicators SET username = $1 WHERE username = $2", [username, oldUsername]);
+            // Username rename: wrap all cascading updates in a transaction with a dedicated client
+            const client = await db.connect();
+            try {
+                await client.query("BEGIN");
+                // Update the user record first
+                await client.query(updateQuery, params);
+                // Cascade username across all related tables
+                await client.query("UPDATE Submissions SET author = $1 WHERE author = $2", [username, oldUsername]);
+                await client.query("UPDATE Posts SET author = $1 WHERE author = $2", [username, oldUsername]);
+                await client.query("UPDATE Comments SET author = $1 WHERE author = $2", [username, oldUsername]);
+                await client.query("UPDATE Reactions SET author = $1 WHERE author = $2", [username, oldUsername]);
+                await client.query("UPDATE Messages SET author = $1 WHERE author = $2", [username, oldUsername]);
+                await client.query("UPDATE MessageReactions SET author = $1 WHERE author = $2", [username, oldUsername]);
+                await client.query("UPDATE RoomMembers SET username = $1 WHERE username = $2", [username, oldUsername]);
+                await client.query("UPDATE Notifications SET recipient = $1 WHERE recipient = $2", [username, oldUsername]);
+                await client.query("UPDATE Notifications SET sender = $1 WHERE sender = $2", [username, oldUsername]);
+                await client.query("UPDATE Flags SET flagged_by = $1 WHERE flagged_by = $2", [username, oldUsername]);
+                await client.query("UPDATE FigureComments SET author = $1 WHERE author = $2", [username, oldUsername]);
+                await client.query("UPDATE MarketTransactions SET submitted_by = $1 WHERE submitted_by = $2", [username, oldUsername]);
+                await client.query("UPDATE TypingIndicators SET username = $1 WHERE username = $2", [username, oldUsername]);
+                await client.query("COMMIT");
+            } catch (txErr) {
+                try { await client.query("ROLLBACK"); } catch (_) { /* ignore rollback error */ }
+                throw txErr;
+            } finally {
+                client.release();
+            }
+        } else {
+            await db.query(updateQuery, params);
         }
 
         const updatedUserResult = await db.query("SELECT id, username, email, avatar, role FROM Users WHERE id = $1", [req.params.id]);
         const updatedUser = updatedUserResult.rows[0];
+        if (!updatedUser) {
+            return res.status(404).json({ error: 'User no longer exists.' });
+        }
         const token = generateToken({ id: updatedUser.id, username: updatedUser.username, role: updatedUser.role || 'analyst' });
         res.json({ ...updatedUser, token, message: "Profile successfully encrypted and updated." });
     } catch (e) {
         log.error('Update user error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -143,8 +160,8 @@ router.get('/:username/profile', async (req, res) => {
             recentSubmissions: submissions
         });
     } catch (err) {
-        log.error('User profile error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('User profile error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -177,8 +194,8 @@ router.post('/:id/follow', requireAuth, async (req, res) => {
             res.status(201).json({ action: 'followed' });
         }
     } catch (err) {
-        log.error('Follow toggle error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Follow toggle error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -193,8 +210,8 @@ router.get('/:id/follow-stats', async (req, res) => {
             following: parseInt(following.rows[0].count)
         });
     } catch (err) {
-        log.error('Follow stats error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Follow stats error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -212,8 +229,8 @@ router.get('/:id/followers', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        log.error('Get followers error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get followers error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -231,8 +248,8 @@ router.get('/:id/following', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        log.error('Get following error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get following error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -245,8 +262,8 @@ router.get('/:id/is-following', requireAuth, async (req, res) => {
         );
         res.json({ isFollowing: result.rows.length > 0 });
     } catch (err) {
-        log.error('Is following check error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Is following check error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 

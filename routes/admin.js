@@ -8,6 +8,7 @@ const { validatePassword } = require('../helpers/validation');
 const { normalizeRows } = require('../helpers/normalize');
 const { auditLog } = require('../helpers/audit');
 const { requireAuth, requireAdmin, requireRole, invalidateUserCache, getRoleLevel } = require('../middleware/auth');
+const { invalidateCache, invalidateAll } = require('../middleware/cache');
 
 // Reset user password
 router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
@@ -33,7 +34,7 @@ router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, 
         res.json({ message: 'Password reset successfully.' });
     } catch (e) {
         log.error('Admin reset password error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -43,8 +44,8 @@ router.get('/users', requireAuth, requireAdmin, async (req, res) => {
         const result = await db.query("SELECT id, username, email, created_at, avatar, role, suspended FROM Users ORDER BY id ASC");
         res.json(normalizeRows(result.rows));
     } catch (err) {
-        log.error('Admin get users error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin get users error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -73,7 +74,7 @@ router.post('/users', requireAuth, requireAdmin, async (req, res) => {
             if (e.message.includes("email")) return res.status(409).json({ error: "Email already active." });
         }
         log.error('Admin create user error', { error: e.message || e });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -102,8 +103,8 @@ router.put('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
 
         res.json({ message: `Role updated to ${role}.`, role });
     } catch (err) {
-        log.error('Admin role change error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin role change error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -123,13 +124,14 @@ router.put('/users/:id/suspend', requireAuth, requireAdmin, async (req, res) => 
 
         res.json({ message: `User ${newStatus ? 'suspended' : 'reinstated'} successfully.`, suspended: newStatus });
     } catch (err) {
-        log.error('Admin suspend error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin suspend error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
-// Delete user (with transaction)
+// Delete user (with transaction — uses dedicated client for safety)
 router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
+    let client;
     try {
         const user = await db.query("SELECT username, role FROM Users WHERE id = $1", [req.params.id]);
         if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
@@ -138,35 +140,40 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
 
         const username = user.rows[0].username;
 
-        await db.query("BEGIN");
+        client = await db.connect();
+        await client.query("BEGIN");
         try {
-            await db.query("DELETE FROM MessageReactions WHERE author = $1", [username]);
-            await db.query("DELETE FROM Messages WHERE author = $1", [username]);
-            await db.query("DELETE FROM RoomMembers WHERE username = $1", [username]);
-            await db.query("DELETE FROM Notifications WHERE recipient = $1 OR sender = $1", [username]);
-            await db.query("DELETE FROM Reactions WHERE author = $1", [username]);
-            await db.query("DELETE FROM Comments WHERE author = $1", [username]);
-            await db.query("DELETE FROM Posts WHERE author = $1", [username]);
-            await db.query("DELETE FROM Submissions WHERE author = $1", [username]);
-            await db.query("DELETE FROM Flags WHERE flagged_by = $1", [username]);
-            await db.query("DELETE FROM FigureComments WHERE author = $1", [username]);
-            await db.query("DELETE FROM MarketTransactions WHERE submitted_by = $1", [username]);
-            await db.query("DELETE FROM TypingIndicators WHERE username = $1", [username]);
-            await db.query("DELETE FROM Follows WHERE follower_id = $1 OR following_id = $1", [req.params.id]);
-            await db.query("DELETE FROM NotificationPrefs WHERE user_id = $1", [req.params.id]);
-            await db.query("DELETE FROM Users WHERE id = $1", [req.params.id]);
-            await db.query("COMMIT");
+            await client.query("DELETE FROM MessageReactions WHERE author = $1", [username]);
+            await client.query("DELETE FROM Messages WHERE author = $1", [username]);
+            await client.query("DELETE FROM RoomMembers WHERE username = $1", [username]);
+            await client.query("DELETE FROM Notifications WHERE recipient = $1 OR sender = $1", [username]);
+            await client.query("DELETE FROM Reactions WHERE author = $1", [username]);
+            await client.query("DELETE FROM Comments WHERE author = $1", [username]);
+            await client.query("DELETE FROM Posts WHERE author = $1", [username]);
+            await client.query("DELETE FROM Submissions WHERE author = $1", [username]);
+            await client.query("DELETE FROM Flags WHERE flagged_by = $1", [username]);
+            await client.query("DELETE FROM FigureComments WHERE author = $1", [username]);
+            await client.query("DELETE FROM MarketTransactions WHERE submitted_by = $1", [username]);
+            await client.query("DELETE FROM TypingIndicators WHERE username = $1", [username]);
+            await client.query("DELETE FROM Follows WHERE follower_id = $1 OR following_id = $1", [req.params.id]);
+            await client.query("DELETE FROM NotificationPrefs WHERE user_id = $1", [req.params.id]);
+            await client.query("DELETE FROM Users WHERE id = $1", [req.params.id]);
+            await client.query("COMMIT");
         } catch (txErr) {
-            await db.query("ROLLBACK");
+            await client.query("ROLLBACK");
             throw txErr;
         }
+
+        invalidateAll();
 
         await auditLog('ADMIN_DELETE_USER', req.user.username, username, 'User and all associated data purged', req.ip);
 
         res.json({ message: "User purged from the system." });
     } catch (err) {
-        log.error('Admin delete user error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin delete user error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -208,6 +215,8 @@ router.post('/figures/merge', requireAuth, requireAdmin, async (req, res) => {
 
         await client.query("COMMIT");
 
+        invalidateAll();
+
         log.info('Figures merged', { sourceId, targetId, sourceName: source.rows[0].name, targetName: target.rows[0].name });
         res.json({
             message: `Merged "${source.rows[0].name}" into "${target.rows[0].name}". ${subResult.rowCount} submissions, ${mtResult.rowCount} market transactions, ${fcResult.rowCount} comments moved.`
@@ -216,35 +225,55 @@ router.post('/figures/merge', requireAuth, requireAdmin, async (req, res) => {
         if (client) {
             try { await client.query("ROLLBACK"); } catch (_) { /* ignore rollback error */ }
         }
-        log.error('Admin merge figures error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin merge figures error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     } finally {
         if (client) client.release();
     }
 });
 
-// Delete figure
+// Delete figure (with transaction — uses dedicated client for safety)
 router.delete('/figures/:id', requireAuth, requireAdmin, async (req, res) => {
+    let client;
     try {
-        await db.query("DELETE FROM Submissions WHERE targetId = $1", [req.params.id]);
-        await db.query("DELETE FROM Figures WHERE id = $1", [req.params.id]);
+        client = await db.connect();
+        await client.query("BEGIN");
+        await client.query("DELETE FROM MarketTransactions WHERE figure_id = $1", [req.params.id]);
+        await client.query("DELETE FROM FigureComments WHERE figure_id = $1", [req.params.id]);
+        await client.query("DELETE FROM Submissions WHERE targetId = $1", [req.params.id]);
+        await client.query("DELETE FROM Figures WHERE id = $1", [req.params.id]);
+        await client.query("COMMIT");
+        invalidateAll();
         res.json({ message: "Target and all associated intel purged." });
     } catch (err) {
-        log.error('Admin delete figure error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        if (client) {
+            try { await client.query("ROLLBACK"); } catch (_) { /* ignore rollback error */ }
+        }
+        log.error('Admin delete figure error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    } finally {
+        if (client) client.release();
     }
 });
 
 // Edit figure
 router.put('/figures/:id', requireAuth, requireAdmin, async (req, res) => {
     const { name, brand, classTie, line, msrp } = req.body;
+    if (!name || !brand || !classTie || !line) {
+        return res.status(400).json({ error: 'Name, brand, class, and line are required.' });
+    }
     try {
+        const fig = await db.query("SELECT id FROM Figures WHERE id = $1", [req.params.id]);
+        if (!fig.rows[0]) return res.status(404).json({ error: 'Figure not found.' });
+
         await db.query("UPDATE Figures SET name = $1, brand = $2, classTie = $3, line = $4, msrp = $5 WHERE id = $6",
             [name, brand, classTie, line, msrp !== undefined && msrp !== '' ? parseFloat(msrp) : null, req.params.id]);
+        invalidateCache('/api/figures');
+        invalidateCache('/api/stats');
         res.json({ message: "Target updated successfully." });
     } catch (err) {
-        log.error('Admin edit figure error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin edit figure error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -254,33 +283,39 @@ router.get('/pending-brands', requireAuth, requireAdmin, async (req, res) => {
         const result = await db.query("SELECT * FROM PendingBrands ORDER BY created_at DESC");
         res.json(result.rows);
     } catch (err) {
-        log.error('Admin get pending brands error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin get pending brands error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
-// Approve a pending brand (move to ApprovedBrands, delete from PendingBrands)
+// Approve a pending brand (move to ApprovedBrands, delete from PendingBrands — transactional)
 router.post('/pending-brands/:id/approve', requireAuth, requireAdmin, async (req, res) => {
+    let client;
     try {
         const pending = await db.query("SELECT * FROM PendingBrands WHERE id = $1", [req.params.id]);
         if (!pending.rows[0]) return res.status(404).json({ error: "Pending brand not found." });
 
         const brandName = pending.rows[0].name;
 
-        // Add to approved brands
-        await db.query(
+        client = await db.connect();
+        await client.query("BEGIN");
+        await client.query(
             "INSERT INTO ApprovedBrands (name, approved_by, created_at) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING",
             [brandName, req.user.username, new Date().toISOString()]
         );
-
-        // Remove from pending
-        await db.query("DELETE FROM PendingBrands WHERE id = $1", [req.params.id]);
+        await client.query("DELETE FROM PendingBrands WHERE id = $1", [req.params.id]);
+        await client.query("COMMIT");
 
         log.info('Pending brand approved', { brand: brandName, approvedBy: req.user.username });
         res.json({ message: `Brand "${brandName}" approved and added to the catalog.` });
     } catch (err) {
-        log.error('Admin approve pending brand error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        if (client) {
+            try { await client.query("ROLLBACK"); } catch (_) { /* ignore rollback error */ }
+        }
+        log.error('Admin approve pending brand error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -294,8 +329,8 @@ router.delete('/pending-brands/:id', requireAuth, requireAdmin, async (req, res)
         log.info('Pending brand rejected', { brand: pending.rows[0].name, rejectedBy: req.user.username });
         res.json({ message: `Brand "${pending.rows[0].name}" rejected.` });
     } catch (err) {
-        log.error('Admin reject pending brand error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin reject pending brand error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -305,8 +340,8 @@ router.get('/brands', requireAuth, requireAdmin, async (req, res) => {
         const result = await db.query("SELECT DISTINCT ON (LOWER(name)) * FROM ApprovedBrands ORDER BY LOWER(name) ASC, id ASC");
         res.json(result.rows);
     } catch (err) {
-        log.error('Admin get brands error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin get brands error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -322,34 +357,42 @@ router.post('/brands', requireAuth, requireAdmin, async (req, res) => {
         res.status(201).json({ message: `Brand "${name.trim()}" approved.` });
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: "Brand already exists." });
-        log.error('Admin add brand error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin add brand error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
-// Edit approved brand (rename + cascade to Figures)
+// Edit approved brand (rename + cascade to Figures — transactional)
 router.put('/brands/:id', requireAuth, requireAdmin, async (req, res) => {
     const { name } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: "Brand name required." });
+    let client;
     try {
-        // Get the old brand name first
         const old = await db.query("SELECT name FROM ApprovedBrands WHERE id = $1", [req.params.id]);
         if (!old.rows[0]) return res.status(404).json({ error: "Brand not found." });
         const oldName = old.rows[0].name;
         const newName = name.trim();
 
-        // Update the approved brand
-        await db.query("UPDATE ApprovedBrands SET name = $1 WHERE id = $2", [newName, req.params.id]);
+        client = await db.connect();
+        await client.query("BEGIN");
+        await client.query("UPDATE ApprovedBrands SET name = $1 WHERE id = $2", [newName, req.params.id]);
+        const figResult = await client.query("UPDATE Figures SET brand = $1 WHERE brand = $2", [newName, oldName]);
+        await client.query("COMMIT");
 
-        // Cascade: update all figures that use the old brand name
-        const figResult = await db.query("UPDATE Figures SET brand = $1 WHERE brand = $2", [newName, oldName]);
+        invalidateCache('/api/figures');
+        invalidateCache('/api/stats');
 
         log.info('Brand renamed', { oldName, newName, figuresUpdated: figResult.rowCount });
         res.json({ message: `Brand renamed from "${oldName}" to "${newName}". ${figResult.rowCount} figure(s) updated.` });
     } catch (err) {
+        if (client) {
+            try { await client.query("ROLLBACK"); } catch (_) { /* ignore rollback error */ }
+        }
         if (err.code === '23505') return res.status(409).json({ error: "A brand with that name already exists." });
-        log.error('Admin edit brand error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin edit brand error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -359,8 +402,8 @@ router.delete('/brands/:id', requireAuth, requireAdmin, async (req, res) => {
         await db.query("DELETE FROM ApprovedBrands WHERE id = $1", [req.params.id]);
         res.json({ message: "Brand removed from approved list." });
     } catch (err) {
-        log.error('Admin delete brand error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin delete brand error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -383,8 +426,8 @@ router.get('/analytics', requireAuth, requireRole('moderator'), async (req, res)
             topAnalysts: activeAnalysts.rows
         });
     } catch (err) {
-        log.error('Admin analytics error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin analytics error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -400,8 +443,8 @@ router.get('/flags', requireAuth, requireRole('moderator'), async (req, res) => 
         `);
         res.json(normalizeRows(result.rows));
     } catch (err) {
-        log.error('Admin flags error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin flags error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -411,8 +454,8 @@ router.delete('/flags/:id', requireAuth, requireRole('moderator'), async (req, r
         await db.query("DELETE FROM Flags WHERE id = $1", [req.params.id]);
         res.json({ message: "Flag dismissed." });
     } catch (err) {
-        log.error('Admin dismiss flag error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin dismiss flag error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -423,12 +466,13 @@ router.delete('/users/:username/submissions', requireAuth, requireAdmin, async (
         if (username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot wipe admin submissions." });
 
         const result = await db.query("DELETE FROM Submissions WHERE author = $1", [username]);
+        invalidateAll();
         await auditLog('ADMIN_WIPE_SUBMISSIONS', req.user.username, username, `Wiped ${result.rowCount} submissions`, req.ip);
 
         res.json({ message: `Removed ${result.rowCount} submissions for ${username}.`, count: result.rowCount });
     } catch (err) {
-        log.error('Admin wipe submissions error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin wipe submissions error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -449,8 +493,8 @@ router.delete('/cleanup', requireAuth, requireAdmin, async (req, res) => {
             deletedTypingIndicators: typingResult.rowCount
         });
     } catch (err) {
-        log.error('Admin cleanup error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin cleanup error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -472,13 +516,15 @@ router.put('/figures/:id/leaderboard', requireAuth, requireAdmin, async (req, re
             [!!lb_pinned, !!lb_hidden, rankVal, catVal, req.params.id]
         );
 
+        invalidateCache('/api/figures');
+
         await auditLog('ADMIN_LB_UPDATE', req.user.username, fig.rows[0].name,
             `Leaderboard: pinned=${!!lb_pinned}, hidden=${!!lb_hidden}, rank=${rankVal}, category=${catVal}`, req.ip);
 
         res.json({ message: `Leaderboard settings updated for "${fig.rows[0].name}".` });
     } catch (err) {
-        log.error('Admin leaderboard update error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin leaderboard update error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -490,14 +536,15 @@ router.put('/figures/:id/visibility', requireAuth, requireRole('moderator'), asy
         if (!fig.rows[0]) return res.status(404).json({ error: 'Figure not found.' });
 
         await db.query("UPDATE Figures SET lb_hidden = $1 WHERE id = $2", [!!hidden, req.params.id]);
+        invalidateCache('/api/figures');
 
         await auditLog('MOD_LB_VISIBILITY', req.user.username, fig.rows[0].name,
             `Leaderboard visibility: ${hidden ? 'hidden' : 'visible'}`, req.ip);
 
         res.json({ message: `"${fig.rows[0].name}" ${hidden ? 'hidden from' : 'restored to'} leaderboard.` });
     } catch (err) {
-        log.error('Moderator visibility toggle error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Moderator visibility toggle error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -525,8 +572,8 @@ router.get('/figures/leaderboard-settings', requireAuth, requireRole('moderator'
             avgGrade: r.avg_grade ? parseFloat(parseFloat(r.avg_grade).toFixed(1)) : null
         })));
     } catch (err) {
-        log.error('Admin leaderboard settings error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin leaderboard settings error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -592,8 +639,8 @@ router.get('/audit-logs', requireAuth, requireAdmin, async (req, res) => {
             totalPages: Math.ceil(total / limit) || 1
         });
     } catch (err) {
-        log.error('Admin audit-logs error', { error: err.message || err });
-        res.status(500).json({ error: 'Failed to load audit logs.' });
+        log.error('Admin audit-logs error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'Failed to load audit logs.', refId: req.requestId });
     }
 });
 
@@ -610,8 +657,8 @@ router.get('/ticker-settings', requireAuth, requireAdmin, async (req, res) => {
             ticker_length: parseInt(settings.ticker_length) || 25
         });
     } catch (err) {
-        log.error('Admin get ticker settings error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin get ticker settings error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -653,8 +700,64 @@ router.put('/ticker-settings', requireAuth, requireAdmin, async (req, res) => {
 
         res.json({ message: 'Ticker settings updated.', ticker_mode: ticker_mode || undefined, ticker_length: length || undefined });
     } catch (err) {
-        log.error('Admin update ticker settings error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Admin update ticker settings error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
+// Full database backup (JSON download)
+router.post('/backup', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const tables = [
+            { name: 'users', query: 'SELECT id, username, email, avatar, role, suspended, created_at FROM Users ORDER BY id' },
+            { name: 'figures', query: 'SELECT * FROM Figures ORDER BY id' },
+            { name: 'submissions', query: 'SELECT * FROM Submissions ORDER BY id' },
+            { name: 'market_transactions', query: 'SELECT * FROM MarketTransactions ORDER BY id' },
+            { name: 'posts', query: 'SELECT * FROM Posts ORDER BY id' },
+            { name: 'comments', query: 'SELECT * FROM Comments ORDER BY id' },
+            { name: 'reactions', query: 'SELECT * FROM Reactions ORDER BY id' },
+            { name: 'rooms', query: 'SELECT * FROM Rooms ORDER BY id' },
+            { name: 'room_members', query: 'SELECT * FROM RoomMembers ORDER BY id' },
+            { name: 'messages', query: 'SELECT * FROM Messages ORDER BY id' },
+            { name: 'message_reactions', query: 'SELECT * FROM MessageReactions ORDER BY id' },
+            { name: 'notifications', query: 'SELECT * FROM Notifications ORDER BY id' },
+            { name: 'notification_prefs', query: 'SELECT * FROM NotificationPrefs ORDER BY id' },
+            { name: 'figure_comments', query: 'SELECT * FROM FigureComments ORDER BY id' },
+            { name: 'follows', query: 'SELECT * FROM Follows ORDER BY id' },
+            { name: 'flags', query: 'SELECT * FROM Flags ORDER BY id' },
+            { name: 'audit_log', query: 'SELECT * FROM AuditLog ORDER BY id' },
+            { name: 'approved_brands', query: 'SELECT * FROM ApprovedBrands ORDER BY id' },
+            { name: 'pending_brands', query: 'SELECT * FROM PendingBrands ORDER BY id' },
+            { name: 'site_settings', query: 'SELECT * FROM SiteSettings ORDER BY key' },
+            { name: 'typing_indicators', query: 'SELECT * FROM TypingIndicators ORDER BY id' }
+        ];
+
+        const backup = {
+            version: '1.0',
+            created_at: new Date().toISOString(),
+            created_by: req.user.username,
+            tables: {}
+        };
+
+        for (const t of tables) {
+            try {
+                const result = await db.query(t.query);
+                backup.tables[t.name] = { count: result.rows.length, rows: result.rows };
+            } catch (e) {
+                backup.tables[t.name] = { count: 0, rows: [], error: e.message };
+            }
+        }
+
+        await auditLog('ADMIN_BACKUP', req.user.username, null,
+            `Full backup downloaded (${Object.keys(backup.tables).length} tables)`, req.ip);
+
+        const filename = `datatoyz-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/json');
+        res.json(backup);
+    } catch (err) {
+        log.error('Admin backup error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'Backup failed.', refId: req.requestId });
     }
 });
 

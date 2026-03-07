@@ -9,11 +9,11 @@ const { getNotificationPrefs } = require('../helpers/notifications');
 router.get('/preferences', requireAuth, async (req, res) => {
     try {
         const prefs = await getNotificationPrefs(req.user.id);
-        if (!prefs) return res.status(500).json({ error: 'Failed to load preferences.' });
+        if (!prefs) return res.status(500).json({ error: 'Failed to load preferences.', refId: req.requestId });
         res.json(prefs);
     } catch (err) {
-        log.error('Get notification prefs error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get notification prefs error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -54,8 +54,8 @@ router.put('/preferences', requireAuth, async (req, res) => {
         const updated = await db.query("SELECT * FROM NotificationPrefs WHERE user_id = $1", [req.user.id]);
         res.json(updated.rows[0]);
     } catch (err) {
-        log.error('Update notification prefs error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Update notification prefs error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -65,8 +65,8 @@ router.put('/read-all', requireAuth, async (req, res) => {
         await db.query("UPDATE Notifications SET read = true WHERE recipient = $1", [req.user.username]);
         res.json({ message: "All notifications marked as read." });
     } catch (err) {
-        log.error('Mark all notifications read error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Mark all notifications read error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -79,8 +79,8 @@ router.get('/:username', requireAuth, async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        log.error('Get notifications error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Get notifications error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -93,8 +93,8 @@ router.get('/:username/count', requireAuth, async (req, res) => {
         );
         res.json({ unread: parseInt(result.rows[0].count) });
     } catch (err) {
-        log.error('Notification count error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Notification count error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 
@@ -103,8 +103,8 @@ router.put('/:id/read', requireAuth, async (req, res) => {
         await db.query("UPDATE Notifications SET read = true WHERE id = $1 AND recipient = $2", [req.params.id, req.user.username]);
         res.json({ message: "Notification marked as read." });
     } catch (err) {
-        log.error('Mark notification read error', { error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.' });
+        log.error('Mark notification read error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 

@@ -10,6 +10,7 @@ const compression = require('compression');
 const path = require('path');
 const db = require('./db.js');
 const log = require('./logger.js');
+const crypto = require('crypto');
 const { apiLimiter } = require('./middleware/rateLimiters');
 
 const app = express();
@@ -47,6 +48,12 @@ app.use(helmet({
     }
 }));
 
+// --- Request ID for error correlation (customers can quote this for support) --- //
+app.use((req, res, next) => {
+    req.requestId = crypto.randomBytes(4).toString('hex');
+    next();
+});
+
 // --- Compression & body parsing --- //
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
@@ -54,8 +61,26 @@ app.use(express.json({ limit: '10mb' }));
 // --- Health check BEFORE rate limiter (blue-green deploys) --- //
 app.get('/api/health', async (req, res) => {
     try {
-        await db.query('SELECT 1');
-        res.json({ status: 'ok', uptime: process.uptime() });
+        // Verify DB connection AND that critical tables exist
+        const tableCheck = await db.query(`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name IN ('users', 'figures', 'submissions', 'posts')
+        `);
+        const tables = tableCheck.rows.map(r => r.table_name);
+        const missing = ['users', 'figures', 'submissions', 'posts'].filter(t => !tables.includes(t));
+        if (missing.length > 0) {
+            return res.status(503).json({
+                status: 'degraded',
+                error: `Missing tables: ${missing.join(', ')}`,
+                uptime: process.uptime()
+            });
+        }
+        res.json({
+            status: 'ok',
+            uptime: process.uptime(),
+            pool: { total: db.totalCount, idle: db.idleCount, waiting: db.waitingCount }
+        });
     } catch (err) {
         res.status(503).json({ status: 'unhealthy', error: 'database unreachable' });
     }
@@ -92,7 +117,6 @@ app.use('/api/trade-advisor', require('./routes/trade-advisor'));
 // Public ticker settings (no auth required)
 app.get('/api/settings/ticker', async (req, res) => {
     try {
-        const db = require('./db.js');
         const result = await db.query(
             "SELECT key, value FROM SiteSettings WHERE key IN ('ticker_mode', 'ticker_length')"
         );
@@ -115,6 +139,25 @@ app.all('/api/{*path}', (req, res) => {
 // --- SPA fallback: serve index.html for any non-API, non-file route --- //
 app.get('{*path}', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// --- Global error handler (catches unhandled throws / async rejections) --- //
+app.use((err, req, res, _next) => {
+    const refId = req.requestId || 'unknown';
+    log.error('Unhandled route error', {
+        refId,
+        method: req.method,
+        path: req.originalUrl,
+        userId: req.user?.id || null,
+        error: err.message,
+        stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined
+    });
+    if (!res.headersSent) {
+        res.status(500).json({
+            error: 'An internal error occurred.',
+            refId
+        });
+    }
 });
 
 // --- Start & Graceful Shutdown --- //

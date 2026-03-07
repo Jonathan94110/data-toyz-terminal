@@ -27,15 +27,39 @@ setInterval(() => {
     });
 }, 60000);
 
-pool.connect((err, client, release) => {
-    if (err) {
-        log.error('Error acquiring database client', { error: err.message });
-    } else {
-        log.info('Connected to Vercel/Neon Postgres Database');
-        initDB();
-        release();
+// Clean up expired token blacklist entries (daily)
+setInterval(async () => {
+    try {
+        const result = await pool.query(
+            "DELETE FROM TokenBlacklist WHERE expires_at < $1",
+            [new Date().toISOString()]
+        );
+        if (result.rowCount > 0) {
+            log.info('Token blacklist cleanup', { removed: result.rowCount });
+        }
+    } catch (e) {
+        log.error('Token blacklist cleanup error', { error: e.message });
     }
-});
+}, 24 * 60 * 60 * 1000);
+
+// --- Startup connection with retry (handles cold-start Neon wake-ups) --- //
+(async function connectWithRetry(attempt = 1) {
+    const MAX_RETRIES = 5;
+    try {
+        const client = await pool.connect();
+        log.info('Connected to Vercel/Neon Postgres Database');
+        client.release();
+        initDB();
+    } catch (err) {
+        if (attempt < MAX_RETRIES) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 8000); // 1s, 2s, 4s, 8s
+            log.warn(`DB connection attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${delay}ms`, { error: err.message });
+            setTimeout(() => connectWithRetry(attempt + 1), delay);
+        } else {
+            log.error(`DB connection failed after ${MAX_RETRIES} attempts`, { error: err.message });
+        }
+    }
+})();
 
 async function initDB() {
     try {
@@ -293,6 +317,16 @@ async function initDB() {
             ip_address TEXT,
             created_at TEXT NOT NULL
         )`);
+
+        // Create TokenBlacklist table (revoked JWT tokens)
+        await pool.query(`CREATE TABLE IF NOT EXISTS TokenBlacklist (
+            id SERIAL PRIMARY KEY,
+            token_hash TEXT NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL,
+            expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_tokenblacklist_hash ON TokenBlacklist(token_hash)`);
 
         // Create SiteSettings table (admin-configurable site-wide settings)
         await pool.query(`CREATE TABLE IF NOT EXISTS SiteSettings (

@@ -104,19 +104,25 @@ TerminalApp.prototype.renderFeed = async function (container) {
     // Clean up any autocomplete dropdowns from previous renders
     document.querySelectorAll('.figure-autocomplete').forEach(el => el.remove());
     // Auto-bracket + autocomplete helper for figure linking (*[Figure Name])
-    setupFigureLinkHelper(document.getElementById('postContent'));
-    document.querySelectorAll('.replyContent').forEach(el => setupFigureLinkHelper(el));
-    // @mention autocomplete for user tagging
-    setupMentionHelper(document.getElementById('postContent'));
-    document.querySelectorAll('.replyContent').forEach(el => setupMentionHelper(el));
+    // Guarded: only attach once per element to prevent listener leaks on mobile
+    const postContentEl = document.getElementById('postContent');
+    if (postContentEl && !postContentEl._figureLinkReady) { setupFigureLinkHelper(postContentEl); postContentEl._figureLinkReady = true; }
+    if (postContentEl && !postContentEl._mentionReady) { setupMentionHelper(postContentEl); postContentEl._mentionReady = true; }
+    document.querySelectorAll('.replyContent').forEach(el => {
+        if (!el._figureLinkReady) { setupFigureLinkHelper(el); el._figureLinkReady = true; }
+        if (!el._mentionReady) { setupMentionHelper(el); el._mentionReady = true; }
+    });
 
     // --- EVENT DELEGATION on #timeline ---
     // Single listeners instead of per-post loops for reactions, replies, edit, delete, flag, share
     const timeline = document.getElementById('timeline');
     this._setupFeedDelegation(timeline, container);
 
-    // Post form submit
-    document.getElementById('postForm').addEventListener('submit', async (e) => {
+    // Post form submit (guarded — only attach once)
+    const postForm = document.getElementById('postForm');
+    if (!postForm._submitReady) {
+    postForm._submitReady = true;
+    postForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const content = document.getElementById('postContent').value.trim();
         const sentiment = document.querySelector('input[name="sentiment"]:checked').value;
@@ -142,10 +148,12 @@ TerminalApp.prototype.renderFeed = async function (container) {
             e.target.querySelector('button').innerText = "Submit";
         }
     });
+    } // end postForm guard
 
     // Load More handler
     const loadMoreBtn = document.getElementById('loadMoreBtn');
-    if (loadMoreBtn) {
+    if (loadMoreBtn && !loadMoreBtn._loadReady) {
+        loadMoreBtn._loadReady = true;
         loadMoreBtn.addEventListener('click', () => this._loadMorePosts());
     }
 };
@@ -316,10 +324,21 @@ TerminalApp.prototype._loadMorePosts = async function () {
         });
         timeline.insertAdjacentHTML('beforeend', html);
 
-        // Wire autocomplete on new reply inputs
+        // Wire autocomplete on new reply inputs (guarded)
         timeline.querySelectorAll('.replyContent').forEach(el => {
-            if (!el._figureLinkReady) { setupFigureLinkHelper(el); setupMentionHelper(el); }
+            if (!el._figureLinkReady) { setupFigureLinkHelper(el); el._figureLinkReady = true; }
+            if (!el._mentionReady) { setupMentionHelper(el); el._mentionReady = true; }
         });
+
+        // Cap DOM size: remove excess posts from the top to prevent unbounded growth on mobile
+        const MAX_FEED_POSTS = 60;
+        const allPosts = timeline.querySelectorAll('.feed-item');
+        if (allPosts.length > MAX_FEED_POSTS) {
+            const excess = allPosts.length - MAX_FEED_POSTS;
+            for (let i = 0; i < excess; i++) {
+                allPosts[i].remove();
+            }
+        }
 
         // Update Load More button
         const remaining = this._feedTotal - this._feedOffset;
@@ -338,6 +357,9 @@ TerminalApp.prototype._loadMorePosts = async function () {
 
 // Event delegation — single listeners on #timeline for all post interactions
 TerminalApp.prototype._setupFeedDelegation = function (timeline, container) {
+    // Guard: only attach listeners once per timeline element
+    if (timeline._delegationReady) return;
+    timeline._delegationReady = true;
     const self = this;
 
     // Reaction clicks

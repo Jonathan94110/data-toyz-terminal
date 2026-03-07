@@ -345,7 +345,10 @@ TerminalApp.prototype.renderRoomChat = async function(container) {
 
         // Start polling for new messages
         if (this._chatPollInterval) clearInterval(this._chatPollInterval);
-        this._chatPollInterval = setInterval(() => this._pollRoomMessages(roomId, self), 3000);
+        var app = this;
+        this._chatPollInterval = setInterval(function() {
+            if (!app._isTabHidden) app._pollRoomMessages(roomId, self);
+        }, 5000);
 
         // Reaction click delegation
         chatMessages.addEventListener('click', async (e) => {
@@ -388,7 +391,7 @@ TerminalApp.prototype._renderMessage = function(m, self) {
                 ${!isOwn ? `<div class="msg-author">${escapeHTML(m.author)}</div>` : ''}
                 <div class="msg-bubble">
                     ${m.content ? `<div class="msg-content">${escapeHTML(m.content)}</div>` : ''}
-                    ${m.image ? `<img src="${m.image}" class="msg-image" alt="attachment">` : ''}
+                    ${m.hasImage ? `<img src="${API_URL}/rooms/${m.roomId}/messages/${m.id}/image" class="msg-image" loading="lazy" alt="attachment">` : ''}
                 </div>
                 <div class="msg-reactions">
                     ${emojis.map(e => {

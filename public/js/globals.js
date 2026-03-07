@@ -41,15 +41,31 @@ function renderFigureLinks(html) {
         }
     });
 
-    // Step 2: Auto-link bare figure names (longest match first to avoid partial replacements)
+    // Step 2: Auto-link bare figure names — single-pass regex (O(n+m) instead of O(n*m))
+    // Build one combined regex from all figure names instead of looping per figure
     if (MOCK_FIGURES && MOCK_FIGURES.length > 0) {
-        const sorted = MOCK_FIGURES.slice().sort((a, b) => b.name.length - a.name.length);
-        for (const fig of sorted) {
-            if (fig.name.length < 4) continue; // skip very short names to avoid false matches
-            const escaped = fig.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(?<![\\w">])${escaped}(?![\\w<])`, 'gi');
-            html = html.replace(regex, (match) => {
-                return `<span class="figure-link found" onclick="event.stopPropagation(); app.selectTarget(${fig.id})" title="View figure">${match}</span>`;
+        // Cache: rebuild only when figure count changes
+        if (!renderFigureLinks._cache || renderFigureLinks._cache.len !== MOCK_FIGURES.length) {
+            const sorted = MOCK_FIGURES.filter(f => f.name.length >= 4)
+                .sort((a, b) => b.name.length - a.name.length);
+            const nameMap = new Map();
+            sorted.forEach(f => nameMap.set(f.name.toLowerCase(), f));
+            const pattern = sorted.map(f => f.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+            renderFigureLinks._cache = {
+                len: MOCK_FIGURES.length,
+                regex: pattern ? new RegExp('(?<![\\w">])(' + pattern + ')(?![\\w<])', 'gi') : null,
+                map: nameMap
+            };
+        }
+        const cache = renderFigureLinks._cache;
+        if (cache.regex) {
+            cache.regex.lastIndex = 0;
+            html = html.replace(cache.regex, function(match) {
+                var fig = cache.map.get(match.toLowerCase());
+                if (fig) {
+                    return '<span class="figure-link found" onclick="event.stopPropagation(); app.selectTarget(' + fig.id + ')" title="View figure">' + match + '</span>';
+                }
+                return match;
             });
         }
     }
@@ -59,10 +75,14 @@ function renderFigureLinks(html) {
 
 // Auto-insert brackets + live autocomplete when typing *[...] for figure linking
 function setupFigureLinkHelper(el) {
+    // Cleanup any previous helper on this element
+    if (el._acFigureDestroy) el._acFigureDestroy();
     let dropdown = null;
     let selectedIdx = -1;
 
     function getDropdown() {
+        // If cached dropdown was removed from DOM (cleanup on re-render), reset
+        if (dropdown && !dropdown.parentNode) dropdown = null;
         if (!dropdown) {
             dropdown = document.createElement('div');
             dropdown.className = 'figure-autocomplete';
@@ -79,6 +99,12 @@ function setupFigureLinkHelper(el) {
         if (dropdown) dropdown.style.display = 'none';
         selectedIdx = -1;
     }
+
+    // Expose destroy for cleanup when element is removed from DOM
+    el._acFigureDestroy = function() {
+        if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+        dropdown = null;
+    };
 
     function isVisible() {
         return dropdown && dropdown.style.display === 'block';
@@ -176,11 +202,15 @@ function setupFigureLinkHelper(el) {
 
 // Live autocomplete for @mentions — searches users via API, always shows @everyone
 function setupMentionHelper(el) {
+    // Cleanup any previous helper on this element
+    if (el._acMentionDestroy) el._acMentionDestroy();
     let dropdown = null;
     let selectedIdx = -1;
     let debounceTimer = null;
 
     function getDropdown() {
+        // If cached dropdown was removed from DOM (cleanup on re-render), reset
+        if (dropdown && !dropdown.parentNode) dropdown = null;
         if (!dropdown) {
             dropdown = document.createElement('div');
             dropdown.className = 'figure-autocomplete';
@@ -197,6 +227,13 @@ function setupMentionHelper(el) {
         if (dropdown) dropdown.style.display = 'none';
         selectedIdx = -1;
     }
+
+    // Expose destroy for cleanup when element is removed from DOM
+    el._acMentionDestroy = function() {
+        clearTimeout(debounceTimer);
+        if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+        dropdown = null;
+    };
 
     function isVisible() {
         return dropdown && dropdown.style.display === 'block';

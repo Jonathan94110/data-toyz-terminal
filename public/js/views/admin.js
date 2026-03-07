@@ -673,6 +673,12 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 ` : ''}
 
                 ${isFullAdmin ? `
+                <!-- DATABASE BACKUP -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F4BE} Database Backup</h3>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:0.75rem;">Download a full JSON export of all database tables. Sensitive fields (password hashes, reset tokens) are excluded.</p>
+                <button id="adminBackupBtn" style="background:linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color:white; border:none; padding:0.6rem 1.2rem; border-radius:var(--radius-sm); cursor:pointer; font-size:0.85rem; font-weight:600; letter-spacing:0.03em;">Download Backup</button>
+                <span id="adminBackupStatus" style="color:var(--text-muted); font-size:0.8rem; margin-left:0.75rem;"></span>
+
                 <!-- SYSTEM LOGS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F4DC} System Logs</h3>
                 <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Authentication events, admin actions, and security audit trail.</p>
@@ -1045,6 +1051,35 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 
             // Initial load
             loadLogs();
+        }
+
+        // Backup button handler
+        const backupBtn = document.getElementById('adminBackupBtn');
+        const backupStatus = document.getElementById('adminBackupStatus');
+        if (backupBtn) {
+            backupBtn.addEventListener('click', async () => {
+                backupBtn.disabled = true;
+                backupBtn.textContent = 'Generating...';
+                if (backupStatus) backupStatus.textContent = '';
+                try {
+                    const res = await self.authFetch(`${API_URL}/admin/backup`, { method: 'POST' });
+                    if (!res.ok) throw new Error('Backup failed');
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `datatoyz-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    if (backupStatus) backupStatus.textContent = 'Download started.';
+                } catch (e) {
+                    if (backupStatus) backupStatus.textContent = 'Backup failed. Try again.';
+                }
+                backupBtn.disabled = false;
+                backupBtn.textContent = 'Download Backup';
+            });
         }
 
         // Leaderboard controls table render
