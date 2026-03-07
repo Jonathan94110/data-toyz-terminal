@@ -3,33 +3,12 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Toyz | Trade Value Terminal</title>
-    <!-- Nuke stale service workers & caches FIRST (inline so no external script needed) -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(regs) {
-                regs.forEach(function(r) { r.unregister(); });
-            });
-            if ('caches' in window) {
-                caches.keys().then(function(keys) {
-                    keys.forEach(function(k) { caches.delete(k); });
-                });
-            }
-        }
-    </script>
-    <!-- PWA disabled: apple-mobile-web-app-capable was breaking iPhone page loads -->
-    <!-- <link rel="manifest" href="manifest.json"> -->
-    <meta name="theme-color" content="#ff2a5f">
-    <!-- <meta name="apple-mobile-web-app-capable" content="yes"> -->
-    <!-- <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> -->
-    <!-- <meta name="apple-mobile-web-app-title" content="Data Toyz"> -->
-    <link rel="apple-touch-icon" href="logo.png">
     <!-- Modern Fonts -->
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800;900&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=47">
+    <link rel="stylesheet" href="styles.css?v=48">
     <!-- Chart.js for Projections Graph -->
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -39,8 +18,8 @@
     <div class="ambient-orb orb-2"></div>
     <div id="app"></div>
     <!-- Core (defer: download in parallel, execute in order after HTML parsed) -->
-    <script defer src="js/globals.js?v=40"></script>
-    <script defer src="js/app-core.js?v=54"></script>
+    <script defer src="js/globals.js?v=41"></script>
+    <script defer src="js/app-core.js?v=55"></script>
     <!-- Views -->
     <script defer src="js/views/auth.js?v=27"></script>
     <script defer src="js/views/feed.js?v=37"></script>

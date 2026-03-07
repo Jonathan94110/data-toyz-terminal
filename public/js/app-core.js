@@ -400,11 +400,7 @@ class TerminalApp {
                             <span class="nav-label">${this.user.role === 'moderator' ? 'Mod Panel' : 'Admin Panel'}</span>
                         </div>
                         ` : ''}
-                        <div id="pwaInstallBtn" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; display:${deferredInstallPrompt ? 'flex' : 'none'}; color:var(--accent);">
-                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            <span class="nav-label">Install App</span>
-                        </div>
-                        <div id="themeToggle" class="nav-item" style="${deferredInstallPrompt ? '' : 'margin-top:auto; '}border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
+                        <div id="themeToggle" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${document.body.getAttribute('data-theme') === 'dark' ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>' : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'}</svg>
                             <span class="nav-label">${document.body.getAttribute('data-theme') === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                         </div>
@@ -415,10 +411,8 @@ class TerminalApp {
                     </nav>
                 </aside>
 
-                <div class="sidebar-overlay" id="sidebarOverlay"></div>
                 <main class="main-content">
                     <header class="topbar">
-                        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle menu">☰</button>
                         <div class="topbar-search">
                             <svg class="topbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                             <input type="text" id="globalSearchInput" class="topbar-search-input" placeholder="Search targets, users, intel..." />
@@ -445,34 +439,10 @@ class TerminalApp {
                     <div class="content-area" id="mainContent">
                     </div>
                 </main>
-                <nav class="bottom-nav">
-                    <div class="nav-items-mobile">
-                        <div class="nav-item-mobile ${this.currentView === 'search' ? 'active' : ''}" data-view="search">
-                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                            <span class="nav-label-mobile">Search</span>
-                        </div>
-                        <div class="nav-item-mobile ${this.currentView === 'feed' ? 'active' : ''}" data-view="feed">
-                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-                            <span class="nav-label-mobile">Feed</span>
-                        </div>
-                        <div class="nav-item-mobile ${this.currentView === 'scorecard' ? 'active' : ''}" data-view="scorecard">
-                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/><path d="M2 20h20"/></svg>
-                            <span class="nav-label-mobile">Scorecard</span>
-                        </div>
-                        <div class="nav-item-mobile ${this.currentView === 'profile' ? 'active' : ''}" data-view="profile">
-                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            <span class="nav-label-mobile">Profile</span>
-                        </div>
-                        <div class="nav-item-mobile" id="mobileMoreBtn">
-                            <svg class="nav-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                            <span class="nav-label-mobile">More</span>
-                        </div>
-                    </div>
-                </nav>
             </div>
         `;
 
-        document.querySelectorAll('.nav-item[data-view], .nav-item-mobile[data-view]').forEach(item => {
+        document.querySelectorAll('.nav-item[data-view]').forEach(item => {
             item.addEventListener('click', (e) => {
                 this.currentView = e.currentTarget.dataset.view;
                 this.renderApp();
@@ -480,20 +450,6 @@ class TerminalApp {
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
-
-        // PWA Install button
-        const pwaBtn = document.getElementById('pwaInstallBtn');
-        if (pwaBtn) {
-            pwaBtn.addEventListener('click', async () => {
-                if (!deferredInstallPrompt) return;
-                deferredInstallPrompt.prompt();
-                const { outcome } = await deferredInstallPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    deferredInstallPrompt = null;
-                    pwaBtn.style.display = 'none';
-                }
-            });
-        }
 
         // Theme toggle
         document.getElementById('themeToggle').addEventListener('click', (e) => {
@@ -556,38 +512,6 @@ class TerminalApp {
             if (!bell.contains(e.target)) dropdown.style.display = 'none';
         };
         document.addEventListener('click', this._docClickHandler);
-
-        // Mobile hamburger menu
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-        const sidebar = document.querySelector('.sidebar');
-        if (hamburgerBtn && sidebar) {
-            hamburgerBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                sidebar.classList.toggle('open');
-                sidebarOverlay.classList.toggle('active');
-            });
-            sidebarOverlay.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                sidebarOverlay.classList.remove('active');
-            });
-        }
-        // Mobile bottom-nav "More" button — opens sidebar
-        const mobileMoreBtn = document.getElementById('mobileMoreBtn');
-        if (mobileMoreBtn && sidebar) {
-            mobileMoreBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                sidebar.classList.toggle('open');
-                if (sidebarOverlay) sidebarOverlay.classList.toggle('active');
-            });
-        }
-        // Close sidebar on nav-item click (mobile)
-        document.querySelectorAll('.nav-item[data-view]').forEach(item => {
-            item.addEventListener('click', () => {
-                if (sidebar) sidebar.classList.remove('open');
-                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
-            });
-        });
 
         // Poll notifications
         if (this._notifInterval) clearInterval(this._notifInterval);

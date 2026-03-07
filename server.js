@@ -25,6 +25,36 @@ app.use((req, res, next) => {
     next();
 });
 
+// --- Block mobile browsers — desktop only for now --- //
+app.use((req, res, next) => {
+    // Let API routes through (mobile apps may call them later)
+    if (req.path.startsWith('/api/')) return next();
+    const ua = (req.headers['user-agent'] || '').toLowerCase();
+    const isMobile = /android|iphone|ipad|ipod|mobile|webos|blackberry|opera mini|iemobile/i.test(ua);
+    if (isMobile) {
+        return res.send(`<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Data Toyz | Desktop Required</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#070914;color:#e2e8f0;font-family:'Inter',system-ui,sans-serif;padding:2rem;text-align:center}
+.wrap{max-width:360px}
+h1{font-family:'Outfit',sans-serif;font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,#ff2a5f,#ff8e3c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem}
+p{font-size:1rem;line-height:1.6;color:#94a3b8;margin-bottom:1.5rem}
+.icon{font-size:3rem;margin-bottom:1rem}
+a{color:#ff2a5f;text-decoration:none;font-weight:600}
+</style></head><body>
+<div class="wrap">
+<div class="icon">&#128187;</div>
+<h1>DATA TOYZ</h1>
+<p>The Trade Value Terminal is currently available on <strong style="color:#e2e8f0;">desktop browsers only</strong>.</p>
+<p style="font-size:0.9rem;">A mobile app is coming soon. For now, please visit <a href="https://datatoyz.com">datatoyz.com</a> on a computer.</p>
+</div></body></html>`);
+    }
+    next();
+});
+
 // --- CORS --- //
 app.use(cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
