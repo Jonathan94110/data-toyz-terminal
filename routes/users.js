@@ -1,11 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const db = require('../db.js');
 const log = require('../logger.js');
 const { normalizeRow, normalizeRows } = require('../helpers/normalize');
 const { generateToken } = require('../helpers/token');
 const { createNotification } = require('../helpers/notifications');
-const { requireAuth } = require('../middleware/auth');
+const { auditLog } = require('../helpers/audit');
+const { requireAuth, invalidateBlacklistCache } = require('../middleware/auth');
+const { invalidateAll } = require('../middleware/cache');
 const { upload } = require('../middleware/upload');
 
 // User search (for mentions and inviting to rooms) — MUST be before /:username routes
@@ -264,6 +269,86 @@ router.get('/:id/is-following', requireAuth, async (req, res) => {
     } catch (err) {
         log.error('Is following check error', { refId: req.requestId, error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
+// Self-service account deletion
+router.delete('/me/account', requireAuth, async (req, res) => {
+    let client;
+    try {
+        const userId = req.user.id;
+        const { password } = req.body;
+
+        if (!password) return res.status(400).json({ error: 'Password is required to confirm account deletion.' });
+
+        // Fetch user details
+        const userRes = await db.query("SELECT id, username, role, password FROM Users WHERE id = $1", [userId]);
+        if (!userRes.rows[0]) return res.status(404).json({ error: 'User not found.' });
+
+        const user = userRes.rows[0];
+
+        // Safety: owner cannot self-delete
+        if (user.role === 'owner') return res.status(403).json({ error: 'The owner account cannot be deleted.' });
+
+        // Verify password
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) return res.status(401).json({ error: 'Incorrect password.' });
+
+        const username = user.username;
+
+        // Cascading delete — same order as admin delete
+        client = await db.connect();
+        await client.query("BEGIN");
+        try {
+            await client.query("DELETE FROM MessageReactions WHERE author = $1", [username]);
+            await client.query("DELETE FROM Messages WHERE author = $1", [username]);
+            await client.query("DELETE FROM RoomMembers WHERE username = $1", [username]);
+            await client.query("DELETE FROM Notifications WHERE recipient = $1 OR sender = $1", [username]);
+            await client.query("DELETE FROM Reactions WHERE author = $1", [username]);
+            await client.query("DELETE FROM Comments WHERE author = $1", [username]);
+            await client.query("DELETE FROM Posts WHERE author = $1", [username]);
+            await client.query("DELETE FROM Submissions WHERE author = $1", [username]);
+            await client.query("DELETE FROM Flags WHERE flagged_by = $1", [username]);
+            await client.query("DELETE FROM FigureComments WHERE author = $1", [username]);
+            await client.query("DELETE FROM MarketTransactions WHERE submitted_by = $1", [username]);
+            await client.query("DELETE FROM TypingIndicators WHERE username = $1", [username]);
+            await client.query("DELETE FROM Follows WHERE follower_id = $1 OR following_id = $1", [userId]);
+            await client.query("DELETE FROM NotificationPrefs WHERE user_id = $1", [userId]);
+            // Nullify user_id in PageViews (preserve analytics data)
+            await client.query("UPDATE PageViews SET user_id = NULL WHERE user_id = $1", [userId]);
+            await client.query("DELETE FROM Users WHERE id = $1", [userId]);
+            await client.query("COMMIT");
+        } catch (txErr) {
+            await client.query("ROLLBACK");
+            throw txErr;
+        }
+
+        // Blacklist the current token
+        try {
+            const token = req.headers['authorization'].split(' ')[1];
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+            const decoded = jwt.decode(token);
+            const expiresAt = decoded && decoded.exp
+                ? new Date(decoded.exp * 1000).toISOString()
+                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            await db.query(
+                `INSERT INTO TokenBlacklist (token_hash, user_id, expires_at, created_at)
+                 VALUES ($1, $2, $3, $4) ON CONFLICT (token_hash) DO NOTHING`,
+                [tokenHash, userId, expiresAt, new Date().toISOString()]
+            );
+            invalidateBlacklistCache();
+        } catch (_) { /* non-critical */ }
+
+        invalidateAll();
+
+        await auditLog('SELF_DELETE_ACCOUNT', username, username, 'User deleted their own account', req.ip);
+
+        res.json({ message: 'Your account has been permanently deleted.' });
+    } catch (err) {
+        log.error('Self-delete account error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    } finally {
+        if (client) client.release();
     }
 });
 

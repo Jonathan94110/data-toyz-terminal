@@ -528,6 +528,18 @@ async function initDB() {
             `);
         }
 
+        // Page view analytics (TIMESTAMPTZ for native date/time aggregation)
+        await pool.query(`CREATE TABLE IF NOT EXISTS PageViews (
+            id SERIAL PRIMARY KEY,
+            path TEXT NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            user_id INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_pageviews_created_at ON PageViews(created_at DESC)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_pageviews_ip ON PageViews(ip_address)`);
+
         // --- Market analytics indexes ---
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_date ON Submissions(date)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_created_at ON MarketTransactions(created_at)`);

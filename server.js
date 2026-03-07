@@ -55,6 +55,38 @@ a{color:#ff2a5f;text-decoration:none;font-weight:600}
     next();
 });
 
+// --- Page View Tracking (non-blocking, fire-and-forget) --- //
+const jwt = require('jsonwebtoken');
+app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    if (req.path.startsWith('/api/')) return next();
+    // Skip static assets (files with extensions)
+    if (/\.\w{2,5}$/.test(req.path)) return next();
+
+    const ip = req.ip;
+    const userAgent = (req.headers['user-agent'] || '').substring(0, 500);
+    const pagePath = req.path || '/';
+
+    // Best-effort user_id extraction from JWT (decode only, no verify)
+    let userId = null;
+    try {
+        const authHeader = req.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const decoded = jwt.decode(authHeader.split(' ')[1]);
+            if (decoded && decoded.id) userId = decoded.id;
+        }
+    } catch (_) { /* ignore */ }
+
+    db.query(
+        'INSERT INTO PageViews (path, ip_address, user_agent, user_id, created_at) VALUES ($1, $2, $3, $4, NOW())',
+        [pagePath, ip, userAgent, userId]
+    ).catch(err => {
+        log.error('Page view tracking error', { error: err.message });
+    });
+
+    next();
+});
+
 // --- CORS --- //
 app.use(cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',

@@ -431,6 +431,72 @@ router.get('/analytics', requireAuth, requireRole('moderator'), async (req, res)
     }
 });
 
+// Page view analytics — summary (moderators+)
+router.get('/pageviews/summary', requireAuth, requireRole('moderator'), async (req, res) => {
+    try {
+        const [totalViews, uniqueVisitors, today, thisWeek, thisMonth] = await Promise.all([
+            db.query("SELECT COUNT(*) as count FROM PageViews"),
+            db.query("SELECT COUNT(DISTINCT ip_address) as count FROM PageViews"),
+            db.query("SELECT COUNT(*) as count FROM PageViews WHERE created_at >= CURRENT_DATE"),
+            db.query("SELECT COUNT(*) as count FROM PageViews WHERE created_at >= DATE_TRUNC('week', CURRENT_DATE)"),
+            db.query("SELECT COUNT(*) as count FROM PageViews WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)")
+        ]);
+        res.json({
+            totalViews: parseInt(totalViews.rows[0].count),
+            uniqueVisitors: parseInt(uniqueVisitors.rows[0].count),
+            today: parseInt(today.rows[0].count),
+            thisWeek: parseInt(thisWeek.rows[0].count),
+            thisMonth: parseInt(thisMonth.rows[0].count)
+        });
+    } catch (err) {
+        log.error('Admin pageviews summary error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
+// Page view analytics — aggregated by period (moderators+)
+router.get('/pageviews', requireAuth, requireRole('moderator'), async (req, res) => {
+    try {
+        const period = req.query.period || 'daily';
+        const from = req.query.from || null;
+        const to = req.query.to || null;
+
+        let dateTrunc;
+        if (period === 'monthly') dateTrunc = 'month';
+        else if (period === 'yearly') dateTrunc = 'year';
+        else dateTrunc = 'day';
+
+        const conditions = [];
+        const params = [];
+        let idx = 1;
+        if (from) { conditions.push(`created_at >= $${idx++}`); params.push(from); }
+        if (to) { conditions.push(`created_at <= $${idx++}`); params.push(to); }
+        const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+        const result = await db.query(`
+            SELECT DATE_TRUNC('${dateTrunc}', created_at) as period,
+                   COUNT(*) as views,
+                   COUNT(DISTINCT ip_address) as unique_visitors
+            FROM PageViews ${where}
+            GROUP BY DATE_TRUNC('${dateTrunc}', created_at)
+            ORDER BY period DESC
+            LIMIT 365
+        `, params);
+
+        res.json({
+            period,
+            data: result.rows.map(r => ({
+                period: r.period,
+                views: parseInt(r.views),
+                uniqueVisitors: parseInt(r.unique_visitors)
+            }))
+        });
+    } catch (err) {
+        log.error('Admin pageviews error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
 // Flagged posts (moderators can view + dismiss)
 router.get('/flags', requireAuth, requireRole('moderator'), async (req, res) => {
     try {
@@ -484,13 +550,16 @@ router.delete('/cleanup', requireAuth, requireAdmin, async (req, res) => {
 
         const notifResult = await db.query("DELETE FROM Notifications WHERE created_at < $1", [ninetyDaysAgo]);
         const typingResult = await db.query("DELETE FROM TypingIndicators WHERE updated_at < $1", [oneMinuteAgo]);
+        const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
+        const pvResult = await db.query("DELETE FROM PageViews WHERE created_at < $1", [sixMonthsAgo]);
 
-        await auditLog('ADMIN_CLEANUP', req.user.username, null, `Cleaned ${notifResult.rowCount} old notifications, ${typingResult.rowCount} stale typing indicators`, req.ip);
+        await auditLog('ADMIN_CLEANUP', req.user.username, null, `Cleaned ${notifResult.rowCount} old notifications, ${typingResult.rowCount} stale typing indicators, ${pvResult.rowCount} old page views`, req.ip);
 
         res.json({
             message: 'Cleanup completed.',
             deletedNotifications: notifResult.rowCount,
-            deletedTypingIndicators: typingResult.rowCount
+            deletedTypingIndicators: typingResult.rowCount,
+            deletedPageViews: pvResult.rowCount
         });
     } catch (err) {
         log.error('Admin cleanup error', { refId: req.requestId, error: err.message || err });
@@ -729,7 +798,8 @@ router.post('/backup', requireAuth, requireAdmin, async (req, res) => {
             { name: 'approved_brands', query: 'SELECT * FROM ApprovedBrands ORDER BY id' },
             { name: 'pending_brands', query: 'SELECT * FROM PendingBrands ORDER BY id' },
             { name: 'site_settings', query: 'SELECT * FROM SiteSettings ORDER BY key' },
-            { name: 'typing_indicators', query: 'SELECT * FROM TypingIndicators ORDER BY id' }
+            { name: 'typing_indicators', query: 'SELECT * FROM TypingIndicators ORDER BY id' },
+            { name: 'page_views', query: 'SELECT * FROM PageViews ORDER BY id DESC LIMIT 10000' }
         ];
 
         const backup = {

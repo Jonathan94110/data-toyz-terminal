@@ -193,6 +193,19 @@ TerminalApp.prototype.renderProfile = function(container) {
                     </div>
                     <div id="notifPrefsSaved" style="display:none; text-align:center; color:var(--success); font-size:0.85rem; margin-top:0.75rem;">Preferences saved.</div>
                 </div>
+
+                ${this.user.role !== 'owner' ? `
+                <div class="card" style="padding: 2.5rem; margin-top:2rem; border:1px solid var(--danger); border-radius:var(--radius);">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--danger); margin-bottom:0.5rem;">&#9888;&#65039; Danger Zone</h3>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.5rem;">Permanently delete your account and all associated data. This action <strong style="color:var(--text-primary);">cannot be undone</strong>. All your intel reports, broadcasts, messages, and profile data will be erased.</p>
+                    <div class="form-group" style="margin-bottom:1rem;">
+                        <label class="form-label" style="color:var(--danger);">Confirm your password to proceed</label>
+                        <input type="password" id="deleteAccountPassword" placeholder="Enter your password" style="width:100%; padding:0.75rem; background:var(--bg-surface); border:1px solid var(--danger); color:var(--text-primary); border-radius:var(--radius-sm);">
+                    </div>
+                    <button id="deleteAccountBtn" style="width:100%; padding:1rem; font-size:1.1rem; background:var(--danger); color:white; border:none; border-radius:var(--radius-sm); cursor:pointer; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Delete My Account</button>
+                    <div id="deleteAccountMsg" style="margin-top:0.75rem; font-size:0.85rem; text-align:center;"></div>
+                </div>
+                ` : ''}
             </div>
         `;
 
@@ -269,6 +282,46 @@ TerminalApp.prototype.renderProfile = function(container) {
                 btn.innerText = "Update Password";
             }
         });
+
+        // Delete account handler
+        const deleteBtn = document.getElementById('deleteAccountBtn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                const password = document.getElementById('deleteAccountPassword').value;
+                const msgEl = document.getElementById('deleteAccountMsg');
+                if (!password) {
+                    msgEl.innerHTML = '<span style="color:var(--danger);">Please enter your password.</span>';
+                    return;
+                }
+                if (!confirm('Are you sure you want to permanently delete your account? This CANNOT be undone. All your data will be erased.')) return;
+
+                deleteBtn.disabled = true;
+                deleteBtn.innerText = 'Deleting...';
+                msgEl.innerHTML = '';
+
+                try {
+                    const res = await this.authFetch(`${API_URL}/users/me/account`, {
+                        method: 'DELETE',
+                        body: JSON.stringify({ password })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to delete account.');
+
+                    // Clear all local state
+                    localStorage.removeItem('terminal_token');
+                    localStorage.removeItem('terminal_user');
+                    if (this.notifInterval) clearInterval(this.notifInterval);
+                    if (this.tickerInterval) clearInterval(this.tickerInterval);
+
+                    alert('Your account has been permanently deleted. You will now be redirected.');
+                    window.location.reload();
+                } catch (err) {
+                    msgEl.innerHTML = `<span style="color:var(--danger);">${escapeHTML(err.message)}</span>`;
+                    deleteBtn.disabled = false;
+                    deleteBtn.innerText = 'Delete My Account';
+                }
+            });
+        }
 
         // Load notification preferences
         this.loadNotifPrefs();
