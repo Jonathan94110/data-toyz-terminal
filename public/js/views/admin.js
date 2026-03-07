@@ -6,14 +6,15 @@ TerminalApp.prototype.renderAdmin = async function(container) {
         const isFullAdmin = ['owner', 'admin'].includes(userRole);
         const isMod = userRole === 'moderator';
 
-        let analytics = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [], lbSettings = [], tickerSettings = { ticker_mode: 'all', ticker_length: 25 };
+        let analytics = {}, pageviewSummary = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [], lbSettings = [], tickerSettings = { ticker_mode: 'all', ticker_length: 25 };
 
         try {
-            // All roles: analytics + flags + leaderboard settings
+            // All roles: analytics + flags + leaderboard settings + pageviews
             const promises = [
                 this.authFetch(`${API_URL}/admin/analytics`),
                 this.authFetch(`${API_URL}/admin/flags`),
-                this.authFetch(`${API_URL}/admin/figures/leaderboard-settings`)
+                this.authFetch(`${API_URL}/admin/figures/leaderboard-settings`),
+                this.authFetch(`${API_URL}/admin/pageviews/summary`)
             ];
             // Admin-only: users, figures, top-rated, brands, pending brands
             if (isFullAdmin) {
@@ -30,13 +31,14 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             if (results[0].ok) analytics = await results[0].json();
             if (results[1].ok) flags = await results[1].json();
             if (results[2].ok) lbSettings = await results[2].json();
+            if (results[3].ok) pageviewSummary = await results[3].json();
             if (isFullAdmin) {
-                if (results[3].ok) users = await results[3].json();
-                if (results[4].ok) figures = await results[4].json();
-                if (results[5].ok) topRated = await results[5].json();
-                if (results[6].ok) approvedBrands = await results[6].json();
-                if (results[7].ok) pendingBrands = await results[7].json();
-                if (results[8] && results[8].ok) tickerSettings = await results[8].json();
+                if (results[4].ok) users = await results[4].json();
+                if (results[5].ok) figures = await results[5].json();
+                if (results[6].ok) topRated = await results[6].json();
+                if (results[7].ok) approvedBrands = await results[7].json();
+                if (results[8].ok) pendingBrands = await results[8].json();
+                if (results[9] && results[9].ok) tickerSettings = await results[9].json();
             }
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
@@ -645,6 +647,61 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 </div>
                 ` : ''}
 
+                <!-- PAGE VIEW ANALYTICS -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">&#128065; Page Views</h3>
+                <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:1rem; margin-bottom:1.5rem;">
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:var(--accent);">${pageviewSummary.totalViews || 0}</div>
+                        <div class="stat-label">Total Views</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:var(--accent);">${pageviewSummary.uniqueVisitors || 0}</div>
+                        <div class="stat-label">Unique Visitors</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:#10b981;">${pageviewSummary.today || 0}</div>
+                        <div class="stat-label">Today</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:#3b82f6;">${pageviewSummary.thisWeek || 0}</div>
+                        <div class="stat-label">This Week</div>
+                    </div>
+                    <div class="stat-box" style="padding:1.25rem;">
+                        <div class="stat-value" style="font-size:2rem; color:#a855f7;">${pageviewSummary.thisMonth || 0}</div>
+                        <div class="stat-label">This Month</div>
+                    </div>
+                </div>
+                <div class="card" style="padding:1.5rem; margin-bottom:2.5rem;">
+                    <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem;">
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="pv-period-btn btn-sm active" data-period="daily" style="padding:0.4rem 1rem; font-size:0.8rem;">Daily</button>
+                            <button class="pv-period-btn btn-sm" data-period="monthly" style="padding:0.4rem 1rem; font-size:0.8rem;">Monthly</button>
+                            <button class="pv-period-btn btn-sm" data-period="yearly" style="padding:0.4rem 1rem; font-size:0.8rem;">Yearly</button>
+                        </div>
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                            <label style="font-size:0.75rem; color:var(--text-muted);">From</label>
+                            <input type="date" id="pvFrom" style="padding:0.3rem 0.5rem; background:var(--bg-input, var(--bg-panel)); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px; font-size:0.8rem;">
+                            <label style="font-size:0.75rem; color:var(--text-muted);">To</label>
+                            <input type="date" id="pvTo" style="padding:0.3rem 0.5rem; background:var(--bg-input, var(--bg-panel)); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px; font-size:0.8rem;">
+                        </div>
+                        <button id="pvLoadBtn" class="btn" style="padding:0.4rem 1rem; font-size:0.85rem;">Load</button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                            <thead>
+                                <tr style="background:var(--bg-panel); text-align:left;">
+                                    <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Period</th>
+                                    <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Views</th>
+                                    <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Unique Visitors</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pvDetailTbody">
+                                <tr><td colspan="3" style="padding:1rem; text-align:center; color:var(--text-muted);">Click "Load" to fetch data</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 ${isFullAdmin ? `
                 <!-- TICKER SETTINGS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">&#x1F4F0; Ticker Settings</h3>
@@ -946,6 +1003,54 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     msgEl.innerHTML = '<span style="color:var(--danger);">Connection error.</span>';
                 }
             });
+        }
+
+        // ── Page View Analytics ─────────────────────────────
+        {
+            let pvPeriod = 'daily';
+            document.querySelectorAll('.pv-period-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.pv-period-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    pvPeriod = btn.dataset.period;
+                });
+            });
+
+            const pvLoadBtn = document.getElementById('pvLoadBtn');
+            if (pvLoadBtn) {
+                pvLoadBtn.addEventListener('click', async () => {
+                    const tbody = document.getElementById('pvDetailTbody');
+                    tbody.innerHTML = '<tr><td colspan="3" style="padding:1rem; text-align:center; color:var(--text-muted);">Loading...</td></tr>';
+                    try {
+                        let url = `${API_URL}/admin/pageviews?period=${pvPeriod}`;
+                        const from = document.getElementById('pvFrom').value;
+                        const to = document.getElementById('pvTo').value;
+                        if (from) url += `&from=${from}`;
+                        if (to) url += `&to=${to}`;
+                        const res = await self.authFetch(url);
+                        if (!res.ok) throw new Error('Failed to load');
+                        const json = await res.json();
+                        if (!json.data || json.data.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="3" style="padding:1rem; text-align:center; color:var(--text-muted);">No data for this period</td></tr>';
+                            return;
+                        }
+                        tbody.innerHTML = json.data.map(row => {
+                            const d = new Date(row.period);
+                            let label;
+                            if (pvPeriod === 'yearly') label = d.getFullYear();
+                            else if (pvPeriod === 'monthly') label = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+                            else label = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                            return `<tr style="border-top:1px solid var(--border-light);">
+                                <td style="padding:0.6rem 1rem;">${label}</td>
+                                <td style="padding:0.6rem 1rem; text-align:right; font-weight:600;">${row.views.toLocaleString()}</td>
+                                <td style="padding:0.6rem 1rem; text-align:right;">${row.uniqueVisitors.toLocaleString()}</td>
+                            </tr>`;
+                        }).join('');
+                    } catch (e) {
+                        tbody.innerHTML = '<tr><td colspan="3" style="padding:1rem; text-align:center; color:var(--danger);">Error loading data</td></tr>';
+                    }
+                });
+            }
         }
 
         // ── System Logs ──────────────────────────────────────
