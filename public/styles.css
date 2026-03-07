@@ -4940,25 +4940,38 @@ textarea:focus {
         display: none !important;
     }
 
-    /* Replace all backdrop-filter blur with simple semi-transparent backgrounds */
+    /* Kill the 200vw x 200vh rotating pseudo-element — enormous GPU texture */
+    .app-layout::before {
+        animation: none !important;
+        display: none !important;
+    }
+
+    /* Replace ALL backdrop-filter blur with simple semi-transparent backgrounds */
     .card,
     .auth-card,
     .stat-box,
     .search-bar,
+    .search-bar input,
     .segmented-control,
     .intel-stat-card,
     .intel-search-input,
     .lb-podium-card,
     .lb-stat-card,
+    .lb-your-stats,
     .room-card,
     .notif-dropdown,
     .sc-section,
     .ta-container,
     .showcase-card,
+    .showcase-section,
     .mp-header,
     .mp-tabs,
     .room-modal-overlay,
-    .sidebar-overlay {
+    .sidebar-overlay,
+    .sidebar,
+    .topbar,
+    .bottom-nav,
+    textarea {
         -webkit-backdrop-filter: none !important;
         backdrop-filter: none !important;
     }
@@ -4967,6 +4980,7 @@ textarea:focus {
     .auth-container::before,
     .auth-container::after {
         filter: none !important;
+        animation: none !important;
         opacity: 0.08;
     }
 }
