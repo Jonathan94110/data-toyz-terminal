@@ -3,17 +3,6 @@
 const API_URL = '/api';
 let MOCK_FIGURES = [];
 
-// Service worker cleanup already runs inline in index.html <head> (earliest possible)
-
-// PWA: Capture install prompt
-let deferredInstallPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredInstallPrompt = e;
-    // Show install button in sidebar if it exists
-    const installBtn = document.getElementById('pwaInstallBtn');
-    if (installBtn) installBtn.style.display = 'flex';
-});
 
 // Render @mentions as clickable links (runs AFTER escapeHTML for XSS safety)
 function renderMentions(text) {
