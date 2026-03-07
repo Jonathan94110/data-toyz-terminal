@@ -230,7 +230,7 @@ class TerminalApp {
             } catch (e) { /* use defaults */ }
 
             // Fetch ranked figures (includes avgGrade, avgApproval, latestPrice)
-            const figuresRes = await fetch(`${API_URL}/figures/market-ranked?sort=grade&order=desc`);
+            const figuresRes = await fetch(`${API_URL}/figures/market-ranked?sort=grade&order=desc&category=${getActiveCategory()}`);
             const allFigures = await figuresRes.json().catch(() => []);
 
             let html = '';
@@ -298,7 +298,7 @@ class TerminalApp {
 
     async loadFigures() {
         try {
-            const res = await fetch(`${API_URL}/figures`);
+            const res = await fetch(`${API_URL}/figures?category=${getActiveCategory()}`);
             if (res.ok) MOCK_FIGURES = await res.json();
         } catch (e) {
             console.error("Failed to fetch figure catalog from backend", e);
@@ -351,6 +351,10 @@ class TerminalApp {
                 <aside class="sidebar${sidebarCollapsed ? ' collapsed' : ''}">
                     <div class="sidebar-brand" style="cursor:pointer; display: flex; flex-direction: column; align-items: center; text-align: center;" onclick="app.currentView='search'; app.renderApp();">
                         <img src="logo.png" alt="Data Toyz Logo" class="sidebar-logo" style="max-height: 120px; width: auto; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px rgba(255, 42, 95, 0.3));">
+                    </div>
+                    <div class="category-switcher">
+                        <button class="cat-btn${getActiveCategory() === 'transformer' ? ' active' : ''}" data-category="transformer">Transformers</button>
+                        <button class="cat-btn${getActiveCategory() === 'action_figure' ? ' active' : ''}" data-category="action_figure">Action Figures</button>
                     </div>
                     <nav class="sidebar-nav">
                         <div class="nav-item ${this.currentView === 'search' ? 'active' : ''}" data-view="search">
@@ -446,6 +450,18 @@ class TerminalApp {
             item.addEventListener('click', (e) => {
                 this.currentView = e.currentTarget.dataset.view;
                 this.renderApp();
+            });
+        });
+
+        // Category switcher
+        document.querySelectorAll('.cat-btn[data-category]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const newCat = btn.dataset.category;
+                if (getActiveCategory() !== newCat) {
+                    setActiveCategory(newCat);
+                    this.loadFigures();
+                    this.renderApp();
+                }
             });
         });
 

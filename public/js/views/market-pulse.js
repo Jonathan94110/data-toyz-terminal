@@ -43,11 +43,11 @@ TerminalApp.prototype.renderMarketOverview = async function (container) {
 
     try {
         const [overviewRes, headlinesRes, topRatedRes, brandIndexRes, volumeRes] = await Promise.all([
-            fetch(`${API_URL}/stats/overview`),
-            fetch(`${API_URL}/stats/headlines`),
-            fetch(`${API_URL}/figures/top-rated`),
-            fetch(`${API_URL}/stats/brand-index`),
-            fetch(`${API_URL}/stats/market-volume?period=daily`)
+            fetch(`${API_URL}/stats/overview?category=${getActiveCategory()}`),
+            fetch(`${API_URL}/stats/headlines?category=${getActiveCategory()}`),
+            fetch(`${API_URL}/figures/top-rated?category=${getActiveCategory()}`),
+            fetch(`${API_URL}/stats/brand-index?category=${getActiveCategory()}`),
+            fetch(`${API_URL}/stats/market-volume?period=daily&category=${getActiveCategory()}`)
         ]);
         const overview = await overviewRes.json();
         const headlines = await headlinesRes.json();
@@ -201,7 +201,7 @@ TerminalApp.prototype.renderMarketOverview = async function (container) {
 
 TerminalApp.prototype.loadVolumeChart = async function (period) {
     try {
-        const res = await fetch(`${API_URL}/stats/market-volume?period=${period}`);
+        const res = await fetch(`${API_URL}/stats/market-volume?period=${period}&category=${getActiveCategory()}`);
         const data = await res.json();
 
         // Update button states
@@ -509,7 +509,7 @@ TerminalApp.prototype.runCompare = async function () {
     results.innerHTML = this.skeletonHTML('stats', 4);
 
     try {
-        const res = await fetch(`${API_URL}/figures/compare?ids=${id1},${id2}`);
+        const res = await fetch(`${API_URL}/figures/compare?ids=${id1},${id2}&category=${getActiveCategory()}`);
         if (!res.ok) throw new Error('Compare failed');
         const body = await res.json();
 
@@ -742,7 +742,7 @@ TerminalApp.prototype.renderWeeklyMovers = async function (container) {
     };
 
     try {
-        const res = await fetch(`${API_URL}/stats/weekly-movers`);
+        const res = await fetch(`${API_URL}/stats/weekly-movers?category=${getActiveCategory()}`);
         if (!res.ok) throw new Error('Failed to load');
         const data = await res.json();
 
@@ -868,7 +868,7 @@ TerminalApp.prototype.renderBrandHealth = async function (container) {
     };
 
     try {
-        const res = await fetch(`${API_URL}/stats/brand-health`);
+        const res = await fetch(`${API_URL}/stats/brand-health?category=${getActiveCategory()}`);
         if (!res.ok) throw new Error('Failed to load');
         const data = await res.json();
 
@@ -1016,7 +1016,7 @@ TerminalApp.prototype.renderMarketTrends = async function (container) {
     const TREND_COLORS = ['#ff2a5f', '#3b82f6', '#10b981', '#f59e0b'];
 
     try {
-        const res = await fetch(`${API_URL}/stats/market-trends?period=${period}`);
+        const res = await fetch(`${API_URL}/stats/market-trends?period=${period}&category=${getActiveCategory()}`);
         if (!res.ok) throw new Error('Failed to load');
         const data = await res.json();
 

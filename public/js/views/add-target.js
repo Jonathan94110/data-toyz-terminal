@@ -31,14 +31,7 @@ TerminalApp.prototype.renderAddTarget = function(container) {
                     <div class="form-group" style="margin-bottom:1.5rem;">
                         <label class="form-label">Size Class / Tier</label>
                         <select name="classTie" required style="width:100%; padding:0.75rem; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm);">
-                            <option value="Core">Core</option>
-                            <option value="Deluxe">Deluxe</option>
-                            <option value="Voyager">Voyager</option>
-                            <option value="Leader">Leader</option>
-                            <option value="Commander">Commander</option>
-                            <option value="Titan">Titan</option>
-                            <option value="Masterpiece">Masterpiece</option>
-                            <option value="Legends">Legends</option>
+                            ${getActiveTiers().map(t => `<option value="${t}">${t}</option>`).join('')}
                         </select>
                     </div>
                     <div class="form-group" style="margin-bottom:2rem;">
@@ -203,6 +196,9 @@ TerminalApp.prototype.submitNewTarget = async function(form) {
 
     // MSRP: convert to number or null
     data.msrp = data.msrp && data.msrp.trim() !== '' ? parseFloat(data.msrp) : null;
+
+    // Set category from active switcher
+    data.category = getActiveCategory();
 
     try {
         const req = await this.authFetch(`${API_URL}/figures`, {

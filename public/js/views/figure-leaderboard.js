@@ -10,7 +10,7 @@ TerminalApp.prototype.renderFigureLeaderboard = async function (container) {
 
     let data = { figures: [], total: 0, page: 1, pageSize: 25, brands: [] };
     try {
-        const params = new URLSearchParams({ mode, page, limit: 25 });
+        const params = new URLSearchParams({ mode, page, limit: 25, category: getActiveCategory() });
         if (brand) params.set('brand', brand);
         const res = await fetch(`${API_URL}/figures/leaderboard?${params}`);
         if (res.ok) data = await res.json();

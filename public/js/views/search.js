@@ -5,7 +5,7 @@ TerminalApp.prototype.renderSearch = async function (container) {
     // Fetch ranked figures with submission counts + grades
     let rankedFigures = MOCK_FIGURES;
     try {
-        const res = await fetch(`${API_URL}/figures/ranked`);
+        const res = await fetch(`${API_URL}/figures/ranked?category=${getActiveCategory()}`);
         if (res.ok) rankedFigures = await res.json();
     } catch (e) { /* fallback to MOCK_FIGURES */ }
 

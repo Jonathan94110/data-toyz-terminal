@@ -25,8 +25,8 @@ TerminalApp.prototype.renderPulse = async function(container) {
     }
     try {
         const [ovRes, hdRes] = await Promise.all([
-            fetch(`${API_URL}/stats/overview`),
-            fetch(`${API_URL}/stats/headlines`)
+            fetch(`${API_URL}/stats/overview?category=${getActiveCategory()}`),
+            fetch(`${API_URL}/stats/headlines?category=${getActiveCategory()}`)
         ]);
         if (ovRes.ok) overviewStats = await ovRes.json();
         if (hdRes.ok) headlines = await hdRes.json();
@@ -704,7 +704,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
 
     // Load similar figures
     try {
-        const allRes = await fetch(`${API_URL}/figures/ranked`);
+        const allRes = await fetch(`${API_URL}/figures/ranked?category=${getActiveCategory()}`);
         if (allRes.ok) {
             const allFigures = await allRes.json();
             const similar = allFigures.filter(f =>

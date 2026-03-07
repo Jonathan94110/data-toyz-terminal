@@ -334,6 +334,14 @@ TerminalApp.prototype.renderSubmission = function(container) {
                     </div>
 
                     <div style="margin-top:2rem; padding-top:2rem; border-top:1px solid var(--border-light);">
+                        <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem;">
+                            <input type="checkbox" id="has_transformation" name="has_transformation"
+                                ${isEdit ? (ed.has_transformation === false ? '' : 'checked') : ((this.currentTarget.category || 'transformer') === 'transformer' ? 'checked' : '')}
+                                onchange="document.getElementById('transformationSliders').style.display = this.checked ? 'block' : 'none';">
+                            <label for="has_transformation" style="font-weight:700; color:var(--accent); font-size:1.1rem; cursor:pointer;">Has Transformation?</label>
+                            <span style="font-size:0.78rem; color:var(--text-muted);">(M.A.S.K., Voltron, Go-Bots, etc.)</span>
+                        </div>
+                        <div id="transformationSliders" style="display:${isEdit ? (ed.has_transformation === false ? 'none' : 'block') : ((this.currentTarget.category || 'transformer') === 'transformer' ? 'block' : 'none')};">
                         <h4 style="margin-bottom:1.5rem; color:var(--accent); font-size:1.2rem;">Transformation Analysis</h4>
 
                         <div class="form-group" style="margin-bottom:2rem;">
@@ -352,6 +360,7 @@ TerminalApp.prototype.renderSubmission = function(container) {
                                 <span style="font-weight:700; color:var(--accent);"><span>${isEdit && ed.trans_satisfaction != null ? parseFloat(ed.trans_satisfaction).toFixed(1) : '5.5'}</span> / 10</span>
                                 <span id="label_trans_satisfaction" style="color:var(--text-secondary); font-style:italic;"></span>
                             </div>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -610,13 +619,20 @@ TerminalApp.prototype.submitIntel = async function(form) {
     delete data.pt_stateside;
     delete data.pt_secondary;
 
+    // Track transformation opt-in
+    const hasTrans = document.getElementById('has_transformation')?.checked ?? true;
+    data.has_transformation = hasTrans;
+    delete data.has_transformation_checkbox; // clean up FormData artifact
+    if (!hasTrans) { data.trans_frustration = 0; data.trans_satisfaction = 0; }
+
     // Calculate scores
     // Replaceability Risk is inverted: low risk = high scarcity value (20 - risk)
     const mtsTotal = parseFloat(data.mts_community) + parseFloat(data.mts_buzz) + parseFloat(data.mts_liquidity) + (20 - parseFloat(data.mts_risk)) + parseFloat(data.mts_appeal);
 
-    const pqSum = parseFloat(data.pq_build) + parseFloat(data.pq_paint) + parseFloat(data.pq_articulation) + parseFloat(data.pq_accuracy) + parseFloat(data.pq_presence) + parseFloat(data.pq_value) + parseFloat(data.pq_packaging) + parseFloat(data.trans_frustration) + parseFloat(data.trans_satisfaction);
-    // Approval rating out of 100 based on the 9 physical categories out of 10
-    const approvalScore = ((pqSum / 90) * 100).toFixed(1);
+    let pqSum = parseFloat(data.pq_build) + parseFloat(data.pq_paint) + parseFloat(data.pq_articulation) + parseFloat(data.pq_accuracy) + parseFloat(data.pq_presence) + parseFloat(data.pq_value) + parseFloat(data.pq_packaging);
+    if (hasTrans) { pqSum += parseFloat(data.trans_frustration) + parseFloat(data.trans_satisfaction); }
+    const maxPQ = hasTrans ? 90 : 70;
+    const approvalScore = ((pqSum / maxPQ) * 100).toFixed(1);
     const overallGrade = ((parseFloat(mtsTotal) + parseFloat(approvalScore)) / 2).toFixed(1);
 
     const formPayload = new FormData();

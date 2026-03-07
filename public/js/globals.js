@@ -3,6 +3,16 @@
 const API_URL = '/api';
 let MOCK_FIGURES = [];
 
+// ── Category System ─────────────────────────────────
+const CATEGORY_TIERS = {
+    transformer: ['Core', 'Deluxe', 'Voyager', 'Leader', 'Commander', 'Titan', 'Masterpiece'],
+    action_figure: ['3.75"', '6"', '7"', '12"']
+};
+const CATEGORY_LABELS = { transformer: 'Transformers', action_figure: 'Action Figures' };
+
+function getActiveCategory() { return sessionStorage.getItem('activeCategory') || 'transformer'; }
+function setActiveCategory(cat) { sessionStorage.setItem('activeCategory', cat); }
+function getActiveTiers() { return CATEGORY_TIERS[getActiveCategory()] || CATEGORY_TIERS.transformer; }
 
 // Render @mentions as clickable links (runs AFTER escapeHTML for XSS safety)
 function renderMentions(text) {

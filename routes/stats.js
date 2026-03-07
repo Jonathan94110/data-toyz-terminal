@@ -9,6 +9,7 @@ const { cacheResponse } = require('../middleware/cache');
 // 6. Global Market Overview stats
 router.get('/overview', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(60000), async (req, res) => {
     try {
+        const category = req.query.category;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -24,25 +25,78 @@ router.get('/overview', blockBadBots, dataEndpointLimiter, trackDataRequest, cac
             priceTrendCurrent,
             priceTrendPrior
         ] = await Promise.all([
-            db.query("SELECT COUNT(*) as count FROM Submissions"),
-            db.query("SELECT COUNT(DISTINCT author) as count FROM Submissions"),
-            db.query("SELECT AVG((mtsTotal + approvalScore) / 2) as avg FROM Submissions"),
-            db.query(`
-                SELECT s.targetName, s.targetId, AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade, COUNT(*) as subs
-                FROM Submissions s GROUP BY s.targetName, s.targetId
-                ORDER BY avgGrade DESC LIMIT 1
-            `),
-            db.query("SELECT COUNT(*) as count FROM Figures"),
-            db.query("SELECT COUNT(*) as count FROM MarketTransactions"),
-            db.query("SELECT AVG(price_avg) as avg FROM MarketTransactions WHERE price_type = 'secondary_market'"),
-            db.query(`
-                SELECT f.brand, COUNT(s.id) as cnt
-                FROM Submissions s JOIN Figures f ON f.id = s.targetId
-                WHERE s.date >= $1
-                GROUP BY f.brand ORDER BY cnt DESC LIMIT 1
-            `, [thirtyDaysAgo]),
-            db.query("SELECT AVG(price_avg) as avg FROM MarketTransactions WHERE price_type = 'secondary_market' AND created_at >= $1", [thirtyDaysAgo]),
-            db.query("SELECT AVG(price_avg) as avg FROM MarketTransactions WHERE price_type = 'secondary_market' AND created_at >= $1 AND created_at < $2", [sixtyDaysAgo, thirtyDaysAgo])
+            db.query(
+                category
+                    ? "SELECT COUNT(*) as count FROM Submissions s JOIN Figures f ON f.id = s.targetId WHERE f.category = $1"
+                    : "SELECT COUNT(*) as count FROM Submissions",
+                category ? [category] : []
+            ),
+            db.query(
+                category
+                    ? "SELECT COUNT(DISTINCT s.author) as count FROM Submissions s JOIN Figures f ON f.id = s.targetId WHERE f.category = $1"
+                    : "SELECT COUNT(DISTINCT author) as count FROM Submissions",
+                category ? [category] : []
+            ),
+            db.query(
+                category
+                    ? "SELECT AVG((s.mtsTotal + s.approvalScore) / 2) as avg FROM Submissions s JOIN Figures f ON f.id = s.targetId WHERE f.category = $1"
+                    : "SELECT AVG((mtsTotal + approvalScore) / 2) as avg FROM Submissions",
+                category ? [category] : []
+            ),
+            db.query(
+                category
+                    ? `SELECT s.targetName, s.targetId, AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade, COUNT(*) as subs
+                       FROM Submissions s JOIN Figures f ON f.id = s.targetId
+                       WHERE f.category = $1
+                       GROUP BY s.targetName, s.targetId
+                       ORDER BY avgGrade DESC LIMIT 1`
+                    : `SELECT s.targetName, s.targetId, AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade, COUNT(*) as subs
+                       FROM Submissions s GROUP BY s.targetName, s.targetId
+                       ORDER BY avgGrade DESC LIMIT 1`,
+                category ? [category] : []
+            ),
+            db.query(
+                category
+                    ? "SELECT COUNT(*) as count FROM Figures WHERE category = $1"
+                    : "SELECT COUNT(*) as count FROM Figures",
+                category ? [category] : []
+            ),
+            db.query(
+                category
+                    ? "SELECT COUNT(*) as count FROM MarketTransactions mt JOIN Figures f ON f.id = mt.figure_id WHERE f.category = $1"
+                    : "SELECT COUNT(*) as count FROM MarketTransactions",
+                category ? [category] : []
+            ),
+            db.query(
+                category
+                    ? "SELECT AVG(mt.price_avg) as avg FROM MarketTransactions mt JOIN Figures f ON f.id = mt.figure_id WHERE mt.price_type = 'secondary_market' AND f.category = $1"
+                    : "SELECT AVG(price_avg) as avg FROM MarketTransactions WHERE price_type = 'secondary_market'",
+                category ? [category] : []
+            ),
+            db.query(
+                category
+                    ? `SELECT f.brand, COUNT(s.id) as cnt
+                       FROM Submissions s JOIN Figures f ON f.id = s.targetId
+                       WHERE s.date >= $1 AND f.category = $2
+                       GROUP BY f.brand ORDER BY cnt DESC LIMIT 1`
+                    : `SELECT f.brand, COUNT(s.id) as cnt
+                       FROM Submissions s JOIN Figures f ON f.id = s.targetId
+                       WHERE s.date >= $1
+                       GROUP BY f.brand ORDER BY cnt DESC LIMIT 1`,
+                category ? [thirtyDaysAgo, category] : [thirtyDaysAgo]
+            ),
+            db.query(
+                category
+                    ? "SELECT AVG(mt.price_avg) as avg FROM MarketTransactions mt JOIN Figures f ON f.id = mt.figure_id WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1 AND f.category = $2"
+                    : "SELECT AVG(price_avg) as avg FROM MarketTransactions WHERE price_type = 'secondary_market' AND created_at >= $1",
+                category ? [thirtyDaysAgo, category] : [thirtyDaysAgo]
+            ),
+            db.query(
+                category
+                    ? "SELECT AVG(mt.price_avg) as avg FROM MarketTransactions mt JOIN Figures f ON f.id = mt.figure_id WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1 AND mt.created_at < $2 AND f.category = $3"
+                    : "SELECT AVG(price_avg) as avg FROM MarketTransactions WHERE price_type = 'secondary_market' AND created_at >= $1 AND created_at < $2",
+                category ? [sixtyDaysAgo, thirtyDaysAgo, category] : [sixtyDaysAgo, thirtyDaysAgo]
+            )
         ]);
 
         const current30Avg = priceTrendCurrent.rows[0].avg ? parseFloat(priceTrendCurrent.rows[0].avg) : null;
@@ -80,6 +134,7 @@ router.get('/overview', blockBadBots, dataEndpointLimiter, trackDataRequest, cac
 // 7. Brand/Line Index aggregates
 router.get('/indexes', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(60000), async (req, res) => {
     try {
+        const category = req.query.category;
         const result = await db.query(`
             SELECT f.brand, f.line,
                    COUNT(s.id) as submissions,
@@ -87,9 +142,10 @@ router.get('/indexes', blockBadBots, dataEndpointLimiter, trackDataRequest, cach
                    COUNT(DISTINCT s.targetId) as targets
             FROM Figures f
             LEFT JOIN Submissions s ON f.id = s.targetId
+            ${category ? 'WHERE f.category = $1' : ''}
             GROUP BY f.brand, f.line
             ORDER BY f.brand ASC, f.line ASC
-        `);
+        `, category ? [category] : []);
 
         const indexes = result.rows.map(r => ({
             brand: r.brand,
@@ -109,21 +165,26 @@ router.get('/indexes', blockBadBots, dataEndpointLimiter, trackDataRequest, cach
 // Market Volume time-series
 router.get('/market-volume', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(60000), async (req, res) => {
     try {
+        const category = req.query.category;
         const period = req.query.period === 'weekly' ? 'weekly' : 'daily';
         const lookbackMs = period === 'daily' ? 90 * 24 * 60 * 60 * 1000 : 365 * 24 * 60 * 60 * 1000;
         const since = new Date(Date.now() - lookbackMs).toISOString();
 
-        const dateExpr = period === 'daily' ? 'DATE(date)' : "DATE_TRUNC('week', date::timestamp)";
-        const dateExprTx = period === 'daily' ? 'DATE(created_at)' : "DATE_TRUNC('week', created_at::timestamp)";
+        const dateExpr = period === 'daily' ? 'DATE(s.date)' : "DATE_TRUNC('week', s.date::timestamp)";
+        const dateExprTx = period === 'daily' ? 'DATE(mt.created_at)' : "DATE_TRUNC('week', mt.created_at::timestamp)";
 
         const [subsResult, txResult] = await Promise.all([
             db.query(
-                `SELECT ${dateExpr} as day, COUNT(*) as count FROM Submissions WHERE date >= $1 GROUP BY ${dateExpr} ORDER BY day ASC`,
-                [since]
+                category
+                    ? `SELECT ${dateExpr} as day, COUNT(*) as count FROM Submissions s JOIN Figures f ON f.id = s.targetId WHERE s.date >= $1 AND f.category = $2 GROUP BY ${dateExpr} ORDER BY day ASC`
+                    : `SELECT ${dateExpr} as day, COUNT(*) as count FROM Submissions s WHERE s.date >= $1 GROUP BY ${dateExpr} ORDER BY day ASC`,
+                category ? [since, category] : [since]
             ),
             db.query(
-                `SELECT ${dateExprTx} as day, COUNT(*) as count FROM MarketTransactions WHERE created_at >= $1 GROUP BY ${dateExprTx} ORDER BY day ASC`,
-                [since]
+                category
+                    ? `SELECT ${dateExprTx} as day, COUNT(*) as count FROM MarketTransactions mt JOIN Figures f ON f.id = mt.figure_id WHERE mt.created_at >= $1 AND f.category = $2 GROUP BY ${dateExprTx} ORDER BY day ASC`
+                    : `SELECT ${dateExprTx} as day, COUNT(*) as count FROM MarketTransactions mt WHERE mt.created_at >= $1 GROUP BY ${dateExprTx} ORDER BY day ASC`,
+                category ? [since, category] : [since]
             )
         ]);
 
@@ -154,6 +215,7 @@ router.get('/market-volume', blockBadBots, dataEndpointLimiter, trackDataRequest
 // Brand Index aggregates with price data
 router.get('/brand-index', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(60000), async (req, res) => {
     try {
+        const category = req.query.category;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -162,8 +224,9 @@ router.get('/brand-index', blockBadBots, dataEndpointLimiter, trackDataRequest, 
                 SELECT f.brand, COUNT(DISTINCT f.id) as figure_count, COUNT(s.id) as submission_count,
                        AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
                 FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+                ${category ? 'WHERE f.category = $1' : ''}
                 GROUP BY f.brand ORDER BY submission_count DESC
-            `),
+            `, category ? [category] : []),
             db.query(`
                 SELECT f.brand,
                        AVG(CASE WHEN mt.created_at >= $1 THEN mt.price_avg END) as avg_price_30d,
@@ -172,8 +235,9 @@ router.get('/brand-index', blockBadBots, dataEndpointLimiter, trackDataRequest, 
                 FROM MarketTransactions mt
                 JOIN Figures f ON f.id = mt.figure_id
                 WHERE mt.price_type = 'secondary_market'
+                ${category ? 'AND f.category = $3' : ''}
                 GROUP BY f.brand
-            `, [thirtyDaysAgo, sixtyDaysAgo])
+            `, category ? [thirtyDaysAgo, sixtyDaysAgo, category] : [thirtyDaysAgo, sixtyDaysAgo])
         ]);
 
         const priceMap = {};
@@ -209,13 +273,15 @@ router.get('/brand-index', blockBadBots, dataEndpointLimiter, trackDataRequest, 
 // 8. Intel Headlines
 router.get('/headlines', cacheResponse(30000), async (req, res) => {
     try {
+        const category = req.query.category;
         const recent = await db.query(`
             SELECT s.targetName, s.author, s.date, s.mtsTotal, s.approvalScore, s.jsonData,
                    f.brand, f.classTie
             FROM Submissions s
             LEFT JOIN Figures f ON f.id = s.targetId
+            ${category ? 'WHERE f.category = $1' : ''}
             ORDER BY s.id DESC LIMIT 10
-        `);
+        `, category ? [category] : []);
 
         const headlines = recent.rows.map(r => {
             const row = normalizeRow(r);
@@ -251,6 +317,7 @@ router.get('/headlines', cacheResponse(30000), async (req, res) => {
 // ── Weekly Movers Report ────────────────────────────────────
 router.get('/weekly-movers', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(60000), async (req, res) => {
     try {
+        const category = req.query.category;
         const now = Date.now();
         const d7  = new Date(now -  7 * 24 * 60 * 60 * 1000).toISOString();
         const d14 = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -266,43 +333,75 @@ router.get('/weekly-movers', blockBadBots, dataEndpointLimiter, trackDataRequest
                        COUNT(CASE WHEN s.date >= $1 THEN 1 END) as submissions_7d,
                        AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
                 FROM Figures f LEFT JOIN Submissions s ON f.id = s.targetId
+                ${category ? 'WHERE f.category = $2' : ''}
                 GROUP BY f.id, f.name, f.brand, f.classTie, f.line
-            `, [d7]),
+            `, category ? [d7, category] : [d7]),
 
             // Latest price per figure
-            db.query(`
-                SELECT DISTINCT ON (figure_id) figure_id, price_avg as latest_price
-                FROM MarketTransactions
-                WHERE price_type = 'secondary_market'
-                ORDER BY figure_id, created_at DESC
-            `),
+            db.query(
+                category
+                    ? `SELECT DISTINCT ON (mt.figure_id) mt.figure_id, mt.price_avg as latest_price
+                       FROM MarketTransactions mt
+                       JOIN Figures f ON f.id = mt.figure_id
+                       WHERE mt.price_type = 'secondary_market' AND f.category = $1
+                       ORDER BY mt.figure_id, mt.created_at DESC`
+                    : `SELECT DISTINCT ON (figure_id) figure_id, price_avg as latest_price
+                       FROM MarketTransactions
+                       WHERE price_type = 'secondary_market'
+                       ORDER BY figure_id, created_at DESC`,
+                category ? [category] : []
+            ),
 
             // 7-day price change
-            db.query(`
-                SELECT figure_id,
-                       AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_7d,
-                       AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_7d
-                FROM MarketTransactions
-                WHERE price_type = 'secondary_market' AND created_at >= $2
-                GROUP BY figure_id
-            `, [d7, d14]),
+            db.query(
+                category
+                    ? `SELECT mt.figure_id,
+                              AVG(CASE WHEN mt.created_at >= $1 THEN mt.price_avg END) as avg_7d,
+                              AVG(CASE WHEN mt.created_at >= $2 AND mt.created_at < $1 THEN mt.price_avg END) as avg_prior_7d
+                       FROM MarketTransactions mt
+                       JOIN Figures f ON f.id = mt.figure_id
+                       WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $2 AND f.category = $3
+                       GROUP BY mt.figure_id`
+                    : `SELECT figure_id,
+                              AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_7d,
+                              AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_7d
+                       FROM MarketTransactions
+                       WHERE price_type = 'secondary_market' AND created_at >= $2
+                       GROUP BY figure_id`,
+                category ? [d7, d14, category] : [d7, d14]
+            ),
 
             // 30-day price change
-            db.query(`
-                SELECT figure_id,
-                       AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_30d,
-                       AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_30d
-                FROM MarketTransactions
-                WHERE price_type = 'secondary_market' AND created_at >= $2
-                GROUP BY figure_id
-            `, [d30, d60]),
+            db.query(
+                category
+                    ? `SELECT mt.figure_id,
+                              AVG(CASE WHEN mt.created_at >= $1 THEN mt.price_avg END) as avg_30d,
+                              AVG(CASE WHEN mt.created_at >= $2 AND mt.created_at < $1 THEN mt.price_avg END) as avg_prior_30d
+                       FROM MarketTransactions mt
+                       JOIN Figures f ON f.id = mt.figure_id
+                       WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $2 AND f.category = $3
+                       GROUP BY mt.figure_id`
+                    : `SELECT figure_id,
+                              AVG(CASE WHEN created_at >= $1 THEN price_avg END) as avg_30d,
+                              AVG(CASE WHEN created_at >= $2 AND created_at < $1 THEN price_avg END) as avg_prior_30d
+                       FROM MarketTransactions
+                       WHERE price_type = 'secondary_market' AND created_at >= $2
+                       GROUP BY figure_id`,
+                category ? [d30, d60, category] : [d30, d60]
+            ),
 
             // Weekly submission summary
-            db.query(`
-                SELECT COUNT(*) as count,
-                       AVG((mtsTotal + approvalScore) / 2) as avg_grade
-                FROM Submissions WHERE date >= $1
-            `, [d7]),
+            db.query(
+                category
+                    ? `SELECT COUNT(*) as count,
+                              AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
+                       FROM Submissions s JOIN Figures f ON f.id = s.targetId
+                       WHERE s.date >= $1 AND f.category = $2`
+                    : `SELECT COUNT(*) as count,
+                              AVG((mtsTotal + approvalScore) / 2) as avg_grade
+                       FROM Submissions WHERE date >= $1`,
+                category ? [d7, category] : [d7]
+            ),
 
             // New entries (first submission in last 7d)
             db.query(`
@@ -310,10 +409,11 @@ router.get('/weekly-movers', blockBadBots, dataEndpointLimiter, trackDataRequest
                        MIN(s.date) as first_submission
                 FROM Figures f
                 JOIN Submissions s ON f.id = s.targetId
+                ${category ? 'WHERE f.category = $2' : ''}
                 GROUP BY f.id, f.name, f.brand, f.classTie, f.line
                 HAVING MIN(s.date) >= $1
                 ORDER BY MIN(s.date) DESC
-            `, [d7]),
+            `, category ? [d7, category] : [d7]),
 
             // Brand-level 7d price changes
             db.query(`
@@ -325,9 +425,10 @@ router.get('/weekly-movers', blockBadBots, dataEndpointLimiter, trackDataRequest
                 FROM Figures f
                 LEFT JOIN MarketTransactions mt ON f.id = mt.figure_id AND mt.price_type = 'secondary_market'
                 LEFT JOIN Submissions s ON f.id = s.targetId
+                ${category ? 'WHERE f.category = $3' : ''}
                 GROUP BY f.brand
                 HAVING COUNT(DISTINCT f.id) > 0
-            `, [d7, d14])
+            `, category ? [d7, d14, category] : [d7, d14])
         ]);
 
         // Build lookup maps
@@ -423,6 +524,7 @@ router.get('/weekly-movers', blockBadBots, dataEndpointLimiter, trackDataRequest
 // ── Brand Health Dashboard ──────────────────────────────────
 router.get('/brand-health', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(60000), async (req, res) => {
     try {
+        const category = req.query.category;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
         const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
@@ -437,9 +539,10 @@ router.get('/brand-health', blockBadBots, dataEndpointLimiter, trackDataRequest,
                        AVG((s.mtsTotal + s.approvalScore) / 2) as avg_grade
                 FROM Figures f
                 LEFT JOIN Submissions s ON f.id = s.targetId
+                ${category ? 'WHERE f.category = $1' : ''}
                 GROUP BY f.brand
                 ORDER BY submission_count DESC
-            `),
+            `, category ? [category] : []),
 
             // Brand secondary market prices (current 30d vs prior 30d)
             db.query(`
@@ -450,8 +553,9 @@ router.get('/brand-health', blockBadBots, dataEndpointLimiter, trackDataRequest,
                 FROM MarketTransactions mt
                 JOIN Figures f ON f.id = mt.figure_id
                 WHERE mt.price_type = 'secondary_market'
+                ${category ? 'AND f.category = $3' : ''}
                 GROUP BY f.brand
-            `, [thirtyDaysAgo, sixtyDaysAgo]),
+            `, category ? [thirtyDaysAgo, sixtyDaysAgo, category] : [thirtyDaysAgo, sixtyDaysAgo]),
 
             // Submission velocity (last 30d per brand)
             db.query(`
@@ -459,16 +563,18 @@ router.get('/brand-health', blockBadBots, dataEndpointLimiter, trackDataRequest,
                 FROM Submissions s
                 JOIN Figures f ON f.id = s.targetId
                 WHERE s.date >= $1
+                ${category ? 'AND f.category = $2' : ''}
                 GROUP BY f.brand
-            `, [thirtyDaysAgo]),
+            `, category ? [thirtyDaysAgo, category] : [thirtyDaysAgo]),
 
             // Unique analysts per brand
             db.query(`
                 SELECT f.brand, COUNT(DISTINCT s.author) as analysts
                 FROM Submissions s
                 JOIN Figures f ON f.id = s.targetId
+                ${category ? 'WHERE f.category = $1' : ''}
                 GROUP BY f.brand
-            `),
+            `, category ? [category] : []),
 
             // Price trend time-series (weekly buckets, last 90d, per brand)
             db.query(`
@@ -478,9 +584,10 @@ router.get('/brand-health', blockBadBots, dataEndpointLimiter, trackDataRequest,
                 FROM MarketTransactions mt
                 JOIN Figures f ON f.id = mt.figure_id
                 WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+                ${category ? 'AND f.category = $2' : ''}
                 GROUP BY f.brand, DATE_TRUNC('week', mt.created_at::timestamp)
                 ORDER BY week ASC
-            `, [ninetyDaysAgo]),
+            `, category ? [ninetyDaysAgo, category] : [ninetyDaysAgo]),
 
             // Grade trend time-series (weekly buckets, last 90d, per brand)
             db.query(`
@@ -490,9 +597,10 @@ router.get('/brand-health', blockBadBots, dataEndpointLimiter, trackDataRequest,
                 FROM Submissions s
                 JOIN Figures f ON f.id = s.targetId
                 WHERE s.date >= $1
+                ${category ? 'AND f.category = $2' : ''}
                 GROUP BY f.brand, DATE_TRUNC('week', s.date::timestamp)
                 ORDER BY week ASC
-            `, [ninetyDaysAgo])
+            `, category ? [ninetyDaysAgo, category] : [ninetyDaysAgo])
         ]);
 
         // Build lookup maps
@@ -570,6 +678,7 @@ router.get('/brand-health', blockBadBots, dataEndpointLimiter, trackDataRequest,
 // ── Market Trends Timeline ──────────────────────────────────
 router.get('/market-trends', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheResponse(60000), async (req, res) => {
     try {
+        const category = req.query.category;
         const periodParam = req.query.period || '90d';
         let days, bucketExprTx, bucketExprSub;
         if (periodParam === '30d') {
@@ -597,48 +706,82 @@ router.get('/market-trends', blockBadBots, dataEndpointLimiter, trackDataRequest
             FROM MarketTransactions mt
             JOIN Figures f ON f.id = mt.figure_id
             WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+            ${category ? 'AND f.category = $2' : ''}
             GROUP BY f.brand ORDER BY cnt DESC LIMIT 3
-        `, [since]);
+        `, category ? [since, category] : [since]);
         const topBrands = topBrandsResult.rows.map(r => r.brand);
 
         const [summaryNow, summaryStart, totalSubs, activeFigures,
                overallPriceSeries, brandPriceSeries,
                submissionActivity, txActivity, topMoversResult] = await Promise.all([
             // Current avg price (last 7d)
-            db.query(`
-                SELECT AVG(price_avg) as avg
-                FROM MarketTransactions
-                WHERE price_type = 'secondary_market' AND created_at >= $1
-            `, [recentWindow]),
+            db.query(
+                category
+                    ? `SELECT AVG(mt.price_avg) as avg
+                       FROM MarketTransactions mt
+                       JOIN Figures f ON f.id = mt.figure_id
+                       WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1 AND f.category = $2`
+                    : `SELECT AVG(price_avg) as avg
+                       FROM MarketTransactions
+                       WHERE price_type = 'secondary_market' AND created_at >= $1`,
+                category ? [recentWindow, category] : [recentWindow]
+            ),
 
             // Period-start avg price (first 7d of period)
-            db.query(`
-                SELECT AVG(price_avg) as avg
-                FROM MarketTransactions
-                WHERE price_type = 'secondary_market'
-                  AND created_at >= $1 AND created_at < $2
-            `, [since, startWindow]),
+            db.query(
+                category
+                    ? `SELECT AVG(mt.price_avg) as avg
+                       FROM MarketTransactions mt
+                       JOIN Figures f ON f.id = mt.figure_id
+                       WHERE mt.price_type = 'secondary_market'
+                         AND mt.created_at >= $1 AND mt.created_at < $2 AND f.category = $3`
+                    : `SELECT AVG(price_avg) as avg
+                       FROM MarketTransactions
+                       WHERE price_type = 'secondary_market'
+                         AND created_at >= $1 AND created_at < $2`,
+                category ? [since, startWindow, category] : [since, startWindow]
+            ),
 
             // Total submissions in period
-            db.query(`SELECT COUNT(*) as count FROM Submissions WHERE date >= $1`, [since]),
+            db.query(
+                category
+                    ? `SELECT COUNT(*) as count FROM Submissions s JOIN Figures f ON f.id = s.targetId WHERE s.date >= $1 AND f.category = $2`
+                    : `SELECT COUNT(*) as count FROM Submissions WHERE date >= $1`,
+                category ? [since, category] : [since]
+            ),
 
             // Active figures (with submission or transaction in period)
-            db.query(`
-                SELECT COUNT(DISTINCT id) as count FROM (
-                    SELECT targetId as id FROM Submissions WHERE date >= $1
-                    UNION
-                    SELECT figure_id as id FROM MarketTransactions WHERE created_at >= $1
-                ) active
-            `, [since]),
+            db.query(
+                category
+                    ? `SELECT COUNT(DISTINCT id) as count FROM (
+                           SELECT s.targetId as id FROM Submissions s JOIN Figures f ON f.id = s.targetId WHERE s.date >= $1 AND f.category = $2
+                           UNION
+                           SELECT mt.figure_id as id FROM MarketTransactions mt JOIN Figures f ON f.id = mt.figure_id WHERE mt.created_at >= $1 AND f.category = $2
+                       ) active`
+                    : `SELECT COUNT(DISTINCT id) as count FROM (
+                           SELECT targetId as id FROM Submissions WHERE date >= $1
+                           UNION
+                           SELECT figure_id as id FROM MarketTransactions WHERE created_at >= $1
+                       ) active`,
+                category ? [since, category] : [since]
+            ),
 
             // Overall avg price time-series
-            db.query(`
-                SELECT ${bucketExprTx} as bucket, AVG(mt.price_avg) as avg_price
-                FROM MarketTransactions mt
-                WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
-                GROUP BY ${bucketExprTx}
-                ORDER BY bucket ASC
-            `, [since]),
+            db.query(
+                category
+                    ? `SELECT ${bucketExprTx} as bucket, AVG(mt.price_avg) as avg_price
+                       FROM MarketTransactions mt
+                       JOIN Figures f ON f.id = mt.figure_id
+                       WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1 AND f.category = $2
+                       GROUP BY ${bucketExprTx}
+                       ORDER BY bucket ASC`
+                    : `SELECT ${bucketExprTx} as bucket, AVG(mt.price_avg) as avg_price
+                       FROM MarketTransactions mt
+                       WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+                       GROUP BY ${bucketExprTx}
+                       ORDER BY bucket ASC`,
+                category ? [since, category] : [since]
+            ),
 
             // Top 3 brand price time-series
             topBrands.length > 0 ? db.query(`
@@ -647,23 +790,38 @@ router.get('/market-trends', blockBadBots, dataEndpointLimiter, trackDataRequest
                 JOIN Figures f ON f.id = mt.figure_id
                 WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
                   AND f.brand = ANY($2)
+                  ${category ? 'AND f.category = $3' : ''}
                 GROUP BY f.brand, ${bucketExprTx}
                 ORDER BY bucket ASC
-            `, [since, topBrands]) : { rows: [] },
+            `, category ? [since, topBrands, category] : [since, topBrands]) : { rows: [] },
 
             // Submission activity time-series
-            db.query(`
-                SELECT ${bucketExprSub} as bucket, COUNT(*) as count
-                FROM Submissions s WHERE s.date >= $1
-                GROUP BY ${bucketExprSub} ORDER BY bucket ASC
-            `, [since]),
+            db.query(
+                category
+                    ? `SELECT ${bucketExprSub} as bucket, COUNT(*) as count
+                       FROM Submissions s
+                       JOIN Figures f ON f.id = s.targetId
+                       WHERE s.date >= $1 AND f.category = $2
+                       GROUP BY ${bucketExprSub} ORDER BY bucket ASC`
+                    : `SELECT ${bucketExprSub} as bucket, COUNT(*) as count
+                       FROM Submissions s WHERE s.date >= $1
+                       GROUP BY ${bucketExprSub} ORDER BY bucket ASC`,
+                category ? [since, category] : [since]
+            ),
 
             // Transaction activity time-series
-            db.query(`
-                SELECT ${bucketExprTx} as bucket, COUNT(*) as count
-                FROM MarketTransactions mt WHERE mt.created_at >= $1
-                GROUP BY ${bucketExprTx} ORDER BY bucket ASC
-            `, [since]),
+            db.query(
+                category
+                    ? `SELECT ${bucketExprTx} as bucket, COUNT(*) as count
+                       FROM MarketTransactions mt
+                       JOIN Figures f ON f.id = mt.figure_id
+                       WHERE mt.created_at >= $1 AND f.category = $2
+                       GROUP BY ${bucketExprTx} ORDER BY bucket ASC`
+                    : `SELECT ${bucketExprTx} as bucket, COUNT(*) as count
+                       FROM MarketTransactions mt WHERE mt.created_at >= $1
+                       GROUP BY ${bucketExprTx} ORDER BY bucket ASC`,
+                category ? [since, category] : [since]
+            ),
 
             // Top movers (recent half vs earlier half)
             db.query(`
@@ -673,11 +831,12 @@ router.get('/market-trends', blockBadBots, dataEndpointLimiter, trackDataRequest
                 FROM MarketTransactions mt
                 JOIN Figures f ON f.id = mt.figure_id
                 WHERE mt.price_type = 'secondary_market' AND mt.created_at >= $1
+                ${category ? 'AND f.category = $3' : ''}
                 GROUP BY f.id, f.name, f.brand, f.classtie
                 HAVING AVG(CASE WHEN mt.created_at >= $2 THEN mt.price_avg END) IS NOT NULL
                    AND AVG(CASE WHEN mt.created_at < $2 THEN mt.price_avg END) IS NOT NULL
                    AND AVG(CASE WHEN mt.created_at < $2 THEN mt.price_avg END) > 0
-            `, [since, midpoint])
+            `, category ? [since, midpoint, category] : [since, midpoint])
         ]);
 
         // Process summary

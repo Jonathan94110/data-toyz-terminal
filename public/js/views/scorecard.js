@@ -129,11 +129,16 @@ function buildScorecardHTML(figures) {
                 ${sliderRow('pq_packaging','Packaging',0,10,5.0,'#10b981',0.1)}
             </div>
 
-            <!-- Transformation -->
+            <!-- Transformation (opt-in) -->
             <div class="sc-section">
-                <div class="sc-section-title" style="color:#f59e0b;">🟡 TRANSFORMATION <span class="sc-section-scale">(1-10 scale)</span></div>
-                ${sliderRow('trans_frustration','Frustration Score',1,10,5.5,'#f59e0b',0.1)}
-                ${sliderRow('trans_satisfaction','Satisfaction',1,10,5.5,'#f59e0b',0.1)}
+                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+                    <input type="checkbox" id="sc_has_transformation" checked style="width:16px; height:16px; cursor:pointer;">
+                    <div class="sc-section-title" style="color:#f59e0b; margin:0; cursor:pointer;" onclick="document.getElementById('sc_has_transformation').click();">🟡 TRANSFORMATION <span class="sc-section-scale">(1-10 scale)</span></div>
+                </div>
+                <div id="scTransSliders">
+                    ${sliderRow('trans_frustration','Frustration Score',1,10,5.5,'#f59e0b',0.1)}
+                    ${sliderRow('trans_satisfaction','Satisfaction',1,10,5.5,'#f59e0b',0.1)}
+                </div>
             </div>
         </div>
 
@@ -182,9 +187,12 @@ function bindScorecardEvents(container, figures) {
 
     function recalc() {
         const v = id => parseFloat(document.getElementById('sc_' + id).value);
+        const hasTrans = document.getElementById('sc_has_transformation')?.checked ?? true;
         const dts = v('mts_community') + v('mts_buzz') + v('mts_liquidity') + v('mts_risk') + v('mts_appeal');
-        const pqSum = v('pq_build') + v('pq_paint') + v('pq_articulation') + v('pq_accuracy') + v('pq_presence') + v('pq_value') + v('pq_packaging') + v('trans_frustration') + v('trans_satisfaction');
-        const approval = ((pqSum / 90) * 100);
+        let pqSum = v('pq_build') + v('pq_paint') + v('pq_articulation') + v('pq_accuracy') + v('pq_presence') + v('pq_value') + v('pq_packaging');
+        if (hasTrans) { pqSum += v('trans_frustration') + v('trans_satisfaction'); }
+        const maxPQ = hasTrans ? 90 : 70;
+        const approval = ((pqSum / maxPQ) * 100);
         const overall = (dts + approval) / 2;
 
         const dtsEl = document.getElementById('scHeroDts');
@@ -218,6 +226,16 @@ function bindScorecardEvents(container, figures) {
             recalc();
         });
     });
+
+    // Transformation toggle
+    const scTransToggle = document.getElementById('sc_has_transformation');
+    const scTransSliders = document.getElementById('scTransSliders');
+    if (scTransToggle && scTransSliders) {
+        scTransToggle.addEventListener('change', () => {
+            scTransSliders.style.display = scTransToggle.checked ? 'block' : 'none';
+            recalc();
+        });
+    }
 
     // Initial calc
     recalc();
@@ -341,6 +359,9 @@ function bindScorecardEvents(container, figures) {
         starVal = 0;
         document.getElementById('scStarText').textContent = 'Select';
         container.querySelectorAll('.sc-star').forEach(b => b.classList.remove('active'));
+        // Reset transformation toggle
+        if (scTransToggle) { scTransToggle.checked = true; }
+        if (scTransSliders) { scTransSliders.style.display = 'block'; }
         // Reset image
         if (imageURL) { URL.revokeObjectURL(imageURL); imageURL = null; }
         imageEl.style.display = 'none';
