@@ -703,6 +703,19 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 </div>
 
                 ${isFullAdmin ? `
+                <!-- HQ UPDATE BROADCAST -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">&#x1F4E1; HQ Update Broadcast</h3>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Send a notification to all active users. Respects each user's HQ Updates notification preferences.</p>
+                <div class="card" style="padding:1.5rem; margin-bottom:2.5rem;">
+                    <textarea id="hqUpdateMsg" maxlength="500" rows="3" placeholder="Enter your HQ update message..." style="width:100%; padding:0.6rem 0.8rem; background:var(--bg-input, var(--bg-panel)); color:var(--text-primary); border:1px solid var(--border-light); border-radius:var(--radius-sm); font-size:0.85rem; resize:vertical; font-family:inherit;"></textarea>
+                    <div style="display:flex; align-items:center; gap:1rem; margin-top:0.75rem;">
+                        <button id="sendHqUpdate" class="btn" style="padding:0.5rem 1.25rem; font-size:0.85rem;">Send to All Users</button>
+                        <span id="hqUpdateStatus" style="color:var(--text-muted); font-size:0.8rem;"></span>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${isFullAdmin ? `
                 <!-- TICKER SETTINGS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">&#x1F4F0; Ticker Settings</h3>
                 <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Control what data the global ticker displays and how many items it shows.</p>
@@ -974,6 +987,32 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 ` : ''}
             </div>
         `;
+
+        // ── HQ Update Broadcast ──────────────────────────────
+        if (isFullAdmin) {
+            document.getElementById('sendHqUpdate')?.addEventListener('click', async () => {
+                const msgInput = document.getElementById('hqUpdateMsg');
+                const statusEl = document.getElementById('hqUpdateStatus');
+                const message = (msgInput?.value || '').trim();
+                if (!message) { statusEl.innerHTML = '<span style="color:var(--danger);">Please enter a message.</span>'; return; }
+                if (!confirm(`Send this HQ update to all active users?\n\n"${message.slice(0, 100)}${message.length > 100 ? '...' : ''}"`)) return;
+                try {
+                    const res = await self.authFetch(`${API_URL}/admin/hq-update`, {
+                        method: 'POST',
+                        body: JSON.stringify({ message })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        statusEl.innerHTML = `<span style="color:var(--success);">Sent to ${data.sent} users.</span>`;
+                        msgInput.value = '';
+                    } else {
+                        statusEl.innerHTML = `<span style="color:var(--danger);">${escapeHTML(data.error)}</span>`;
+                    }
+                } catch (e) {
+                    statusEl.innerHTML = '<span style="color:var(--danger);">Failed to send. Try again.</span>';
+                }
+            });
+        }
 
         // ── Ticker Settings ──────────────────────────────────
         if (isFullAdmin) {

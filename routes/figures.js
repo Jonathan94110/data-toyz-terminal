@@ -105,6 +105,16 @@ router.post('/', requireAuth, async (req, res) => {
                             "INSERT INTO PendingBrands (name, requested_by, figure_name, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO NOTHING",
                             [brand, req.user.username, name, new Date().toISOString()]
                         );
+                        // Notify admins/owners about the pending brand (fire-and-forget)
+                        db.query("SELECT username FROM Users WHERE role IN ('owner', 'admin') AND suspended = false")
+                            .then(result => {
+                                result.rows.forEach(admin => {
+                                    createNotification(admin.username, 'pending_brand',
+                                        `New brand request: "${brand}" submitted by ${req.user.username}`,
+                                        'admin', null, req.user.username
+                                    ).catch(() => {});
+                                });
+                            }).catch(() => {});
                     } catch (pendingErr) {
                         log.error('Pending brand save error (non-fatal)', { error: pendingErr.message || pendingErr });
                     }
@@ -129,18 +139,15 @@ router.post('/', requireAuth, async (req, res) => {
         const result = await db.query("INSERT INTO Figures (name, brand, classTie, line, created_by, msrp) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
             [name, brand, classTie, line, req.user.username, msrp]);
 
-        try {
-            // Batch insert notifications for all opted-in users (single query instead of N+1 loop)
-            const figMsg = `${req.user.username} added "${name}" to the catalog`;
-            await db.query(
-                `INSERT INTO Notifications (recipient, type, message, link_type, link_id, sender, created_at)
-                 SELECT u.username, 'new_figure', $1, 'figure', $2, $3, $4
-                 FROM Users u
-                 JOIN NotificationPrefs np ON u.id = np.user_id
-                 WHERE np.new_figure_inapp = true AND u.username != $3`,
-                [figMsg, result.rows[0].id, req.user.username, new Date().toISOString()]
-            );
-        } catch (notifErr) { log.error('New figure notification error', { error: notifErr.message || notifErr }); }
+        // Fire-and-forget: notify all users about new figure (respects in-app + email preferences)
+        const figMsg = `${req.user.username} added "${name}" to the catalog`;
+        const figId = result.rows[0].id;
+        db.query("SELECT username FROM Users WHERE username != $1 AND suspended = false", [req.user.username])
+            .then(usersResult => {
+                usersResult.rows.forEach(u => {
+                    createNotification(u.username, 'new_figure', figMsg, 'figure', figId, req.user.username).catch(() => {});
+                });
+            }).catch(() => {});
 
         invalidateCache('/api/figures');
         invalidateCache('/api/stats');

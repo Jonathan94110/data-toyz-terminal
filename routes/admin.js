@@ -9,6 +9,7 @@ const { normalizeRows } = require('../helpers/normalize');
 const { auditLog } = require('../helpers/audit');
 const { requireAuth, requireAdmin, requireRole, invalidateUserCache, getRoleLevel } = require('../middleware/auth');
 const { invalidateCache, invalidateAll } = require('../middleware/cache');
+const { createNotification } = require('../helpers/notifications');
 
 // Reset user password
 router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
@@ -828,6 +829,33 @@ router.post('/backup', requireAuth, requireAdmin, async (req, res) => {
     } catch (err) {
         log.error('Admin backup error', { refId: req.requestId, error: err.message || err });
         res.status(500).json({ error: 'Backup failed.', refId: req.requestId });
+    }
+});
+
+// Send HQ update notification to all active users
+router.post('/hq-update', requireAuth, requireAdmin, async (req, res) => {
+    const { message } = req.body;
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Message is required.' });
+    if (message.length > 500) return res.status(400).json({ error: 'Message must be 500 characters or fewer.' });
+
+    try {
+        const usersResult = await db.query(
+            "SELECT username FROM Users WHERE suspended = false AND username != $1",
+            [req.user.username]
+        );
+        let sent = 0;
+        for (const u of usersResult.rows) {
+            createNotification(u.username, 'hq_updates', message.trim(), 'admin', null, req.user.username).catch(() => {});
+            sent++;
+        }
+
+        await auditLog('HQ_UPDATE', req.user.username, null,
+            `HQ update sent to ${sent} users: ${message.trim().slice(0, 100)}`, req.ip);
+
+        res.json({ message: `HQ update sent to ${sent} users.`, sent });
+    } catch (err) {
+        log.error('HQ update error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
 

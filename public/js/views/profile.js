@@ -190,6 +190,21 @@ TerminalApp.prototype.renderProfile = function(container) {
                             </div>
                         </div>
                         ` : ''}
+
+                        <!-- Row: Pending Brand Requests (Admin/Owner Only) -->
+                        ${['owner', 'admin'].includes(this.user.role) ? `
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm); margin-top:0.5rem;">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when a new brand is submitted for approval <span style="color:${{owner:'#a855f7',admin:'#fbbf24'}[this.user.role]}; font-size:0.75rem;">${{owner:'⭐ Owner',admin:'★ Admin'}[this.user.role]}</span></span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="pending_brand_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="pending_brand_inapp">
+                                </label>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     <div id="notifPrefsSaved" style="display:none; text-align:center; color:var(--success); font-size:0.85rem; margin-top:0.75rem;">Preferences saved.</div>
                 </div>
