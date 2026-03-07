@@ -3,6 +3,7 @@ TerminalApp.prototype.renderDocs = function(container) {
         const isAdmin = this.user && ['owner', 'admin'].includes(this.user.role);
         const sections = [
             { id: 'overview', title: 'Platform Overview' },
+            { id: 'categories', title: 'Categories' },
             { id: 'navigation', title: 'Navigation Guide' },
             { id: 'community-feed', title: 'Community Feed' },
             { id: 'breakout-rooms', title: 'DMs & Group Chats' },
@@ -48,21 +49,55 @@ TerminalApp.prototype.renderDocs = function(container) {
                 <div id="doc-overview" class="card" style="margin-bottom:2rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">01. Platform Overview</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        <strong>Data Toyz Terminal</strong> is a community-driven intelligence platform for Transformers action figure collectors. The platform uses a spy/intelligence agency theme where collectors are <strong>operatives</strong>, figures are <strong>targets</strong>, and reviews are <strong>intel reports</strong>.
+                        <strong>Data Toyz Terminal</strong> is a community-driven intelligence platform for action figure collectors. The platform uses a spy/intelligence agency theme where collectors are <strong>operatives</strong>, figures are <strong>targets</strong>, and reviews are <strong>intel reports</strong>.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
-                        The core mission: evaluate, rate, and track the collectible market for Transformers figures across all brands and product lines. Operatives submit detailed intelligence reports grading each figure on market sentiment and physical quality, building a comprehensive database of community-driven reviews.
+                        The core mission: evaluate, rate, and track the collectible market for action figures across all brands and product lines. Operatives submit detailed intelligence reports grading each figure on market sentiment and physical quality, building a comprehensive database of community-driven reviews.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The platform supports <strong>two categories</strong> &mdash; <strong>Transformers</strong> and <strong>Action Figures</strong> &mdash; each with their own filtered catalog, leaderboards, and market analytics. Use the category switcher in the sidebar to toggle between them.
                     </p>
                     <p style="color:var(--text-primary); line-height:1.8;">
-                        <strong>Supported Brands:</strong> Hasbro, Takara Tomy, Fans Toys, X-Transbots, and other 3rd party manufacturers.<br>
-                        <strong>Product Lines:</strong> Legacy Evolution, Studio Series, Missing Link, Masterpiece, 3rd Party, and more.<br>
-                        <strong>Class Tiers:</strong> Deluxe, Voyager, Leader, Commander, Masterpiece.
+                        <strong>Transformers Brands:</strong> Hasbro, Takara Tomy, Fans Toys, X-Transbots, and other 3rd party manufacturers.<br>
+                        <strong>Action Figure Brands:</strong> Hasbro (GI Joe, Star Wars), Mattel (He-Man/MOTU), Bandai (Voltron), and more.<br>
+                        <strong>Transformer Tiers:</strong> Core, Deluxe, Voyager, Leader, Commander, Titan, Masterpiece.<br>
+                        <strong>Action Figure Tiers:</strong> 3.75", 6", 7", 12".
                     </p>
                 </div>
 
-                <!-- 02. NAVIGATION GUIDE -->
+                <!-- 02. CATEGORIES -->
+                <div id="doc-categories" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">02. Categories</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        Data Toyz supports two collector communities, each with their own independent catalog, leaderboards, and market analytics:
+                    </p>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:1rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:2px solid var(--border-light);">
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Category</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Size Classes</th>
+                                <th style="padding:0.6rem 1rem; color:var(--text-muted); font-weight:600;">Transformation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Transformers</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Core, Deluxe, Voyager, Leader, Commander, Titan, Masterpiece</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Included by default</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Action Figures</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">3.75", 6", 7", 12"</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Opt-in (for M.A.S.K., Voltron, Go-Bots, etc.)</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Switching Categories:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        Use the <strong>Transformers / Action Figures</strong> toggle in the sidebar (below the logo) to switch between categories. When you switch, all views automatically reload with filtered data &mdash; only figures in the active category are shown across Search, Leaderboard, Market Pulse, and your Intel History.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Transformation Opt-In:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        The submission form includes a <strong>"Has Transformation?"</strong> checkbox. For Transformers this is checked by default; for Action Figures it is unchecked. You can override this for edge cases like M.A.S.K., Voltron, or Go-Bots that do transform. When unchecked, the Transformation Frustration and Satisfaction sliders are hidden and the Approval Score formula adjusts from /90 to /70.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">When the sidebar is collapsed, the category switcher shows abbreviated labels: <strong>TF</strong> (Transformers) and <strong>AF</strong> (Action Figures).</p>
+                </div>
+
+                <!-- 03. NAVIGATION GUIDE -->
                 <div id="doc-navigation" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">02. Navigation Guide</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">03. Navigation Guide</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">The left sidebar contains all primary navigation tabs:</p>
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
                         <thead>
@@ -99,7 +134,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 03. COMMS FEED -->
                 <div id="doc-community-feed" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">03. Community Feed</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. Community Feed</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Community Feed is the social hub of the terminal. Operatives can broadcast messages to the entire community, attach images, and engage with each other.
                     </p>
@@ -139,7 +174,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 04. BREAKOUT ROOMS -->
                 <div id="doc-breakout-rooms" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">04. DMs & Group Chats</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. DMs & Group Chats</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         DMs & Group Chats are encrypted private channels within the Community Feed. Unlike the public Community Feed, DMs & Group Chats allow operatives to communicate in private &mdash; either one-on-one or in small groups.
                     </p>
@@ -176,7 +211,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 05. TARGET SEARCH -->
                 <div id="doc-target-search" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">05. Action Figure Registration</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Action Figure Registration</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Action Figure Registration page is the central figure catalog. Every Transformers figure in the database is listed here with real-time search and filtering.
                     </p>
@@ -207,7 +242,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 06. TRADE SCAN -->
                 <div id="doc-trade-scan" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">06. Trade Scan (Submissions)</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">07. Trade Scan (Submissions)</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Trade Scan is the core evaluation form. When you select a figure from Action Figure Registration, click <strong>"Rate Figure"</strong> to submit a detailed intel report grading the figure across multiple dimensions.
                     </p>
@@ -223,7 +258,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                         <tbody>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">1</td><td style="padding:0.6rem 1rem; font-weight:600;">Data Toyz Trading Score</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">5 market sentiment metrics (Community, Buzz, Liquidity, Risk, Appeal) &mdash; each rated 0&ndash;20</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">2</td><td style="padding:0.6rem 1rem; font-weight:600;">Risk Forecasting</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Predict market direction across 4 axes: Bullish, Neutral, or Bearish &mdash; with a selectable forecast horizon</td></tr>
-                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">3</td><td style="padding:0.6rem 1rem; font-weight:600;">Physical Quality Scales</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">9 physical attributes (Build, Paint, Articulation, Accuracy, Presence, Value, Packaging, Transformation Frustration & Satisfaction) &mdash; each rated 1-10</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">3</td><td style="padding:0.6rem 1rem; font-weight:600;">Physical Quality Scales</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">7 core attributes (Build, Paint, Articulation, Accuracy, Presence, Value, Packaging) plus 2 optional Transformation scores (Frustration & Satisfaction) &mdash; each rated 1-10. Transformation scores appear when "Has Transformation?" is checked.</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">4</td><td style="padding:0.6rem 1rem; font-weight:600;">Evidence</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Upload a photo of the figure as field evidence (appears in the gallery)</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">5</td><td style="padding:0.6rem 1rem; font-weight:600;">What Did You Pay?</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Select your purchase source (<span style="color:#10b981;">Overseas Retail</span>, <span style="color:#f59e0b;">US Retail</span>, or <span style="color:#ef4444;">Aftermarket/Resale</span>) and enter the price you paid</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; color:var(--text-muted);">6</td><td style="padding:0.6rem 1rem; font-weight:600;">Community Recommendation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Yes or No &mdash; do you recommend acquiring this target?</td></tr>
@@ -250,7 +285,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 07. GRADING SYSTEM -->
                 <div id="doc-grading" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">07. Grading System</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">08. Grading System</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         Every intel report generates three scores that combine into an Overall Grade:
                     </p>
@@ -264,8 +299,9 @@ TerminalApp.prototype.renderDocs = function(container) {
                     <div style="background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1rem;">
                         <p style="color:var(--text-primary); line-height:2; margin-bottom:0.5rem;">
                             <strong style="color:var(--accent);">Approval Score</strong><br>
-                            Calculated from the 9 Physical Quality ratings (each 1&ndash;10, max sum = 90).<br>
-                            Formula: <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(sum of 9 ratings / 90) &times; 100</code><br>
+                            Calculated from the Physical Quality ratings (each 1&ndash;10).<br>
+                            With Transformation (9 ratings): <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(sum / 90) &times; 100</code><br>
+                            Without Transformation (7 ratings): <code style="background:var(--bg-surface); padding:0.2rem 0.5rem; border-radius:3px; font-size:0.85rem;">(sum / 70) &times; 100</code><br>
                             Result is a percentage from <strong>0 to 100</strong>.
                         </p>
                     </div>
@@ -286,7 +322,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 08. MARKET PULSE -->
                 <div id="doc-market-pulse" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">08. Market Pulse Dashboard</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">09. Market Pulse Dashboard</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Market Pulse is a high-level analytics dashboard showing the state of the collectible market across all tracked figures.
                     </p>
@@ -334,7 +370,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 09. MY INTEL HISTORY -->
                 <div id="doc-intel-history" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">09. My Intel History</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">10. My Intel History</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         View all intel reports you have submitted. Each entry shows the target name, class tier, date, and your grade. You can click any entry to navigate to that figure's full intel page.
                     </p>
@@ -348,7 +384,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 10. LEADERBOARDS -->
                 <div id="doc-leaderboards" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">10. Global Leaderboard & Ranks</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">11. Global Leaderboard & Ranks</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         Operatives are ranked by total number of intel submissions. The leaderboard shows the top contributors with clickable profiles.
                     </p>
@@ -397,7 +433,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 11. PROFILE SETTINGS -->
                 <div id="doc-profile" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">11. Profile Settings</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">12. Profile Settings</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         Manage your operative identity from the Profile Settings page:
                     </p>
@@ -412,7 +448,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 12. NOTIFICATIONS -->
                 <div id="doc-notifications" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">12. Notifications</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. Notifications</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The notification bell in the top-right corner alerts you to activity on your content. Click a notification to navigate directly to the relevant post or figure. Use "Mark all read" to clear unread badges. Notifications poll for updates every 30 seconds.
                     </p>
@@ -449,7 +485,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 13. USER PROFILES & FOLLOWING -->
                 <div id="doc-profiles-following" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">13. User Profiles & Following</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. User Profiles & Following</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         Every operative has a public profile (dossier) that showcases their activity and standing in the community. You can view any operative's profile by clicking their username anywhere on the platform.
                     </p>
@@ -479,7 +515,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 14. FLAGGING A POST -->
                 <div id="doc-flagging" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">14. Flagging a Post</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Flagging a Post</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         If you encounter a broadcast that violates community guidelines or contains inappropriate content, you can flag it for admin review. Flagging is anonymous to the post author &mdash; they will not be notified that their post was flagged.
                     </p>
@@ -503,7 +539,7 @@ TerminalApp.prototype.renderDocs = function(container) {
                 ${isAdmin ? `
                 <!-- 15. ADMIN PANEL -->
                 <div id="doc-admin" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">15. Admin Panel</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">16. Admin Panel</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
                         The Admin Panel is visible to operatives with the <strong>Owner</strong>, <strong>Admin</strong>, or <strong>Moderator</strong> role. Access and capabilities depend on your permission level.
                     </p>
@@ -576,7 +612,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 16. SECURITY & AUTHENTICATION -->
                 <div id="doc-security" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">16. Security & Authentication</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">17. Security & Authentication</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1.5rem;">
                         Data Toyz Terminal implements layered, industry-standard security controls designed to protect user accounts, platform integrity, and stored data.
                     </p>
@@ -648,7 +684,7 @@ TerminalApp.prototype.renderDocs = function(container) {
 
                 <!-- 17. SOC 2 ALIGNMENT -->
                 <div id="doc-soc2" class="card" style="margin-bottom:2rem;">
-                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">17. SOC 2 Alignment</h3>
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">18. SOC 2 Alignment</h3>
                     <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;">
                         Data Toyz Terminal implements technical and operational controls aligned with the SOC 2 Trust Services Criteria across all five principles.
                     </p>
