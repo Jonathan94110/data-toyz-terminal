@@ -398,10 +398,10 @@ class TerminalApp {
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                             <span class="nav-label">Documentation</span>
                         </div>
-                        ${['owner', 'admin', 'moderator'].includes(this.user.role) ? `
+                        ${['owner', 'admin', 'moderator'].includes(this.user.role) || this.user.platinum ? `
                         <div class="nav-item ${this.currentView === 'admin' ? 'active' : ''}" data-view="admin" style="margin-top:1rem; border-top:1px solid var(--border-light); padding-top:1rem;">
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                            <span class="nav-label">${this.user.role === 'moderator' ? 'Mod Panel' : 'Admin Panel'}</span>
+                            <span class="nav-label">${this.user.platinum && !['owner', 'admin', 'moderator'].includes(this.user.role) ? '\u{1F48E} Platinum Panel' : (this.user.role === 'moderator' ? 'Mod Panel' : 'Admin Panel')}</span>
                         </div>
                         ` : ''}
                         <div id="themeToggle" class="nav-item" style="margin-top:auto; border-top:1px solid var(--border-light); padding-top:1rem; opacity:0.7;">
@@ -581,7 +581,7 @@ class TerminalApp {
             else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
             else if (this.currentView === 'scorecard') this.renderScorecard(contentArea);
             else if (this.currentView === 'docs') this.renderDocs(contentArea);
-            else if (this.currentView === 'admin' && ['owner', 'admin', 'moderator'].includes(this.user.role)) this.renderAdmin(contentArea);
+            else if (this.currentView === 'admin' && (['owner', 'admin', 'moderator'].includes(this.user.role) || this.user.platinum)) this.renderAdmin(contentArea);
         } catch (err) {
             console.error('View render crashed:', this.currentView, err);
             if (contentArea) contentArea.innerHTML = '<div style="padding:3rem; text-align:center; color:var(--danger);">Something went wrong loading this view. <button class="btn" style="margin-top:1rem;" onclick="app.currentView=\'search\'; app.renderCurrentView();">Go Home</button></div>';

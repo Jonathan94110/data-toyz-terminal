@@ -5,8 +5,9 @@ TerminalApp.prototype.renderAdmin = async function(container) {
         const userRole = this.user.role || 'analyst';
         const isFullAdmin = ['owner', 'admin'].includes(userRole);
         const isMod = userRole === 'moderator';
+        const isPlatinum = !!this.user.platinum;
 
-        let analytics = {}, pageviewSummary = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [], lbSettings = [], tickerSettings = { ticker_mode: 'all', ticker_length: 25 };
+        let analytics = {}, pageviewSummary = {}, users = [], figures = [], flags = [], topRated = [], approvedBrands = [], pendingBrands = [], lbSettings = [], tickerSettings = { ticker_mode: 'all', ticker_length: 25 }, pendingTrades = [];
 
         try {
             // All roles: analytics + flags + leaderboard settings + pageviews
@@ -39,6 +40,13 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 if (results[7].ok) approvedBrands = await results[7].json();
                 if (results[8].ok) pendingBrands = await results[8].json();
                 if (results[9] && results[9].ok) tickerSettings = await results[9].json();
+            }
+            // Fetch pending trades for admin and platinum users
+            if (isFullAdmin || isPlatinum) {
+                try {
+                    const ptRes = await this.authFetch(`${API_URL}/collection/pending-trades`);
+                    if (ptRes.ok) pendingTrades = await ptRes.json();
+                } catch (e) { /* silent */ }
             }
         } catch (e) {
             container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load admin data.</div>`;
@@ -142,7 +150,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     return `
                         <tr style="border-top:1px solid var(--border-light); ${isSuspended ? 'opacity:0.5;' : ''}">
                             <td style="padding:0.6rem 1rem; color:var(--text-muted);">${u.id}</td>
-                            <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(u.username)} ${uRole !== 'analyst' ? `<span style="color:${roleColors[uRole]}; font-size:0.75rem;">${roleBadges[uRole]}</span>` : ''}</td>
+                            <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(u.username)} ${uRole !== 'analyst' ? `<span style="color:${roleColors[uRole]}; font-size:0.75rem;">${roleBadges[uRole]}</span>` : ''}${u.platinum ? ' <span style="color:#a855f7; font-size:0.7rem; font-weight:700; background:rgba(168,85,247,0.15); padding:0.1rem 0.35rem; border-radius:3px;">&#x1F48E; PLATINUM</span>' : ''}</td>
                             <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(u.email)}</td>
                             <td style="padding:0.6rem 1rem;"><span style="color:${roleColors[uRole]}; font-size:0.8rem; font-weight:600; text-transform:uppercase;">${escapeHTML(uRole)}</span></td>
                             <td style="padding:0.6rem 1rem;"><span style="color:${isSuspended ? 'var(--danger)' : 'var(--success)'}; font-size:0.8rem; font-weight:600;">${isSuspended ? '\u{26D4} SUSPENDED' : '\u{2705} ACTIVE'}</span></td>
@@ -154,6 +162,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                                         ${assignableRoles.map(r => `<option value="${r}" ${r === uRole ? 'selected' : ''}>${r.charAt(0).toUpperCase() + r.slice(1)}</option>`).join('')}
                                     </select>
                                     <button class="suspendBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:${isSuspended ? 'var(--success)' : 'var(--danger)'}; color:${isSuspended ? 'var(--success)' : 'var(--danger)'};">${isSuspended ? '\u{2705} Reinstate' : '\u{26A0}\u{FE0F} Suspend'}</button>
+                                    <button class="platinumBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:${u.platinum ? '#a855f7' : 'var(--text-muted)'}; color:${u.platinum ? '#a855f7' : 'var(--text-muted)'};">${u.platinum ? '\u{1F48E} Revoke Platinum' : '\u{1F48E} Grant Platinum'}</button>
                                     <button class="resetPwBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:var(--accent); color:var(--accent);">\u{1F511} Reset PW</button>
                                     <button class="delUserBtn" data-id="${u.id}" data-name="${escapeHTML(u.username)}" style="border-color:var(--danger); color:var(--danger);">\u{1F5D1}\u{FE0F} Delete</button>
                                 </div>
@@ -368,6 +377,16 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 btn.addEventListener('click', async () => {
                     try {
                         const res = await self.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/suspend`, { method: 'PUT' });
+                        if (res.ok) { self.renderAdmin(container); }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.platinumBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    try {
+                        const res = await self.authFetch(`${API_URL}/admin/users/${btn.dataset.id}/platinum`, { method: 'PUT' });
                         if (res.ok) { self.renderAdmin(container); }
                         else { const err = await res.json(); alert(err.error); }
                     } catch (e) { console.error(e); }
@@ -599,6 +618,29 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                             const err = await res.json();
                             alert(err.error);
                         }
+                    } catch (e) { console.error(e); }
+                });
+            });
+        }
+
+        function wireUpTradeActions() {
+            document.querySelectorAll('.approveTradeBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    try {
+                        const res = await self.authFetch(`${API_URL}/collection/validate/${btn.dataset.id}`, { method: 'PUT' });
+                        if (res.ok) { self.renderAdmin(container); }
+                        else { const err = await res.json(); alert(err.error); }
+                    } catch (e) { console.error(e); }
+                });
+            });
+
+            document.querySelectorAll('.rejectTradeBtn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Reject this trade listing?')) return;
+                    try {
+                        const res = await self.authFetch(`${API_URL}/collection/validate/${btn.dataset.id}`, { method: 'DELETE' });
+                        if (res.ok) { self.renderAdmin(container); }
+                        else { const err = await res.json(); alert(err.error); }
                     } catch (e) { console.error(e); }
                 });
             });
@@ -899,6 +941,43 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                         <tbody id="adminBrandTbody"></tbody>
                     </table>
                     <div id="adminBrandPagination"></div>
+                </div>
+                ` : ''}
+
+                ${(isFullAdmin || isPlatinum) && pendingTrades.length > 0 ? `
+                <!-- PENDING TRADE LISTINGS -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:#a855f7; margin:0;">&#x1F48E; Pending Trade Listings (<span id="pendingTradeCount">${pendingTrades.length}</span>)</h3>
+                </div>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Users have marked these figures "For Trade" and are awaiting validation by an admin or platinum holder.</p>
+                <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem; border:1px solid rgba(168,85,247,0.3);">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        <thead>
+                            <tr style="background:var(--bg-panel); text-align:left;">
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">User</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Figure</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Brand</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600;">Date</th>
+                                <th style="padding:0.75rem 1rem; color:var(--text-muted); font-weight:600; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pendingTrades.map(pt => `
+                                <tr style="border-top:1px solid var(--border-light);">
+                                    <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(pt.username)}</td>
+                                    <td style="padding:0.6rem 1rem;">${escapeHTML(pt.figureName || pt.figure_name || '')}</td>
+                                    <td style="padding:0.6rem 1rem; color:var(--text-muted);">${escapeHTML(pt.brand || '')}</td>
+                                    <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${pt.createdAt ? new Date(pt.createdAt).toLocaleDateString() : '\u2014'}</td>
+                                    <td style="padding:0.6rem 1rem; text-align:right;">
+                                        <div class="admin-action-btns">
+                                            <button class="approveTradeBtn" data-id="${pt.id}" style="border-color:var(--success); color:var(--success);">\u2705 Approve</button>
+                                            <button class="rejectTradeBtn" data-id="${pt.id}" style="border-color:var(--danger); color:var(--danger);">\u274C Reject</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
                 </div>
                 ` : ''}
 
@@ -1357,6 +1436,9 @@ TerminalApp.prototype.renderAdmin = async function(container) {
             renderUserTable();
             renderBrandTable();
             renderPendingBrands();
+        }
+        if (isFullAdmin || isPlatinum) {
+            wireUpTradeActions();
         }
 
         // Wire up search inputs

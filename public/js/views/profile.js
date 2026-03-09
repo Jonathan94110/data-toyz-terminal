@@ -205,6 +205,21 @@ TerminalApp.prototype.renderProfile = function(container) {
                             </div>
                         </div>
                         ` : ''}
+
+                        <!-- Row: Trade Validation (Admin/Platinum) -->
+                        ${['owner', 'admin'].includes(this.user.role) || this.user.platinum ? `
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm); margin-top:0.5rem;">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when a figure is listed for trade (pending validation) <span style="color:#a855f7; font-size:0.75rem;">💎 Validator</span></span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="trade_validation_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="trade_validation_inapp">
+                                </label>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     <div id="notifPrefsSaved" style="display:none; text-align:center; color:var(--success); font-size:0.85rem; margin-top:0.75rem;">Preferences saved.</div>
                 </div>
@@ -255,7 +270,7 @@ TerminalApp.prototype.renderProfile = function(container) {
                     this.token = data.token;
                     localStorage.setItem('terminal_token', data.token);
                 }
-                this.user = { id: data.id, username: data.username, email: data.email, avatar: data.avatar, role: data.role };
+                this.user = { id: data.id, username: data.username, email: data.email, avatar: data.avatar, role: data.role, platinum: data.platinum };
                 this.init(); // Refresh navbar
             } catch (err) {
                 alert(err.message);

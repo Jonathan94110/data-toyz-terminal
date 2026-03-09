@@ -42,7 +42,7 @@ router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, 
 // Get all users
 router.get('/users', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const result = await db.query("SELECT id, username, email, created_at, avatar, role, suspended FROM Users ORDER BY id ASC");
+        const result = await db.query("SELECT id, username, email, created_at, avatar, role, suspended, platinum FROM Users ORDER BY id ASC");
         res.json(normalizeRows(result.rows));
     } catch (err) {
         log.error('Admin get users error', { refId: req.requestId, error: err.message || err });
@@ -130,6 +130,26 @@ router.put('/users/:id/suspend', requireAuth, requireAdmin, async (req, res) => 
     }
 });
 
+// Toggle platinum badge
+router.put('/users/:id/platinum', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const user = await db.query("SELECT username, role, platinum FROM Users WHERE id = $1", [req.params.id]);
+        if (!user.rows[0]) return res.status(404).json({ error: "User not found." });
+
+        const newStatus = !user.rows[0].platinum;
+        await db.query("UPDATE Users SET platinum = $1 WHERE id = $2", [newStatus, req.params.id]);
+        invalidateUserCache(parseInt(req.params.id));
+
+        await auditLog('ADMIN_PLATINUM_TOGGLE', req.user.username, user.rows[0].username,
+            `Platinum badge ${newStatus ? 'granted' : 'revoked'}`, req.ip);
+
+        res.json({ message: `Platinum badge ${newStatus ? 'granted to' : 'revoked from'} ${user.rows[0].username}.`, platinum: newStatus });
+    } catch (err) {
+        log.error('Admin platinum toggle error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
 // Delete user (with transaction — uses dedicated client for safety)
 router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
     let client;
@@ -157,6 +177,7 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res) => {
             await client.query("DELETE FROM MarketTransactions WHERE submitted_by = $1", [username]);
             await client.query("DELETE FROM TypingIndicators WHERE username = $1", [username]);
             await client.query("DELETE FROM Follows WHERE follower_id = $1 OR following_id = $1", [req.params.id]);
+            await client.query("DELETE FROM UserCollection WHERE user_id = $1", [req.params.id]).catch(() => {});
             await client.query("DELETE FROM NotificationPrefs WHERE user_id = $1", [req.params.id]);
             await client.query("DELETE FROM Users WHERE id = $1", [req.params.id]);
             await client.query("COMMIT");

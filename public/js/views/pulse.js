@@ -155,10 +155,24 @@ TerminalApp.prototype.renderPulse = async function(container) {
                 </div>
             </div>
 
-            <div style="margin-bottom: 1.5rem; display:flex; gap:0.75rem; align-items:center;">
+            <div style="margin-bottom: 1.5rem; display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
                 <button class="btn-outline" id="copyLinkBtn" style="font-size:0.85rem; padding:0.5rem 1rem;">📋 Copy Link</button>
                 ${this.token ? `<button class="btn-outline" id="requestAssessBtn" style="font-size:0.85rem; padding:0.5rem 1rem;">📊 Request Assessment</button>` : ''}
             </div>
+
+            ${this.token ? `
+            <div style="margin-bottom:2rem;">
+                <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:700; margin-bottom:0.5rem;">My Collection</div>
+                <div id="collectionBar" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                    <button class="col-btn" data-status="owned">📦 Owned</button>
+                    <button class="col-btn" data-status="wishlist">⭐ Wishlist</button>
+                    <button class="col-btn" data-status="for_trade">🔄 For Trade</button>
+                    <button class="col-btn" data-status="sold">💰 Sold</button>
+                    <button class="col-btn col-btn-remove" id="colRemoveBtn" style="display:none;">✕ Remove</button>
+                </div>
+                <div id="colTradeNote" style="display:none; font-size:0.75rem; color:#a855f7; margin-top:0.35rem;">Requires admin/platinum validation before listing goes public.</div>
+            </div>
+            ` : ''}
 
             ${isGuestimate ? `
                 <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 1rem 1.5rem; border-radius: var(--radius-sm); margin-bottom: 2rem; color: var(--text-primary);">
@@ -468,6 +482,9 @@ TerminalApp.prototype.renderPulse = async function(container) {
             <!-- SIMILAR FIGURES -->
             <div id="similarFigures" style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light);"></div>
 
+            <!-- COLLECTORS -->
+            <div id="collectorsSection" style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light); display:none;"></div>
+
             <!-- DISCUSSION -->
             <div style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--border-light);">
                 <h3 style="margin-bottom: 1.5rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">💬 Discussion</h3>
@@ -479,6 +496,109 @@ TerminalApp.prototype.renderPulse = async function(container) {
             </div>
         </div>
     `;
+
+    // --- Collection buttons wiring ---
+    if (this.token) {
+        const figId = this.currentTarget.id;
+        const colBar = document.getElementById('collectionBar');
+        const colRemoveBtn = document.getElementById('colRemoveBtn');
+        const colTradeNote = document.getElementById('colTradeNote');
+
+        // Fetch current collection status
+        const setActiveStatus = (status) => {
+            if (!colBar) return;
+            colBar.querySelectorAll('.col-btn[data-status]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.status === status);
+            });
+            if (colRemoveBtn) colRemoveBtn.style.display = status ? 'inline-flex' : 'none';
+            if (colTradeNote) colTradeNote.style.display = status === 'for_trade' ? 'block' : 'none';
+        };
+
+        (async () => {
+            try {
+                const myColRes = await this.authFetch(`${API_URL}/collection/my`);
+                if (myColRes.ok) {
+                    const myCol = await myColRes.json();
+                    const entry = myCol.find(c => c.figureId === figId);
+                    if (entry) setActiveStatus(entry.status);
+                }
+            } catch (e) { /* silent */ }
+        })();
+
+        if (colBar) {
+            colBar.querySelectorAll('.col-btn[data-status]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const status = btn.dataset.status;
+                    btn.disabled = true;
+                    try {
+                        const res = await this.authFetch(`${API_URL}/collection/${figId}`, {
+                            method: 'POST',
+                            body: JSON.stringify({ status })
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            setActiveStatus(status);
+                            this.showToast(data.message, 'success');
+                        } else {
+                            const err = await res.json();
+                            this.showToast(err.error || 'Failed to update collection.', 'error');
+                        }
+                    } catch (e) { this.showToast('Network error.', 'error'); }
+                    btn.disabled = false;
+                });
+            });
+        }
+
+        if (colRemoveBtn) {
+            colRemoveBtn.addEventListener('click', async () => {
+                colRemoveBtn.disabled = true;
+                try {
+                    const res = await this.authFetch(`${API_URL}/collection/${figId}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        setActiveStatus(null);
+                        this.showToast('Removed from collection.', 'success');
+                    }
+                } catch (e) { this.showToast('Network error.', 'error'); }
+                colRemoveBtn.disabled = false;
+            });
+        }
+    }
+
+    // --- Collectors section ---
+    (async () => {
+        try {
+            const colRes = await fetch(`${API_URL}/collection/figure/${this.currentTarget.id}`);
+            if (!colRes.ok) return;
+            const collectors = await colRes.json();
+            if (collectors.length === 0) return;
+            const section = document.getElementById('collectorsSection');
+            if (!section) return;
+            section.style.display = 'block';
+
+            const owners = collectors.filter(c => c.status === 'owned');
+            const traders = collectors.filter(c => c.status === 'for_trade');
+
+            section.innerHTML = `
+                <h3 style="margin-bottom:1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">👥 Collectors</h3>
+                <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+                    ${owners.length > 0 ? `
+                    <div>
+                        <div style="font-size:0.75rem; color:var(--success); text-transform:uppercase; font-weight:700; margin-bottom:0.5rem;">Owned By (${owners.length})</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+                            ${owners.map(c => `<span class="collector-chip" onclick="app.viewUserProfile('${escapeHTML(c.username).replace(/'/g, "\\'")}')">${c.avatar ? `<img src="${c.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:0.25rem;">` : ''}${escapeHTML(c.username)}</span>`).join('')}
+                        </div>
+                    </div>` : ''}
+                    ${traders.length > 0 ? `
+                    <div>
+                        <div style="font-size:0.75rem; color:#a855f7; text-transform:uppercase; font-weight:700; margin-bottom:0.5rem;">For Trade (${traders.length})</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+                            ${traders.map(c => `<span class="collector-chip" onclick="app.viewUserProfile('${escapeHTML(c.username).replace(/'/g, "\\'")}')">${c.avatar ? `<img src="${c.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:0.25rem;">` : ''}${escapeHTML(c.username)}</span>`).join('')}
+                        </div>
+                    </div>` : ''}
+                </div>
+            `;
+        } catch (e) { /* silent */ }
+    })();
 
     setTimeout(() => {
         if (!isGuestimate && figureSubs.length > 0) {

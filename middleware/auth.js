@@ -17,7 +17,7 @@ async function getCachedUser(userId) {
     if (cached && Date.now() - cached.ts < USER_CACHE_TTL) return cached.data;
 
     const result = await db.query(
-        "SELECT id, username, role, suspended, password_changed_at FROM Users WHERE id = $1", [userId]
+        "SELECT id, username, role, suspended, password_changed_at, platinum FROM Users WHERE id = $1", [userId]
     );
     const user = result.rows[0] || null;
     if (user) userCache.set(userId, { data: user, ts: Date.now() });
@@ -98,7 +98,7 @@ async function requireAuth(req, res, next) {
             }
         }
 
-        req.user = { id: user.id, username: user.username, role: user.role || 'analyst' };
+        req.user = { id: user.id, username: user.username, role: user.role || 'analyst', platinum: !!user.platinum };
         next();
     } catch (dbErr) {
         // Database/internal error — return 500 so the client retries instead of nuking the token
@@ -154,7 +154,7 @@ async function requireAuthRenew(req, res, next) {
             }
         }
 
-        req.user = { id: user.id, username: user.username, role: user.role || 'analyst' };
+        req.user = { id: user.id, username: user.username, role: user.role || 'analyst', platinum: !!user.platinum };
         next();
     } catch (dbErr) {
         return res.status(500).json({ error: 'Server temporarily unavailable. Please try again.' });
@@ -180,4 +180,13 @@ function requireAdmin(req, res, next) {
     next();
 }
 
-module.exports = { requireAuth, requireAuthRenew, requireAdmin, requireRole, invalidateUserCache, invalidateBlacklistCache, getRoleLevel, ROLE_HIERARCHY };
+// Admin OR Platinum badge holders — used for trade validation
+function requireAdminOrPlatinum(req, res, next) {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
+    if (getRoleLevel(req.user.role) >= getRoleLevel('admin') || req.user.platinum) {
+        return next();
+    }
+    return res.status(403).json({ error: 'Requires admin or platinum clearance.' });
+}
+
+module.exports = { requireAuth, requireAuthRenew, requireAdmin, requireAdminOrPlatinum, requireRole, invalidateUserCache, invalidateBlacklistCache, getRoleLevel, ROLE_HIERARCHY };

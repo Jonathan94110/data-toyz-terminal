@@ -128,6 +128,15 @@ async function initDB() {
             await pool.query(`ALTER TABLE Users ADD COLUMN password_changed_at TEXT`);
         }
 
+        // Migration: add platinum badge column to Users
+        const platinumCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'platinum'
+        `);
+        if (platinumCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE Users ADD COLUMN platinum BOOLEAN DEFAULT false`);
+        }
+
         // PI-2: Configurable admin username from env — promote to owner (highest role)
         const adminUsername = process.env.ADMIN_USERNAME || 'Prime Dynamixx';
         await pool.query(`UPDATE Users SET role = 'owner' WHERE username = $1`, [adminUsername]);
@@ -336,6 +345,23 @@ async function initDB() {
             updated_at TEXT
         )`);
 
+        // Create UserCollection table (Collection Tracker)
+        await pool.query(`CREATE TABLE IF NOT EXISTS UserCollection (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            figure_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'owned',
+            validated BOOLEAN DEFAULT false,
+            validated_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT,
+            UNIQUE(user_id, figure_id)
+        )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_usercollection_user ON UserCollection(user_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_usercollection_figure ON UserCollection(figure_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_usercollection_status ON UserCollection(status)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_usercollection_validated ON UserCollection(validated, status)`);
+
         // Migration: add message notification preferences to NotificationPrefs
         const msgInappCheck = await pool.query(`
             SELECT column_name FROM information_schema.columns
@@ -344,6 +370,16 @@ async function initDB() {
         if (msgInappCheck.rows.length === 0) {
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN message_inapp BOOLEAN DEFAULT true`);
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN message_email BOOLEAN DEFAULT false`);
+        }
+
+        // Migration: add trade_validation notification preferences
+        const tradeValidCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'notificationprefs' AND column_name = 'trade_validation_inapp'
+        `);
+        if (tradeValidCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN trade_validation_inapp BOOLEAN DEFAULT true`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN trade_validation_email BOOLEAN DEFAULT false`);
         }
 
         // Migration: add msrp column to Figures
