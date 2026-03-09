@@ -9,20 +9,62 @@ const { requireAuth, requireAdminOrPlatinum } = require('../middleware/auth');
 
 const VALID_STATUSES = ['owned', 'wishlist', 'for_trade', 'sold'];
 
-// Get current user's collection
+// Get current user's collection (with latest market price per figure)
 router.get('/my', requireAuth, async (req, res) => {
     try {
         const result = await db.query(`
             SELECT uc.id, uc.user_id, uc.figure_id, uc.status, uc.validated, uc.validated_by, uc.created_at, uc.updated_at,
-                   f.name AS figure_name, f.brand, f.classTie AS class_tie, f.line, f.msrp, f.category
+                   f.name AS figure_name, f.brand, f.classTie AS class_tie, f.line, f.msrp, f.category,
+                   mt.price_avg AS market_price
             FROM UserCollection uc
             JOIN Figures f ON uc.figure_id = f.id
+            LEFT JOIN LATERAL (
+                SELECT price_avg FROM MarketTransactions
+                WHERE figure_id = uc.figure_id AND price_type = 'secondary_market'
+                ORDER BY created_at DESC LIMIT 1
+            ) mt ON true
             WHERE uc.user_id = $1
             ORDER BY uc.updated_at DESC NULLS LAST, uc.created_at DESC
         `, [req.user.id]);
         res.json(normalizeRows(result.rows));
     } catch (err) {
         log.error('Get my collection error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
+// Get collection value history over time (owned figures)
+router.get('/my/value-history', requireAuth, async (req, res) => {
+    try {
+        // Get the user's owned figure IDs
+        const owned = await db.query(
+            "SELECT figure_id FROM UserCollection WHERE user_id = $1 AND status = 'owned'",
+            [req.user.id]
+        );
+        if (owned.rows.length === 0) return res.json({ labels: [], values: [] });
+
+        const figureIds = owned.rows.map(r => r.figure_id);
+
+        // Get daily average prices for all owned figures grouped by date
+        const result = await db.query(`
+            SELECT DATE(created_at) AS day, SUM(daily_avg) AS total_value
+            FROM (
+                SELECT figure_id, DATE(created_at) AS created_at,
+                       AVG(price_avg) AS daily_avg
+                FROM MarketTransactions
+                WHERE figure_id = ANY($1) AND price_type = 'secondary_market'
+                GROUP BY figure_id, DATE(created_at)
+            ) daily
+            GROUP BY DATE(created_at)
+            ORDER BY DATE(created_at) ASC
+        `, [figureIds]);
+
+        const labels = result.rows.map(r => r.day);
+        const values = result.rows.map(r => parseFloat(parseFloat(r.total_value).toFixed(2)));
+
+        res.json({ labels, values });
+    } catch (err) {
+        log.error('Get collection value history error', { refId: req.requestId, error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });

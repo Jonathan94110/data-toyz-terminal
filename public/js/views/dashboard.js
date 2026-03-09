@@ -231,6 +231,54 @@ TerminalApp.prototype.renderDashboardCollection = async function (container) {
     const counts = { all: collection.length, owned: 0, wishlist: 0, for_trade: 0, sold: 0 };
     collection.forEach(c => { if (counts[c.status] !== undefined) counts[c.status]++; });
 
+    // --- Value stats (owned items) ---
+    const ownedItems = collection.filter(c => c.status === 'owned');
+    let totalValue = 0;
+    let totalMsrp = 0;
+    let pricedCount = 0;
+    ownedItems.forEach(c => {
+        if (c.marketPrice) { totalValue += parseFloat(c.marketPrice); pricedCount++; }
+        if (c.msrp) totalMsrp += parseFloat(c.msrp);
+    });
+    const gainLoss = totalValue - totalMsrp;
+    const gainColor = gainLoss >= 0 ? 'var(--success)' : 'var(--danger)';
+    const gainPrefix = gainLoss >= 0 ? '+' : '';
+    const fmtUsd = (v) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const statsHtml = `
+        <div class="intel-stats-row">
+            <div class="intel-stat-card">
+                <div class="intel-stat-value" style="color:var(--success);">${fmtUsd(totalValue)}</div>
+                <div class="intel-stat-label">Market Value</div>
+            </div>
+            <div class="intel-stat-card">
+                <div class="intel-stat-value">${fmtUsd(totalMsrp)}</div>
+                <div class="intel-stat-label">Total MSRP</div>
+            </div>
+            <div class="intel-stat-card">
+                <div class="intel-stat-value" style="color:${gainColor};">${gainPrefix}${fmtUsd(Math.abs(gainLoss))}</div>
+                <div class="intel-stat-label">Gain / Loss</div>
+            </div>
+            <div class="intel-stat-card">
+                <div class="intel-stat-value">${ownedItems.length}</div>
+                <div class="intel-stat-label">Items Owned</div>
+            </div>
+        </div>
+    `;
+
+    // --- Chart placeholder ---
+    const chartHtml = `
+        <div id="collectionChartWrap" style="background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">
+            <h3 style="font-size:1rem; margin:0 0 0.75rem 0; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">📈 Collection Value Over Time</h3>
+            <div style="position:relative; height:220px;">
+                <canvas id="collectionValueChart"></canvas>
+            </div>
+            <div id="collectionChartEmpty" style="display:none; text-align:center; padding:2rem 0; color:var(--text-muted); font-size:0.9rem;">
+                Not enough price data yet. Value history will appear as market data is submitted for your figures.
+            </div>
+        </div>
+    `;
+
     // Filter buttons
     const filterBtns = [
         { key: 'all', label: 'All', color: 'var(--text-primary)' },
@@ -251,16 +299,18 @@ TerminalApp.prototype.renderDashboardCollection = async function (container) {
         `;
     } else {
         tableHtml = `<div class="intel-table-wrap"><table class="data-table">
-            <thead><tr><th>Figure</th><th>Brand</th><th>Class</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead>
+            <thead><tr><th>Figure</th><th>Brand</th><th>Class</th><th>Value</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead>
             <tbody>
             ${filtered.map(c => {
                 const statusColors = { owned: 'var(--success)', wishlist: 'var(--neutral)', for_trade: '#a855f7', sold: 'var(--text-muted)' };
                 const statusLabel = c.status.replace('_', ' ');
                 const pendingBadge = (c.status === 'for_trade' && !c.validated) ? ' <span style="font-size:0.65rem; color:#f59e0b; font-weight:600;">(PENDING)</span>' : '';
+                const priceDisplay = c.marketPrice ? fmtUsd(parseFloat(c.marketPrice)) : '<span style="color:var(--text-muted);">—</span>';
                 return `<tr>
                     <td style="font-weight:600;"><a href="#" class="dash-target-link" onclick="event.preventDefault(); app.selectTarget(${c.figureId})">${escapeHTML(c.figureName)}</a></td>
                     <td style="color:var(--text-secondary); font-size:0.9rem;">${escapeHTML(c.brand || '')}</td>
                     <td><span class="tier-badge ${escapeHTML(c.classTie || '').toLowerCase()}" style="font-size:0.6rem;">${escapeHTML(c.classTie || '')}</span></td>
+                    <td style="font-weight:600; font-size:0.9rem;">${priceDisplay}</td>
                     <td style="color:${statusColors[c.status] || 'var(--text-secondary)'}; font-weight:700; font-size:0.85rem; text-transform:uppercase;">${statusLabel}${pendingBadge}</td>
                     <td style="text-align:right;"><button class="intel-action-btn danger" onclick="app.removeCollectionItem(${c.figureId}, '${escapeHTML(c.figureName).replace(/'/g, "\\'")}')" title="Remove">✕</button></td>
                 </tr>`;
@@ -278,6 +328,8 @@ TerminalApp.prototype.renderDashboardCollection = async function (container) {
                 <h2 style="font-size:2rem; margin-bottom:0.25rem; text-transform:uppercase; letter-spacing:0.03em;">My Collection</h2>
                 <p style="color:var(--text-secondary); font-size:0.95rem;">Track your figures — Owned, Wishlist, For Trade, and Sold.</p>
             </div>
+            ${statsHtml}
+            ${chartHtml}
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.5rem;">
                 ${filterBtns}
             </div>
@@ -299,6 +351,87 @@ TerminalApp.prototype.renderDashboardCollection = async function (container) {
             app.dashboardColFilter = btn.dataset.filter;
             app.renderApp();
         });
+    });
+
+    // --- Render collection value line chart ---
+    this._renderCollectionValueChart();
+};
+
+// Fetch value history and render chart
+TerminalApp.prototype._renderCollectionValueChart = async function () {
+    const canvas = document.getElementById('collectionValueChart');
+    const emptyEl = document.getElementById('collectionChartEmpty');
+    if (!canvas) return;
+
+    // Destroy previous instance
+    if (this._collectionValueChart) { this._collectionValueChart.destroy(); this._collectionValueChart = null; }
+
+    let history = { labels: [], values: [] };
+    try {
+        const res = await this.authFetch(`${API_URL}/collection/my/value-history`);
+        if (res.ok) history = await res.json();
+    } catch (e) {
+        console.error("Failed loading value history", e);
+    }
+
+    if (!history.labels || history.labels.length < 2) {
+        canvas.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'block';
+        return;
+    }
+
+    const isDark = document.body.getAttribute('data-theme') !== 'light';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const shortLabels = history.labels.map(l => {
+        const d = new Date(l + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    const ctx = canvas.getContext('2d');
+    this._collectionValueChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: shortLabels,
+            datasets: [{
+                label: 'Collection Value',
+                data: history.values,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: history.values.length > 30 ? 0 : 3,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function (ctx) {
+                            return '$' + ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { color: textColor, maxTicksLimit: 8 }
+                },
+                y: {
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: textColor,
+                        callback: function (value) { return '$' + value.toLocaleString(); }
+                    }
+                }
+            }
+        }
     });
 };
 
