@@ -46,17 +46,21 @@ router.get('/my/value-history', requireAuth, async (req, res) => {
         const figureIds = owned.rows.map(r => r.figure_id);
 
         // Get daily average prices for all owned figures grouped by date
+        // Cast DATE to TEXT so pg driver returns 'YYYY-MM-DD' strings, not Date objects
         const result = await db.query(`
-            SELECT DATE(created_at) AS day, SUM(daily_avg) AS total_value
+            SELECT TO_CHAR(day, 'YYYY-MM-DD') AS day, total_value
             FROM (
-                SELECT figure_id, DATE(created_at) AS created_at,
-                       AVG(price_avg) AS daily_avg
-                FROM MarketTransactions
-                WHERE figure_id = ANY($1) AND price_type = 'secondary_market'
-                GROUP BY figure_id, DATE(created_at)
-            ) daily
-            GROUP BY DATE(created_at)
-            ORDER BY DATE(created_at) ASC
+                SELECT DATE(created_at) AS day, SUM(daily_avg) AS total_value
+                FROM (
+                    SELECT figure_id, DATE(created_at) AS created_at,
+                           AVG(price_avg) AS daily_avg
+                    FROM MarketTransactions
+                    WHERE figure_id = ANY($1) AND price_type = 'secondary_market'
+                    GROUP BY figure_id, DATE(created_at)
+                ) daily
+                GROUP BY DATE(created_at)
+                ORDER BY DATE(created_at) ASC
+            ) grouped
         `, [figureIds]);
 
         const labels = result.rows.map(r => r.day);
