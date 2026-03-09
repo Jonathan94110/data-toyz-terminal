@@ -7,7 +7,7 @@ const COL_MAP = {
     room_id: 'roomId', message_id: 'messageId', created_by: 'createdBy',
     joined_at: 'joinedAt', last_read_at: 'lastReadAt', updated_at: 'updatedAt',
     figure_id: 'figureId', figure_name: 'figureName', class_tie: 'classTie',
-    validated_by: 'validatedBy', user_id: 'userId',
+    validated_by: 'validatedBy', user_id: 'userId', market_price: 'marketPrice',
     price_high: 'priceHigh', price_avg: 'priceAvg',
     price_low: 'priceLow', submitted_by: 'submittedBy', submission_id: 'submissionId',
     cost_basis: 'costBasis', price_type: 'priceType', market_signal: 'marketSignal',
