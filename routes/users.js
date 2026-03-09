@@ -110,7 +110,7 @@ router.put('/:id', requireAuth, upload.single('avatar'), async (req, res) => {
             await db.query(updateQuery, params);
         }
 
-        const updatedUserResult = await db.query("SELECT id, username, email, avatar, role FROM Users WHERE id = $1", [req.params.id]);
+        const updatedUserResult = await db.query("SELECT id, username, email, avatar, role, platinum FROM Users WHERE id = $1", [req.params.id]);
         const updatedUser = updatedUserResult.rows[0];
         if (!updatedUser) {
             return res.status(404).json({ error: 'User no longer exists.' });
@@ -127,7 +127,7 @@ router.put('/:id', requireAuth, upload.single('avatar'), async (req, res) => {
 router.get('/:username/profile', async (req, res) => {
     try {
         const userRes = await db.query(
-            "SELECT id, username, avatar, role, created_at FROM Users WHERE username = $1",
+            "SELECT id, username, avatar, role, platinum, created_at FROM Users WHERE username = $1",
             [req.params.username]
         );
         if (!userRes.rows[0]) return res.status(404).json({ error: "User not found." });
@@ -159,6 +159,7 @@ router.get('/:username/profile', async (req, res) => {
             username: user.username,
             avatar: user.avatar,
             role: user.role || 'analyst',
+            platinum: !!user.platinum,
             joinDate: user.created_at,
             submissionCount: totalSubs,
             title,

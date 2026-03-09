@@ -175,6 +175,7 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/rooms', require('./routes/rooms'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/trade-advisor', require('./routes/trade-advisor'));
+app.use('/api/collection', require('./routes/collection'));
 
 // Public ticker settings (no auth required)
 app.get('/api/settings/ticker', async (req, res) => {

@@ -1,9 +1,17 @@
-// views/dashboard.js — My Intel History (with search, pagination, deep-links)
+// views/dashboard.js — My Intel History + Collection (with search, pagination, deep-links)
 
 TerminalApp.prototype.dashboardPage = 1;
 TerminalApp.prototype.dashboardQuery = '';
+TerminalApp.prototype.dashboardTab = 'intel'; // 'intel' | 'collection'
+TerminalApp.prototype.dashboardColFilter = 'all'; // 'all' | 'owned' | 'wishlist' | 'for_trade' | 'sold'
 
 TerminalApp.prototype.renderDashboard = async function (container) {
+    const activeTab = this.dashboardTab || 'intel';
+
+    if (activeTab === 'collection') {
+        return this.renderDashboardCollection(container);
+    }
+
     container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('rows', 5)}</div>`;
 
     const page = this.dashboardPage || 1;
@@ -172,6 +180,10 @@ TerminalApp.prototype.renderDashboard = async function (container) {
 
     container.innerHTML = `
         <div style="max-width: 960px; margin: 0 auto; padding-bottom: 3rem;">
+            <div class="dash-tabs">
+                <button class="dash-tab active" data-tab="intel">📄 Intel History</button>
+                <button class="dash-tab" data-tab="collection">📦 My Collection</button>
+            </div>
             <div style="margin-bottom:1.5rem;">
                 <h2 style="font-size:2rem; margin-bottom:0.25rem; text-transform:uppercase; letter-spacing:0.03em;">My Intel History</h2>
                 <p style="color:var(--text-secondary); font-size:0.95rem;">Your submitted intelligence reports and assessments.</p>
@@ -183,6 +195,14 @@ TerminalApp.prototype.renderDashboard = async function (container) {
         </div>
     `;
 
+    // Wire up tab switching
+    document.querySelectorAll('.dash-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            app.dashboardTab = tab.dataset.tab;
+            app.renderApp();
+        });
+    });
+
     // Wire up Enter key on search
     const searchInput = document.getElementById('dashSearchInput');
     if (searchInput) {
@@ -190,6 +210,107 @@ TerminalApp.prototype.renderDashboard = async function (container) {
             if (e.key === 'Enter') app.dashboardSearch();
         });
     }
+};
+
+// --- Collection Tab ---
+TerminalApp.prototype.renderDashboardCollection = async function (container) {
+    container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('rows', 5)}</div>`;
+
+    let collection = [];
+    try {
+        const res = await this.authFetch(`${API_URL}/collection/my`);
+        if (res.ok) collection = await res.json();
+    } catch (e) {
+        console.error("Failed loading collection", e);
+    }
+
+    const filter = this.dashboardColFilter || 'all';
+    const filtered = filter === 'all' ? collection : collection.filter(c => c.status === filter);
+
+    // Counts
+    const counts = { all: collection.length, owned: 0, wishlist: 0, for_trade: 0, sold: 0 };
+    collection.forEach(c => { if (counts[c.status] !== undefined) counts[c.status]++; });
+
+    // Filter buttons
+    const filterBtns = [
+        { key: 'all', label: 'All', color: 'var(--text-primary)' },
+        { key: 'owned', label: 'Owned', color: 'var(--success)' },
+        { key: 'wishlist', label: 'Wishlist', color: 'var(--neutral)' },
+        { key: 'for_trade', label: 'For Trade', color: '#a855f7' },
+        { key: 'sold', label: 'Sold', color: 'var(--text-muted)' }
+    ].map(f => `<button class="col-filter-btn ${filter === f.key ? 'active' : ''}" data-filter="${f.key}" style="${filter === f.key ? `border-color:${f.color}; color:${f.color};` : ''}">${f.label} (${counts[f.key]})</button>`).join('');
+
+    let tableHtml = '';
+    if (filtered.length === 0) {
+        tableHtml = `
+            <div class="empty-state" style="background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius-md);">
+                <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                <div class="empty-state-title">${filter === 'all' ? 'No items in your collection' : `No ${filter.replace('_', ' ')} items`}</div>
+                <div class="empty-state-desc">Visit a figure's detail page and use the collection buttons to start tracking.</div>
+            </div>
+        `;
+    } else {
+        tableHtml = `<div class="intel-table-wrap"><table class="data-table">
+            <thead><tr><th>Figure</th><th>Brand</th><th>Class</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead>
+            <tbody>
+            ${filtered.map(c => {
+                const statusColors = { owned: 'var(--success)', wishlist: 'var(--neutral)', for_trade: '#a855f7', sold: 'var(--text-muted)' };
+                const statusLabel = c.status.replace('_', ' ');
+                const pendingBadge = (c.status === 'for_trade' && !c.validated) ? ' <span style="font-size:0.65rem; color:#f59e0b; font-weight:600;">(PENDING)</span>' : '';
+                return `<tr>
+                    <td style="font-weight:600;"><a href="#" class="dash-target-link" onclick="event.preventDefault(); app.selectTarget(${c.figureId})">${escapeHTML(c.figureName)}</a></td>
+                    <td style="color:var(--text-secondary); font-size:0.9rem;">${escapeHTML(c.brand || '')}</td>
+                    <td><span class="tier-badge ${escapeHTML(c.classTie || '').toLowerCase()}" style="font-size:0.6rem;">${escapeHTML(c.classTie || '')}</span></td>
+                    <td style="color:${statusColors[c.status] || 'var(--text-secondary)'}; font-weight:700; font-size:0.85rem; text-transform:uppercase;">${statusLabel}${pendingBadge}</td>
+                    <td style="text-align:right;"><button class="intel-action-btn danger" onclick="app.removeCollectionItem(${c.figureId}, '${escapeHTML(c.figureName).replace(/'/g, "\\'")}')" title="Remove">✕</button></td>
+                </tr>`;
+            }).join('')}
+            </tbody></table></div>`;
+    }
+
+    container.innerHTML = `
+        <div style="max-width: 960px; margin: 0 auto; padding-bottom: 3rem;">
+            <div class="dash-tabs">
+                <button class="dash-tab" data-tab="intel">📄 Intel History</button>
+                <button class="dash-tab active" data-tab="collection">📦 My Collection</button>
+            </div>
+            <div style="margin-bottom:1.5rem;">
+                <h2 style="font-size:2rem; margin-bottom:0.25rem; text-transform:uppercase; letter-spacing:0.03em;">My Collection</h2>
+                <p style="color:var(--text-secondary); font-size:0.95rem;">Track your figures — Owned, Wishlist, For Trade, and Sold.</p>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+                ${filterBtns}
+            </div>
+            ${tableHtml}
+        </div>
+    `;
+
+    // Wire up tab switching
+    document.querySelectorAll('.dash-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            app.dashboardTab = tab.dataset.tab;
+            app.renderApp();
+        });
+    });
+
+    // Wire up filter buttons
+    document.querySelectorAll('.col-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            app.dashboardColFilter = btn.dataset.filter;
+            app.renderApp();
+        });
+    });
+};
+
+TerminalApp.prototype.removeCollectionItem = async function (figureId, figureName) {
+    if (!confirm(`Remove "${figureName}" from your collection?`)) return;
+    try {
+        const res = await this.authFetch(`${API_URL}/collection/${figureId}`, { method: 'DELETE' });
+        if (res.ok) {
+            this.showToast('Removed from collection.', 'success');
+            this.renderApp();
+        }
+    } catch (e) { this.showToast('Failed to remove.', 'error'); }
 };
 
 // --- Dashboard search helpers ---

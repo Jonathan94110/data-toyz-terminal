@@ -33,6 +33,7 @@ TerminalApp.prototype.renderUserProfile = async function (container) {
                                     <span style="font-size:1rem;">${rankInfo.icon}</span> ${escapeHTML(rankInfo.title)}
                                 </span>
                                 ${{ 'owner': '<span style="color:#a855f7; font-weight:700; font-size:0.8rem;">\u{2B50} OWNER</span>', 'admin': '<span style="color:#fbbf24; font-weight:700; font-size:0.8rem;">\u2605 ADMIN</span>', 'moderator': '<span style="color:#3b82f6; font-weight:700; font-size:0.8rem;">\u{1F6E1}\u{FE0F} MOD</span>' }[profile.role] || ''}
+                                ${profile.platinum ? '<span class="platinum-badge">\u{1F48E} PLATINUM</span>' : ''}
                                 <span style="color:var(--text-muted); font-size:0.85rem;">Joined ${new Date(profile.joinDate).toLocaleDateString()}</span>
                             </div>
                         </div>
@@ -95,6 +96,8 @@ TerminalApp.prototype.renderUserProfile = async function (container) {
                         <div id="followingListContent" style="color:var(--text-muted); font-size:0.85rem;">Loading...</div>
                     </div>
                 </div>
+
+                <div id="collectionSummary"></div>
 
                 ${profile.recentSubmissions.length > 0 ? `
                 <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">Recent Intel Reports</h3>
@@ -222,6 +225,55 @@ TerminalApp.prototype.renderUserProfile = async function (container) {
                 });
             }
         }
+
+        // Fetch collection summary
+        try {
+            const colRes = await fetch(`${API_URL}/collection/user/${encodeURIComponent(profile.username)}`);
+            if (colRes.ok) {
+                const colData = await colRes.json();
+                const summaryEl = document.getElementById('collectionSummary');
+                if (summaryEl && (colData.counts.owned > 0 || colData.counts.for_trade > 0 || colData.counts.wishlist > 0 || colData.counts.sold > 0)) {
+                    const totalItems = colData.counts.owned + colData.counts.for_trade + colData.counts.wishlist + colData.counts.sold;
+                    summaryEl.innerHTML = `
+                        <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">Collection</h3>
+                        <div class="card" style="margin-bottom:2rem;">
+                            <div style="display:flex; gap:1.5rem; justify-content:center; flex-wrap:wrap; margin-bottom:1rem;">
+                                <div style="text-align:center; min-width:60px;">
+                                    <div style="font-size:1.5rem; font-weight:900; color:var(--success);">${colData.counts.owned}</div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Owned</div>
+                                </div>
+                                <div style="text-align:center; min-width:60px;">
+                                    <div style="font-size:1.5rem; font-weight:900; color:#a855f7;">${colData.counts.for_trade}</div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">For Trade</div>
+                                </div>
+                                <div style="text-align:center; min-width:60px;">
+                                    <div style="font-size:1.5rem; font-weight:900; color:var(--neutral);">${colData.counts.wishlist}</div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Wishlist</div>
+                                </div>
+                                <div style="text-align:center; min-width:60px;">
+                                    <div style="font-size:1.5rem; font-weight:900; color:var(--text-muted);">${colData.counts.sold}</div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Sold</div>
+                                </div>
+                            </div>
+                            ${totalItems > 0 ? `
+                            <div style="border-top:1px solid var(--border-light); padding-top:1rem;">
+                                ${['owned', 'for_trade', 'wishlist', 'sold'].filter(s => colData.collection[s].length > 0).map(status => {
+                                    const label = status.replace('_', ' ');
+                                    const color = { owned: 'var(--success)', for_trade: '#a855f7', wishlist: 'var(--neutral)', sold: 'var(--text-muted)' }[status];
+                                    return `
+                                    <details style="margin-bottom:0.5rem;">
+                                        <summary style="cursor:pointer; font-size:0.85rem; font-weight:700; text-transform:uppercase; color:${color}; letter-spacing:0.03em; padding:0.5rem 0;">${label} (${colData.collection[status].length})</summary>
+                                        <div style="padding:0.25rem 0 0.75rem 1rem;">
+                                            ${colData.collection[status].map(f => `<div style="font-size:0.85rem; color:var(--text-secondary); padding:0.2rem 0; cursor:pointer;" onclick="app.selectTarget(${f.figureId})">${escapeHTML(f.figureName)} <span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(f.brand || '')}</span></div>`).join('')}
+                                        </div>
+                                    </details>`;
+                                }).join('')}
+                            </div>` : ''}
+                        </div>
+                    `;
+                }
+            }
+        } catch (e) { /* silent */ }
 
     } catch (e) {
         container.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--danger);">Failed to load profile.</div>`;

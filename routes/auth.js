@@ -82,7 +82,7 @@ router.post('/login', authAttemptLimiter, async (req, res) => {
 router.get('/me', requireAuthRenew, async (req, res) => {
     try {
         const result = await db.query(
-            "SELECT id, username, email, avatar, role FROM Users WHERE id = $1",
+            "SELECT id, username, email, avatar, role, platinum FROM Users WHERE id = $1",
             [req.user.id]
         );
         if (!result.rows[0]) return res.status(404).json({ error: 'User not found.' });
