@@ -68,7 +68,7 @@ router.get('/', blockBadBots, dataEndpointLimiter, trackDataRequest, cacheRespon
 // Create new figure
 router.post('/', requireAuth, async (req, res) => {
     const { name, classTie, line } = req.body;
-    const brand = (req.body.brand || '').trim();
+    let brand = (req.body.brand || '').trim();
     const category = req.body.category || 'transformer';
     if (!name || !brand || !classTie || !line) {
         return res.status(400).json({ error: "Missing required figure fields." });
@@ -106,9 +106,23 @@ router.post('/', requireAuth, async (req, res) => {
         // Action Figures category auto-approves new brands (no curated list yet)
         const isAdmin = ['owner', 'admin'].includes(req.user.role);
         try {
-            const brandCheck = await db.query("SELECT id FROM ApprovedBrands WHERE LOWER(name) = LOWER($1)", [brand]);
+            // Exact match (case-insensitive)
+            const brandCheck = await db.query("SELECT id, name FROM ApprovedBrands WHERE LOWER(name) = LOWER($1)", [brand]);
             if (brandCheck.rows.length === 0) {
-                if (!isAdmin && category !== 'action_figure') {
+                // Fuzzy check: look for near-matches before creating a new brand
+                // Normalize: strip spaces, hyphens, dots, case → "Super 7" and "Super7" match
+                const normBrand = brand.toLowerCase().replace(/[\s\-_.]/g, '');
+                const allBrands = await db.query("SELECT id, name FROM ApprovedBrands");
+                const fuzzyMatch = allBrands.rows.find(b => {
+                    const normExisting = b.name.toLowerCase().replace(/[\s\-_.]/g, '');
+                    return normExisting === normBrand;
+                });
+
+                if (fuzzyMatch) {
+                    // Use the existing brand name instead of creating a near-duplicate
+                    log.info('Brand fuzzy-matched to existing', { submitted: brand, matched: fuzzyMatch.name });
+                    brand = fuzzyMatch.name;
+                } else if (!isAdmin && category !== 'action_figure') {
                     // Save as pending brand request for admin approval (Transformers only)
                     try {
                         await db.query(
@@ -133,25 +147,26 @@ router.post('/', requireAuth, async (req, res) => {
                         unapprovedBrand: true,
                         pendingApproval: true
                     });
-                }
-                // Auto-approve: admins always, action_figure category always
-                const approvedBy = isAdmin ? req.user.username : `auto:${req.user.username}`;
-                await db.query(
-                    "INSERT INTO ApprovedBrands (name, approved_by, created_at) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING",
-                    [brand, approvedBy, new Date().toISOString()]
-                );
-                // Notify admins about auto-approved brand (fire-and-forget, informational only)
-                if (!isAdmin) {
-                    log.info('Brand auto-approved for action_figure category', { brand, user: req.user.username });
-                    db.query("SELECT username FROM Users WHERE role IN ('owner', 'admin') AND suspended = false")
-                        .then(result => {
-                            result.rows.forEach(admin => {
-                                createNotification(admin.username, 'pending_brand',
-                                    `Brand "${brand}" auto-approved (Action Figures) — submitted by ${req.user.username}`,
-                                    'admin', null, req.user.username
-                                ).catch(() => {});
-                            });
-                        }).catch(() => {});
+                } else {
+                    // Auto-approve: admins always, action_figure category always
+                    const approvedBy = isAdmin ? req.user.username : `auto:${req.user.username}`;
+                    await db.query(
+                        "INSERT INTO ApprovedBrands (name, approved_by, created_at) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING",
+                        [brand, approvedBy, new Date().toISOString()]
+                    );
+                    // Notify admins about auto-approved brand (fire-and-forget, informational only)
+                    if (!isAdmin) {
+                        log.info('Brand auto-approved for action_figure category', { brand, user: req.user.username });
+                        db.query("SELECT username FROM Users WHERE role IN ('owner', 'admin') AND suspended = false")
+                            .then(result => {
+                                result.rows.forEach(admin => {
+                                    createNotification(admin.username, 'pending_brand',
+                                        `Brand "${brand}" auto-approved (Action Figures) — submitted by ${req.user.username}`,
+                                        'admin', null, req.user.username
+                                    ).catch(() => {});
+                                });
+                            }).catch(() => {});
+                    }
                 }
             }
         } catch (brandErr) {
