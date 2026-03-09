@@ -69,7 +69,9 @@ TerminalApp.prototype.renderAddTarget = function(container) {
                     });
                     const otherOpt = document.createElement('option');
                     otherOpt.value = '__other__';
-                    otherOpt.textContent = '+ Other (requires admin approval)';
+                    otherOpt.textContent = getActiveCategory() === 'action_figure'
+                        ? '+ Other (auto-approved)'
+                        : '+ Other (requires admin approval)';
                     sel.appendChild(otherOpt);
 
                     sel.addEventListener('change', () => {
