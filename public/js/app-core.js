@@ -501,8 +501,8 @@ class TerminalApp {
                         setTimeout(() => {
                             const searchInput = document.getElementById('searchInput');
                             if (searchInput) { searchInput.value = q; }
-                            const searchBtn = document.querySelector('.score-search-btn, [onclick*="doSearch"]');
-                            if (typeof app.doSearchFromGlobal === 'function') app.doSearchFromGlobal(q);
+                            const searchBtn = document.getElementById('searchBtn');
+                            if (searchBtn) searchBtn.click();
                         }, 200);
                     }
                 }
