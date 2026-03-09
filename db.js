@@ -524,6 +524,16 @@ async function initDB() {
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_figure_pricetype ON MarketTransactions(figure_id, price_type)`);
         }
 
+        // Migration: add region column to MarketTransactions for regional pricing
+        const regionCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'markettransactions' AND column_name = 'region'
+        `);
+        if (regionCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE MarketTransactions ADD COLUMN region TEXT`);
+        }
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_region ON MarketTransactions(region)`);
+
         // --- Performance indexes for concurrent user scaling ---
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_author ON Posts(author)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_id_desc ON Posts(id DESC)`);

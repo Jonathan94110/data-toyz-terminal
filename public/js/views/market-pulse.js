@@ -16,6 +16,7 @@ TerminalApp.prototype.renderMarketPulse = function (container) {
                 <button class="market-tab ${tab === 'weekly_movers' ? 'active' : ''}" onclick="app.switchMarketTab('weekly_movers')">Weekly Movers</button>
                 <button class="market-tab ${tab === 'brand_health' ? 'active' : ''}" onclick="app.switchMarketTab('brand_health')">Brand Health</button>
                 <button class="market-tab ${tab === 'market_trends' ? 'active' : ''}" onclick="app.switchMarketTab('market_trends')">Market Trends</button>
+                <button class="market-tab ${tab === 'regional' ? 'active' : ''}" onclick="app.switchMarketTab('regional')">Regional</button>
             </div>
 
             <div id="marketTabContent"></div>
@@ -29,6 +30,7 @@ TerminalApp.prototype.renderMarketPulse = function (container) {
     else if (tab === 'weekly_movers') this.renderWeeklyMovers(document.getElementById('marketTabContent'));
     else if (tab === 'brand_health') this.renderBrandHealth(document.getElementById('marketTabContent'));
     else if (tab === 'market_trends') this.renderMarketTrends(document.getElementById('marketTabContent'));
+    else if (tab === 'regional') this.renderRegionalPricing(document.getElementById('marketTabContent'));
 };
 
 TerminalApp.prototype.switchMarketTab = function (tab) {
@@ -1230,6 +1232,189 @@ TerminalApp.prototype._renderTrendsActivityChart = function (series) {
             scales: {
                 x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 45, maxTicksLimit: 12 } },
                 y: { grid: { color: gridColor }, ticks: { color: textColor }, beginAtZero: true }
+            }
+        }
+    });
+};
+
+// ==================== REGIONAL PRICING TAB ====================
+TerminalApp.prototype.renderRegionalPricing = async function (container) {
+    container.innerHTML = this.skeletonHTML('stats', 8);
+
+    const period = sessionStorage.getItem('regionalPricingPeriod') || '90d';
+    const fmtPrice = (v) => (v !== null && v !== undefined && !isNaN(v)) ? '$' + parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '\u2014';
+
+    const REGION_COLORS = {
+        Northeast: '#3b82f6',
+        Southeast: '#10b981',
+        Midwest: '#f59e0b',
+        West: '#ff2a5f'
+    };
+
+    try {
+        const res = await fetch(`${API_URL}/stats/regional-pricing?period=${period}&category=${getActiveCategory()}`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+
+        container.innerHTML = `
+            <div style="margin-bottom:1.5rem;">
+                <h2 style="font-size:1.5rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem;">Regional Pricing</h2>
+                <p style="color:var(--text-secondary); font-size:0.95rem;">
+                    Secondary market price comparison across US regions.
+                    ${data.totalWithRegion > 0
+                        ? `<span style="font-size:0.8rem; color:var(--text-muted);"> (${data.totalWithRegion} regional data points)</span>`
+                        : ''}
+                </p>
+            </div>
+
+            <!-- Period Selector -->
+            <div style="display:flex; gap:0.5rem; margin-bottom:2rem;">
+                ${['30d', '90d', '1y'].map(p => `
+                    <span class="badge regionalPeriod" data-period="${p}" style="${p === period ? 'border-color:var(--accent); color:var(--accent); font-weight:700;' : ''} cursor:pointer;">${p === '30d' ? '30 Days' : p === '90d' ? '90 Days' : '1 Year'}</span>
+                `).join('')}
+            </div>
+
+            <!-- Region Stat Cards -->
+            <div class="grid-4" style="margin-bottom:2.5rem;">
+                ${['Northeast', 'Southeast', 'Midwest', 'West'].map(r => {
+                    const s = data.summary[r] || {};
+                    return `
+                        <div class="stat-box" style="border-top:3px solid ${REGION_COLORS[r]};">
+                            <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; color:${REGION_COLORS[r]}; font-weight:700; margin-bottom:0.5rem;">${r}</div>
+                            <div class="stat-value" style="font-size:1.8rem;">${fmtPrice(s.avgPrice)}</div>
+                            <div class="stat-label">Avg Secondary Price</div>
+                            <div style="margin-top:0.5rem; font-size:0.8rem; color:var(--text-muted);">${s.txCount || 0} tx &middot; ${s.figureCount || 0} figures</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+
+            ${data.summary.International ? `
+            <div class="card" style="margin-bottom:2rem; padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
+                <div><span style="color:var(--text-muted); text-transform:uppercase; font-size:0.8rem; letter-spacing:0.05em;">International</span></div>
+                <div style="display:flex; gap:2rem; align-items:center;">
+                    <span style="font-weight:700;">${fmtPrice(data.summary.International.avgPrice)}</span>
+                    <span style="font-size:0.85rem; color:var(--text-muted);">${data.summary.International.txCount} tx</span>
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Regional Price Trends Chart -->
+            <div class="card" style="padding:1.5rem; margin-bottom:2.5rem;">
+                <h3 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Regional Price Trends</h3>
+                ${data.timeSeries && data.timeSeries.labels.length >= 2
+                    ? '<div style="position:relative; height:320px;"><canvas id="regionalPriceChart"></canvas></div>'
+                    : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">Not enough regional data yet. Prices will populate as new transactions are recorded with location data.</div>'}
+            </div>
+
+            <!-- Per-Region Top Figures -->
+            <div class="grid-2" style="margin-bottom:2.5rem;">
+                ${['Northeast', 'Southeast', 'Midwest', 'West'].map(r => {
+                    const figures = (data.topFiguresByRegion[r] || []).slice(0, 5);
+                    return `
+                        <div class="card" style="padding:0; overflow:hidden;">
+                            <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-light);">
+                                <h3 style="font-size:1rem; text-transform:uppercase; letter-spacing:0.05em; margin:0; color:${REGION_COLORS[r]};">${r} \u2014 Top Figures</h3>
+                            </div>
+                            <div style="max-height:300px; overflow-y:auto;">
+                                ${figures.length > 0 ? figures.map((f, i) => `
+                                    <div class="pulse-headline-item" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="app.selectTarget(${f.id})">
+                                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                                            <span style="color:var(--text-muted); font-weight:700; font-size:0.85rem; width:24px;">#${i + 1}</span>
+                                            <div>
+                                                <div style="font-weight:600; font-size:0.9rem;">${escapeHTML(f.name)}</div>
+                                                <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(f.brand)} &middot; ${f.txCount} tx</div>
+                                            </div>
+                                        </div>
+                                        <div style="font-weight:800; color:${REGION_COLORS[r]};">${fmtPrice(f.avgPrice)}</div>
+                                    </div>
+                                `).join('') : '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No regional data yet.</div>'}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        // Period switcher
+        document.querySelectorAll('.regionalPeriod').forEach(btn => {
+            btn.addEventListener('click', () => {
+                sessionStorage.setItem('regionalPricingPeriod', btn.dataset.period);
+                this.renderRegionalPricing(container);
+            });
+        });
+
+        // Render chart
+        if (data.timeSeries && data.timeSeries.labels.length >= 2) {
+            this._renderRegionalPriceChart(data.timeSeries, REGION_COLORS);
+        }
+    } catch (e) {
+        console.error('Regional pricing error:', e);
+        container.innerHTML = '<div class="card" style="padding:3rem; text-align:center; color:var(--text-muted);">Failed to load regional pricing data.</div>';
+    }
+};
+
+TerminalApp.prototype._renderRegionalPriceChart = function (series, regionColors) {
+    const canvas = document.getElementById('regionalPriceChart');
+    if (!canvas) return;
+    if (this._regionalChart) { try { this._regionalChart.destroy(); } catch (e) {} }
+
+    const isDark = document.body.getAttribute('data-theme') !== 'light';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const shortLabels = series.labels.map(l => {
+        const d = new Date(l + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    this._regionalChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: shortLabels,
+            datasets: series.datasets.map(ds => ({
+                label: ds.label,
+                data: ds.data,
+                borderColor: regionColors[ds.label] || '#94a3b8',
+                backgroundColor: 'transparent',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+                borderWidth: 2,
+                spanGaps: true
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: textColor, usePointStyle: true, pointStyle: 'circle', padding: 16 } },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#fff',
+                    titleColor: isDark ? '#f8fafc' : '#0f172a',
+                    bodyColor: isDark ? '#cbd5e1' : '#334155',
+                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                    borderWidth: 1, padding: 12, cornerRadius: 8,
+                    callbacks: {
+                        label: function (context) {
+                            const val = context.parsed.y;
+                            return context.dataset.label + ': ' + (val !== null ? '$' + val.toFixed(2) : '\u2014');
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 45, maxTicksLimit: 12 } },
+                y: {
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: textColor,
+                        callback: function (value) { return '$' + value; }
+                    },
+                    beginAtZero: false
+                }
             }
         }
     });

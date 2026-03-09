@@ -4,6 +4,7 @@ const db = require('../db.js');
 const log = require('../logger.js');
 const { normalizeRows } = require('../helpers/normalize');
 const { createNotification } = require('../helpers/notifications');
+const { getRegionFromIp } = require('../helpers/geolocation');
 const { requireAuth } = require('../middleware/auth');
 const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
 const { cacheResponse, invalidateCache } = require('../middleware/cache');
@@ -849,10 +850,11 @@ router.post('/:id/market-transactions', requireAuth, async (req, res) => {
         const VALID_PT = ['overseas_msrp', 'stateside_msrp', 'secondary_market'];
         const txPriceType = VALID_PT.includes(priceType) ? priceType : 'secondary_market';
 
+        const region = await getRegionFromIp(req.ip);
         const result = await db.query(
-            `INSERT INTO MarketTransactions (figure_id, price_high, price_avg, price_low, price_type, source, submitted_by, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-            [figureId, high, avg, low, txPriceType, txSource, req.user.username, txDate]
+            `INSERT INTO MarketTransactions (figure_id, price_high, price_avg, price_low, price_type, source, submitted_by, created_at, region)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+            [figureId, high, avg, low, txPriceType, txSource, req.user.username, txDate, region]
         );
         invalidateCache('/api/figures');
         invalidateCache('/api/stats');
