@@ -45,6 +45,8 @@ The platform supports **two categories** — **Transformers** and **Action Figur
 - **User Profiles** — Follow/unfollow system, submission history, title progression, and avatar customization
 - **Request Assessment** — Share figures with other users to request their scorecard submission via in-app notifications
 - **Cost Basis Tracking** — Personal portfolio gain/loss calculations vs. current market prices
+- **Collection Tracker** — Mark figures as Owned, Wishlist, For Trade, or Sold with portfolio-level stat cards (Market Value, MSRP, Gain/Loss, Items Owned), a Chart.js line graph of collection value over time, and per-figure market price columns
+- **Collection Value Dashboard** — Aggregate daily value history of owned figures powered by secondary market transaction data, with interactive Chart.js line chart
 
 ### Gamification
 
@@ -60,6 +62,8 @@ The platform supports **two categories** — **Transformers** and **Action Figur
 - **Brand Approval** — Review and approve community-submitted brand requests
 - **Content Moderation** — Flagged post review with dismiss/action controls
 - **Audit Logs** — Searchable activity log with filtering by action, actor, target, and date range
+- **Platinum Badge** — Elevated community status granting access to trade validation and pending trade review
+- **Trade Validation** — Admin and Platinum users review and approve/reject community trade listings before they appear publicly
 - **Ticker Settings** — Configure global ticker mode and item count
 - **System Logs** — Real-time server activity monitoring
 - **Database Backup** — One-click JSON export of all 21 tables with sensitive fields (passwords, reset tokens) excluded
@@ -221,6 +225,7 @@ The app will be available at `http://localhost:3000`.
 │   ├── rooms.js           # Chat rooms & messaging
 │   ├── users.js           # Profiles, follows, data export
 │   ├── notifications.js   # In-app notifications
+│   ├── collection.js      # Collection tracker, value history, trade validation
 │   ├── admin.js           # Admin panel, backup, moderation
 │   └── trade-advisor.js   # Trading insights
 ├── helpers/               # Shared utilities (config, notifications, error handler)
