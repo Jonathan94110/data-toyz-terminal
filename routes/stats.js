@@ -962,7 +962,7 @@ router.get('/regional-pricing', blockBadBots, dataEndpointLimiter, trackDataRequ
                 JOIN Figures f ON f.id = mt.figure_id
                 WHERE mt.price_type = 'secondary_market'
                   AND mt.region IS NOT NULL
-                  AND mt.region IN ('Northeast', 'Southeast', 'Midwest', 'West')
+                  AND mt.region IN ('North', 'South', 'East', 'West')
                   AND mt.created_at >= $1
                   ${catFilter}
                 GROUP BY mt.region, DATE_TRUNC('week', mt.created_at::timestamp)
@@ -978,7 +978,7 @@ router.get('/regional-pricing', blockBadBots, dataEndpointLimiter, trackDataRequ
                 JOIN Figures f ON f.id = mt.figure_id
                 WHERE mt.price_type = 'secondary_market'
                   AND mt.region IS NOT NULL
-                  AND mt.region IN ('Northeast', 'Southeast', 'Midwest', 'West')
+                  AND mt.region IN ('North', 'South', 'East', 'West')
                   AND mt.created_at >= $1
                   ${catFilter}
                 GROUP BY mt.region, f.id, f.name, f.brand
@@ -1014,7 +1014,7 @@ router.get('/regional-pricing', blockBadBots, dataEndpointLimiter, trackDataRequ
             regionData[row.region][row.bucket] = parseFloat(parseFloat(row.avg_price).toFixed(2));
         }
         const labels = Array.from(allBuckets).sort();
-        const datasets = ['Northeast', 'Southeast', 'Midwest', 'West']
+        const datasets = ['North', 'South', 'East', 'West']
             .filter(r => regionData[r])
             .map(r => ({
                 label: r,
@@ -1022,7 +1022,7 @@ router.get('/regional-pricing', blockBadBots, dataEndpointLimiter, trackDataRequ
             }));
 
         // Build top figures per region (top 5 each)
-        const topFiguresByRegion = { Northeast: [], Southeast: [], Midwest: [], West: [] };
+        const topFiguresByRegion = { North: [], South: [], East: [], West: [] };
         for (const row of topFiguresResult.rows) {
             if (!topFiguresByRegion[row.region]) continue;
             if (topFiguresByRegion[row.region].length >= 5) continue;

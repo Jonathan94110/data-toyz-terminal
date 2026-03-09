@@ -2,24 +2,24 @@
 const http = require('http');
 const log = require('../logger.js');
 
-// US state abbreviation → region
+// US state abbreviation → region (cardinal directions)
 const STATE_TO_REGION = {
-    // Northeast
-    CT: 'Northeast', DE: 'Northeast', MA: 'Northeast', MD: 'Northeast',
-    ME: 'Northeast', NH: 'Northeast', NJ: 'Northeast', NY: 'Northeast',
-    PA: 'Northeast', RI: 'Northeast', VT: 'Northeast', DC: 'Northeast',
-    // Southeast
-    AL: 'Southeast', AR: 'Southeast', FL: 'Southeast', GA: 'Southeast',
-    KY: 'Southeast', LA: 'Southeast', MS: 'Southeast', NC: 'Southeast',
-    SC: 'Southeast', TN: 'Southeast', VA: 'Southeast', WV: 'Southeast',
-    // Midwest
-    IA: 'Midwest', IL: 'Midwest', IN: 'Midwest', KS: 'Midwest',
-    MI: 'Midwest', MN: 'Midwest', MO: 'Midwest', ND: 'Midwest',
-    NE: 'Midwest', OH: 'Midwest', OK: 'Midwest', SD: 'Midwest', WI: 'Midwest',
-    // West
+    // East (Atlantic seaboard)
+    CT: 'East', DC: 'East', DE: 'East', FL: 'East', GA: 'East',
+    MA: 'East', MD: 'East', ME: 'East', NC: 'East', NH: 'East',
+    NJ: 'East', NY: 'East', PA: 'East', RI: 'East', SC: 'East',
+    VA: 'East', VT: 'East',
+    // West (Pacific & Mountain)
     AK: 'West', AZ: 'West', CA: 'West', CO: 'West', HI: 'West',
     ID: 'West', MT: 'West', NM: 'West', NV: 'West', OR: 'West',
-    UT: 'West', WA: 'West', WY: 'West', TX: 'West'
+    UT: 'West', WA: 'West', WY: 'West',
+    // North (Great Lakes & Northern Plains)
+    IA: 'North', IL: 'North', IN: 'North', MI: 'North', MN: 'North',
+    ND: 'North', NE: 'North', OH: 'North', SD: 'North', WI: 'North',
+    // South (Gulf & Central South)
+    AL: 'South', AR: 'South', KS: 'South', KY: 'South', LA: 'South',
+    MO: 'South', MS: 'South', OK: 'South', TN: 'South', TX: 'South',
+    WV: 'South'
 };
 
 // In-memory cache: IP → { region, ts }
@@ -40,7 +40,7 @@ setInterval(() => {
 
 /**
  * Resolve an IP address to a US region.
- * Returns 'Northeast'|'Southeast'|'Midwest'|'West'|'International'|null
+ * Returns 'North'|'South'|'East'|'West'|'International'|null
  * Never throws — returns null on any failure.
  */
 async function getRegionFromIp(ip) {

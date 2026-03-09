@@ -1245,9 +1245,9 @@ TerminalApp.prototype.renderRegionalPricing = async function (container) {
     const fmtPrice = (v) => (v !== null && v !== undefined && !isNaN(v)) ? '$' + parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '\u2014';
 
     const REGION_COLORS = {
-        Northeast: '#3b82f6',
-        Southeast: '#10b981',
-        Midwest: '#f59e0b',
+        North: '#3b82f6',
+        South: '#10b981',
+        East: '#f59e0b',
         West: '#ff2a5f'
     };
 
@@ -1276,7 +1276,7 @@ TerminalApp.prototype.renderRegionalPricing = async function (container) {
 
             <!-- Region Stat Cards -->
             <div class="grid-4" style="margin-bottom:2.5rem;">
-                ${['Northeast', 'Southeast', 'Midwest', 'West'].map(r => {
+                ${['North', 'South', 'East', 'West'].map(r => {
                     const s = data.summary[r] || {};
                     return `
                         <div class="stat-box" style="border-top:3px solid ${REGION_COLORS[r]};">
@@ -1309,7 +1309,7 @@ TerminalApp.prototype.renderRegionalPricing = async function (container) {
 
             <!-- Per-Region Top Figures -->
             <div class="grid-2" style="margin-bottom:2.5rem;">
-                ${['Northeast', 'Southeast', 'Midwest', 'West'].map(r => {
+                ${['North', 'South', 'East', 'West'].map(r => {
                     const figures = (data.topFiguresByRegion[r] || []).slice(0, 5);
                     return `
                         <div class="card" style="padding:0; overflow:hidden;">
