@@ -1,12 +1,22 @@
 # Data Toyz Terminal — Developer Roadmap
 
 **Issued:** 2026-02-27
-**Updated:** 2026-03-01
+**Updated:** 2026-03-09
 **Priority:** High — User concurrency is scaling and the platform needs both feature parity and infrastructure hardening before the next growth wave.
 
 ---
 
 ## Changelog
+
+### 2026-03-09 — Collection Tracker + Platinum Badge + Collection Value Dashboard
+- **Collection Tracker**: Users can mark figures as Owned, Wishlist, For Trade, or Sold via the Dashboard "My Collection" tab with filter buttons, sortable table, and per-figure market price column
+- **Collection Value Stats**: Stat cards row (Market Value, Total MSRP, Gain/Loss, Items Owned) above the collection table, calculated from latest secondary market prices
+- **Collection Value Line Graph**: Chart.js line chart showing daily aggregate value of owned figures over time, with empty state for insufficient data
+- **Platinum Badge System**: New `platinum` boolean on Users table; displayed as a diamond badge across profiles, leaderboards, feed, and admin panel
+- **Trade Validation Workflow**: Figures marked "For Trade" require admin/platinum approval before appearing publicly; pending trades queue in admin panel with approve/reject actions, notifications, and audit logging
+- **New API routes**: `GET /collection/my` (with LEFT JOIN LATERAL for latest market price), `GET /collection/my/value-history`, `POST /collection/:figureId`, `DELETE /collection/:figureId`, `GET /collection/user/:username`, `GET /collection/figure/:figureId`, `GET /collection/pending-trades`, `PUT /collection/validate/:id`, `DELETE /collection/validate/:id`
+- **Normalize helper**: Added `figure_name`, `class_tie`, `validated_by`, `user_id`, `market_price` mappings to COL_MAP
+- **Bug fixes**: Fixed missing figure/class names in collection table (normalize mapping), fixed "Invalid Date" on chart labels (PostgreSQL `DATE()` → `TO_CHAR()`), fixed pending trades date display in admin panel (`pt.createdAt` → `pt.created_at`), added NaN guard to USD formatter
 
 ### 2026-03-01 — Leaderboard System + Permission Roles + Pop Count
 - **Figure Leaderboard page**: New dedicated leaderboard for figures with 4 modes (Top Rated, Rising, Most Reviewed, Sleepers), brand filtering, podium display, pagination, and price/grade/pop data columns
@@ -331,6 +341,10 @@ Completed (not in original roadmap):
   - Admin Leaderboard Controls (pin/hide/rank/cat)   ← DONE (2026-03-01)
   - Community Pop Count (ownership + unique owners)  ← DONE (2026-03-01)
   - Code cleanup (DRY figures.js, docs update)       ← DONE (2026-03-01)
+  - Collection Tracker (owned/wishlist/trade/sold)   ← DONE (2026-03-09)
+  - Platinum Badge System (admin-assigned status)    ← DONE (2026-03-09)
+  - Trade Validation (admin/platinum approval flow)  ← DONE (2026-03-09)
+  - Collection Value Dashboard (stats + line graph)  ← DONE (2026-03-09)
 ```
 
 ---

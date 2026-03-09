@@ -18,6 +18,8 @@ TerminalApp.prototype.renderDocs = function(container) {
             { id: 'notifications', title: 'Notifications' },
             { id: 'profiles-following', title: 'User Profiles & Following' },
             { id: 'flagging', title: 'Flagging a Post' },
+            { id: 'collection-tracker', title: 'Collection Tracker' },
+            { id: 'platinum-badge', title: 'Platinum Badge & Trade Validation' },
             ...(isAdmin ? [
                 { id: 'admin', title: 'Admin Panel' },
                 { id: 'security', title: 'Security & Authentication' },
@@ -536,6 +538,56 @@ TerminalApp.prototype.renderDocs = function(container) {
                     <p style="color:var(--text-muted); font-size:0.85rem;">Please flag responsibly. Flagging is meant for content that genuinely violates community standards.</p>
                 </div>
 
+                <!-- COLLECTION TRACKER -->
+                <div id="doc-collection-tracker" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">Collection Tracker</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        The <strong>Collection Tracker</strong> lets you manage your personal figure inventory from the Dashboard. Track which figures you own, want, have available for trade, or have sold &mdash; and see the total market value of your collection at a glance.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Adding Figures to Your Collection:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>Navigate to any figure's detail page via Search or the Figure Leaderboard</li>
+                        <li>Use the collection status buttons to mark it as <strong>Owned</strong>, <strong>Wishlist</strong>, <strong>For Trade</strong>, or <strong>Sold</strong></li>
+                        <li>Owned, Wishlist, and Sold statuses are applied instantly</li>
+                        <li><strong>For Trade</strong> listings require validation by an Admin or Platinum member before appearing publicly</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>My Collection Tab (Dashboard):</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Stat Cards</strong> &mdash; Market Value, Total MSRP, Gain/Loss, and Items Owned for your collection</li>
+                        <li><strong>Value Chart</strong> &mdash; Line graph showing how your collection's total market value changes over time</li>
+                        <li><strong>Filter Buttons</strong> &mdash; Filter your collection by status (All, Owned, Wishlist, For Trade, Sold)</li>
+                        <li><strong>Collection Table</strong> &mdash; Sortable table with figure name, brand, class, current market value, and status</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Public Collection:</strong></p>
+                    <p style="color:var(--text-secondary); line-height:1.8; margin-bottom:1rem;">
+                        Your collection is visible on your public profile (dossier). Other operatives can see your owned figures, wishlist, and validated trade listings. Unvalidated trade listings are hidden from public view until approved.
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Market values are based on the latest secondary market transaction data. Figures without price data will show a dash (&mdash;) in the Value column.</p>
+                </div>
+
+                <!-- PLATINUM BADGE & TRADE VALIDATION -->
+                <div id="doc-platinum-badge" class="card" style="margin-bottom:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:1.1rem; color:var(--text-secondary); margin-bottom:1rem; border-bottom:1px solid var(--border-light); padding-bottom:0.75rem;">Platinum Badge & Trade Validation</h3>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:1rem;">
+                        <strong>Platinum</strong> is an elevated community status granted by admins to trusted, experienced operatives. Platinum members are recognized with a <span style="color:#a78bfa;">\u{1F48E}</span> diamond badge displayed next to their username across the platform.
+                    </p>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Platinum Privileges:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li><strong>Trade Validation</strong> &mdash; Review and approve or reject pending "For Trade" listings from other operatives</li>
+                        <li><strong>Pending Trades Queue</strong> &mdash; Access the pending trade listings in the Admin Panel</li>
+                        <li><strong>Visual Badge</strong> &mdash; Diamond badge shown on profiles, leaderboards, feed posts, and chat messages</li>
+                    </ul>
+                    <p style="color:var(--text-primary); line-height:1.8; margin-bottom:0.75rem;"><strong>Trade Validation Process:</strong></p>
+                    <ul style="color:var(--text-secondary); line-height:2; padding-left:1.5rem; margin-bottom:1rem;">
+                        <li>When an operative marks a figure as "For Trade," the listing enters a <strong>pending</strong> state</li>
+                        <li>Admin and Platinum members are notified and can review pending listings</li>
+                        <li><strong>Approve</strong> &mdash; The listing becomes publicly visible on the operative's profile and figure detail page</li>
+                        <li><strong>Reject</strong> &mdash; The listing is removed and the operative is notified</li>
+                        <li>All validation actions are recorded in the audit log</li>
+                    </ul>
+                    <p style="color:var(--text-muted); font-size:0.85rem;">Platinum status is managed by platform admins and owners via the Admin Panel user management section.</p>
+                </div>
+
                 ${isAdmin ? `
                 <!-- 15. ADMIN PANEL -->
                 <div id="doc-admin" class="card" style="margin-bottom:2rem;">
@@ -775,7 +827,10 @@ TerminalApp.prototype.renderDocs = function(container) {
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Follow</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Subscribe to another operative's activity to receive notifications</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Flag</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Report a broadcast for admin review</td></tr>
                             <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Toast</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Brief confirmation message that appears at the top of the screen</td></tr>
-                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Deep Link</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A URL that links directly to a specific broadcast or figure</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Deep Link</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">A URL that links directly to a specific broadcast or figure</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Collection</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Your personal inventory of figures tracked as Owned, Wishlist, For Trade, or Sold</td></tr>
+                            <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:0.6rem 1rem; font-weight:600;">Platinum</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Elevated community status granting trade validation privileges and a diamond badge</td></tr>
+                            <tr><td style="padding:0.6rem 1rem; font-weight:600;">Trade Validation</td><td style="padding:0.6rem 1rem; color:var(--text-secondary);">Admin/Platinum review process for approving "For Trade" listings before public visibility</td></tr>
                         </tbody>
                     </table>
                 </div>
