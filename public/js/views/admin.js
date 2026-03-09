@@ -967,7 +967,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                                     <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(pt.username)}</td>
                                     <td style="padding:0.6rem 1rem;">${escapeHTML(pt.figureName || pt.figure_name || '')}</td>
                                     <td style="padding:0.6rem 1rem; color:var(--text-muted);">${escapeHTML(pt.brand || '')}</td>
-                                    <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${pt.createdAt ? new Date(pt.createdAt).toLocaleDateString() : '\u2014'}</td>
+                                    <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${pt.created_at ? new Date(pt.created_at).toLocaleDateString() : '\u2014'}</td>
                                     <td style="padding:0.6rem 1rem; text-align:right;">
                                         <div class="admin-action-btns">
                                             <button class="approveTradeBtn" data-id="${pt.id}" style="border-color:var(--success); color:var(--success);">\u2705 Approve</button>

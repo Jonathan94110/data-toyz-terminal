@@ -243,7 +243,7 @@ TerminalApp.prototype.renderDashboardCollection = async function (container) {
     const gainLoss = totalValue - totalMsrp;
     const gainColor = gainLoss >= 0 ? 'var(--success)' : 'var(--danger)';
     const gainPrefix = gainLoss >= 0 ? '+' : '';
-    const fmtUsd = (v) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtUsd = (v) => isNaN(v) ? '—' : '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const statsHtml = `
         <div class="intel-stats-row">
