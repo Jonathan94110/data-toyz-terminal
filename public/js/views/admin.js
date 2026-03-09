@@ -419,7 +419,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     <tr style="border-top:1px solid var(--border-light);" id="brandRow-${b.id}">
                         <td style="padding:0.6rem 1rem; color:var(--text-muted);">${b.id}</td>
                         <td style="padding:0.6rem 1rem; font-weight:600;">${escapeHTML(b.name)}</td>
-                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${escapeHTML(b.approved_by || '\u2014')}</td>
+                        <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${b.approved_by && b.approved_by.startsWith('auto:') ? '<span style="color:#34d399; font-weight:600;" title="Auto-approved (Action Figures category)">auto</span> <span style="opacity:0.7;">' + escapeHTML(b.approved_by.slice(5)) + '</span>' : escapeHTML(b.approved_by || '\u2014')}</td>
                         <td style="padding:0.6rem 1rem; color:var(--text-muted); font-size:0.85rem;">${b.created_at ? new Date(b.created_at).toLocaleDateString() : '\u2014'}</td>
                         <td style="padding:0.6rem 1rem; text-align:right;">
                             <div class="admin-action-btns">
@@ -868,7 +868,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top:2.5rem; flex-wrap:wrap; gap:0.75rem;">
                     <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:#fbbf24; margin:0;">\u{23F3} Pending Brand Requests (<span id="pendingBrandCount">${pendingBrands.length}</span>)</h3>
                 </div>
-                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Users have submitted these brands for approval. Approve to add them to the catalog or reject to deny.</p>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Users have submitted these brands for approval (Transformers category only). Action Figure brands are auto-approved on submission.</p>
                 <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem; border:1px solid rgba(251,191,36,0.3);">
                     <div id="pendingBrandsSection"></div>
                 </div>
@@ -884,7 +884,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                         <button id="addBrandBtn" style="background:none; border:1px solid var(--success); color:var(--success); cursor:pointer; padding:0.4rem 0.8rem; border-radius:4px; font-size:0.8rem; font-weight:700; white-space:nowrap;">+ Add Brand</button>
                     </div>
                 </div>
-                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Only approved brands appear in the figure creation dropdown. Non-admin users cannot use unapproved brands.</p>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Only approved brands appear in the figure creation dropdown. Transformer brands require admin approval; Action Figure brands are auto-approved (shown as <span style="color:#34d399;">auto:</span> in Approved By).</p>
                 <div class="card" style="padding:0; overflow:hidden; margin-bottom:2.5rem;">
                     <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
                         <thead>

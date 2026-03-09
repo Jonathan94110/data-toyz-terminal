@@ -103,12 +103,13 @@ router.post('/', requireAuth, async (req, res) => {
         }
 
         // Brand approval check: non-admin users must use an approved brand
+        // Action Figures category auto-approves new brands (no curated list yet)
         const isAdmin = ['owner', 'admin'].includes(req.user.role);
         try {
             const brandCheck = await db.query("SELECT id FROM ApprovedBrands WHERE LOWER(name) = LOWER($1)", [brand]);
             if (brandCheck.rows.length === 0) {
-                if (!isAdmin) {
-                    // Save as pending brand request for admin approval
+                if (!isAdmin && category !== 'action_figure') {
+                    // Save as pending brand request for admin approval (Transformers only)
                     try {
                         await db.query(
                             "INSERT INTO PendingBrands (name, requested_by, figure_name, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO NOTHING",
@@ -133,11 +134,25 @@ router.post('/', requireAuth, async (req, res) => {
                         pendingApproval: true
                     });
                 }
-                // Admin creating with new brand — auto-approve it
+                // Auto-approve: admins always, action_figure category always
+                const approvedBy = isAdmin ? req.user.username : `auto:${req.user.username}`;
                 await db.query(
                     "INSERT INTO ApprovedBrands (name, approved_by, created_at) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING",
-                    [brand, req.user.username, new Date().toISOString()]
+                    [brand, approvedBy, new Date().toISOString()]
                 );
+                // Notify admins about auto-approved brand (fire-and-forget, informational only)
+                if (!isAdmin) {
+                    log.info('Brand auto-approved for action_figure category', { brand, user: req.user.username });
+                    db.query("SELECT username FROM Users WHERE role IN ('owner', 'admin') AND suspended = false")
+                        .then(result => {
+                            result.rows.forEach(admin => {
+                                createNotification(admin.username, 'pending_brand',
+                                    `Brand "${brand}" auto-approved (Action Figures) — submitted by ${req.user.username}`,
+                                    'admin', null, req.user.username
+                                ).catch(() => {});
+                            });
+                        }).catch(() => {});
+                }
             }
         } catch (brandErr) {
             // If ApprovedBrands table doesn't exist yet, skip check
