@@ -8,7 +8,6 @@ const { normalizeRows } = require('../helpers/normalize');
 const { auditLog } = require('../helpers/audit');
 const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
-const { getRegionFromIp } = require('../helpers/geolocation');
 const { upload } = require('../middleware/upload');
 const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
 const { invalidateCache } = require('../middleware/cache');
@@ -156,16 +155,15 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
             submissionData.price_secondary_market = submissionData.market_price;
         }
 
-        const region = await getRegionFromIp(req.ip);
         for (const pType of pricingTypes) {
             if (!VALID_PRICE_TYPES.includes(pType)) continue;
             const priceVal = parseFloat(submissionData[`price_${pType}`]);
             if (!priceVal || priceVal <= 0) continue;
             try {
                 await db.query(
-                    `INSERT INTO MarketTransactions (figure_id, price_avg, price_type, source, submitted_by, submission_id, created_at, region)
-                     VALUES ($1, $2, $3, 'user_entry', $4, $5, $6, $7)`,
-                    [req.body.targetId, priceVal, pType, req.user.username, submissionId, req.body.date, region]
+                    `INSERT INTO MarketTransactions (figure_id, price_avg, price_type, source, submitted_by, submission_id, created_at)
+                     VALUES ($1, $2, $3, 'user_entry', $4, $5, $6)`,
+                    [req.body.targetId, priceVal, pType, req.user.username, submissionId, req.body.date]
                 );
             } catch (e) { log.error('Auto-insert market transaction failed', { error: e.message }); }
         }
@@ -261,7 +259,6 @@ router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
             existingByType[tx.price_type || 'secondary_market'] = tx.id;
         }
 
-        const region = await getRegionFromIp(req.ip);
         for (const pType of VALID_PRICE_TYPES) {
             const priceVal = pricingTypes.includes(pType) ? parseFloat(submissionData[`price_${pType}`]) : 0;
             const existingId = existingByType[pType];
@@ -274,9 +271,9 @@ router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
                 }
             } else if (priceVal > 0) {
                 await db.query(
-                    `INSERT INTO MarketTransactions (figure_id, price_avg, price_type, source, submitted_by, submission_id, created_at, region)
-                     VALUES ($1, $2, $3, 'user_entry', $4, $5, $6, $7)`,
-                    [sub.rows[0].targetid, priceVal, pType, req.user.username, req.params.id, now, region]
+                    `INSERT INTO MarketTransactions (figure_id, price_avg, price_type, source, submitted_by, submission_id, created_at)
+                     VALUES ($1, $2, $3, 'user_entry', $4, $5, $6)`,
+                    [sub.rows[0].targetid, priceVal, pType, req.user.username, req.params.id, now]
                 );
             }
         }
