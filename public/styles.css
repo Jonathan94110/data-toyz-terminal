@@ -4552,3 +4552,211 @@ textarea:focus {
     border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+/* ==========================================================================
+   RESPONSIVE — TABLET (max-width: 1024px)
+   ========================================================================== */
+@media (max-width: 1024px) {
+    .content-area { padding: 1.5rem; }
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .stat-box { padding: 1.25rem; }
+
+    /* Auth: stack form above showcase */
+    .auth-landing { flex-direction: column-reverse; gap: 2rem; }
+    .auth-panel { max-width: 480px; align-self: center; }
+    .auth-showcase { max-height: 60vh; overflow-y: auto; }
+
+    /* Market Pulse / Figure Leaderboard tabs: horizontal scroll */
+    .market-tabs, .flb-mode-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .market-tabs::-webkit-scrollbar, .flb-mode-tabs::-webkit-scrollbar { display: none; }
+    .market-tab, .flb-mode-tab { white-space: nowrap; flex-shrink: 0; }
+
+    /* Figure leaderboard: hide least-essential columns */
+    .flb-col-pop, .flb-col-msrp { display: none; }
+
+    /* Scorecard header */
+    .sc-header { grid-template-columns: 180px 1fr; }
+}
+
+/* ==========================================================================
+   RESPONSIVE — MOBILE (max-width: 640px)
+   ========================================================================== */
+@media (max-width: 640px) {
+
+    /* ── App Shell ───────────────────────────────────────────────── */
+    .app-layout { flex-direction: column; }
+
+    .sidebar {
+        position: fixed;
+        top: 0; left: 0;
+        height: 100vh; height: 100dvh;
+        width: 280px;
+        z-index: 1000;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .sidebar.collapsed { width: 280px; }
+    .sidebar.collapsed .nav-label { display: inline; }
+    .sidebar.collapsed .nav-item { padding: 0.85rem 1.5rem; justify-content: flex-start; }
+    .sidebar.collapsed .nav-icon { margin-right: 0.75rem; }
+    .sidebar.collapsed .sidebar-brand { padding: 1.5rem 1rem 0.5rem; }
+    .sidebar.collapsed .category-switcher { margin: 0 1rem 0.75rem; }
+    .sidebar.collapsed .cat-btn { font-size: 0.75rem; padding: 0.5rem 0.4rem; }
+    .sidebar.mobile-open { transform: translateX(0); }
+
+    .mobile-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 999;
+        -webkit-backdrop-filter: blur(2px);
+        backdrop-filter: blur(2px);
+    }
+    .mobile-overlay.active { display: block; }
+
+    .mobile-hamburger {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px; height: 40px;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .main-content { width: 100vw; }
+
+    /* ── Topbar ──────────────────────────────────────────────────── */
+    .topbar { padding: 0 0.75rem; gap: 0.5rem; }
+    .topbar-search { max-width: none; flex: 1; }
+    .user-info-text { display: none; }
+
+    /* ── Content Area ────────────────────────────────────────────── */
+    .content-area { padding: 1rem; }
+
+    /* ── Grids ───────────────────────────────────────────────────── */
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; gap: 0.75rem; }
+
+    /* ── Typography ──────────────────────────────────────────────── */
+    .content-area h1, .content-area h2 { font-size: 1.5rem !important; }
+    .content-area h3 { font-size: 1.1rem !important; }
+
+    /* ── Stat Boxes ──────────────────────────────────────────────── */
+    .stat-box { padding: 1rem; }
+
+    /* ── Tables ──────────────────────────────────────────────────── */
+    .data-table, .content-area table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* ── Ticker ──────────────────────────────────────────────────── */
+    .ticker-wrap { display: none !important; }
+
+    /* ── Auth ────────────────────────────────────────────────────── */
+    .auth-landing { flex-direction: column-reverse; gap: 1.5rem; padding: 1rem; }
+    .auth-showcase { max-height: 50vh; overflow-y: auto; }
+    .auth-panel { padding: 1.5rem; width: 100%; max-width: 100%; }
+    .feature-grid { grid-template-columns: 1fr !important; }
+    .brand-header h1 { font-size: 1.75rem !important; }
+
+    /* ── Leaderboard Podium ──────────────────────────────────────── */
+    .lb-podium { flex-direction: column; align-items: center; gap: 0.75rem; }
+    .lb-podium-card { max-width: 100%; width: 100%; }
+    .lb-podium-card.first { transform: none; order: -1; }
+    .lb-layout { flex-direction: column; }
+    .lb-your-stats { order: -1; }
+
+    /* ── Search ──────────────────────────────────────────────────── */
+    .search-container { max-width: 100%; }
+
+    /* ── Figure Leaderboard ──────────────────────────────────────── */
+    .flb-col-pop, .flb-col-msrp, .flb-col-trend, .flb-col-brand { display: none; }
+    .flb-table { overflow-x: auto; }
+
+    /* ── Inline Style Overrides ──────────────────────────────────── */
+
+    /* Override inline grid-template-columns on content divs */
+    .content-area div[style*="grid-template-columns: repeat(4"],
+    .content-area div[style*="grid-template-columns: repeat(3"],
+    .content-area div[style*="grid-template-columns:repeat(4"],
+    .content-area div[style*="grid-template-columns:repeat(3"],
+    .content-area div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+    .content-area div[style*="grid-template-columns: 1fr 1fr"],
+    .content-area div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Override inline font sizes on headings */
+    .content-area h1[style*="font-size"],
+    .content-area h2[style*="font-size"] {
+        font-size: 1.5rem !important;
+    }
+
+    /* Override inline padding on cards/containers */
+    .content-area .card[style*="padding: 2.5rem"],
+    .content-area .card[style*="padding:2.5rem"],
+    .content-area .card[style*="padding: 3rem"],
+    .content-area .card[style*="padding:3rem"] {
+        padding: 1.25rem !important;
+    }
+
+    /* Override inline max-width on view containers */
+    .content-area div[style*="max-width: 960px"],
+    .content-area div[style*="max-width:960px"],
+    .content-area div[style*="max-width: 1100px"],
+    .content-area div[style*="max-width:1100px"],
+    .content-area div[style*="max-width: 900px"],
+    .content-area div[style*="max-width:900px"],
+    .content-area div[style*="max-width: 860px"],
+    .content-area div[style*="max-width:860px"] {
+        max-width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* ── Trade Advisor ───────────────────────────────────────────── */
+    .ta-sides { grid-template-columns: 1fr !important; }
+    .ta-breakdown { flex-direction: column !important; }
+
+    /* ── Scorecard ───────────────────────────────────────────────── */
+    .sc-header { grid-template-columns: 1fr !important; }
+    .sc-hero-stats { grid-template-columns: 1fr 1fr !important; }
+
+    /* ── Chat / Rooms ────────────────────────────────────────────── */
+    .chat-container {
+        height: calc(100vh - 64px - 2rem);
+        height: calc(100dvh - 64px - 2rem);
+    }
+    .rooms-container { max-width: 100% !important; }
+
+    /* ── User Profile ────────────────────────────────────────────── */
+    .content-area img[style*="width:120px"] {
+        width: 80px !important;
+        height: 80px !important;
+    }
+
+    /* ── Feed / Images ───────────────────────────────────────────── */
+    .content-area img { max-width: 100%; height: auto; }
+
+    /* ── Autocomplete Dropdowns ──────────────────────────────────── */
+    .ta-search-dropdown, .sc-search-dropdown {
+        max-width: calc(100vw - 2rem);
+    }
+
+    /* ── Ambient Orbs (performance) ──────────────────────────────── */
+    .ambient-orb { display: none; }
+}
+
+/* ── Hide hamburger on desktop ───────────────────────────────────── */
+@media (min-width: 641px) {
+    .mobile-hamburger { display: none; }
+    .mobile-overlay { display: none !important; }
+}
+
