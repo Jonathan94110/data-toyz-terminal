@@ -10,7 +10,7 @@ const { createNotification } = require('../helpers/notifications');
 const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const { blockBadBots, dataEndpointLimiter, trackDataRequest } = require('../middleware/botProtection');
-const { invalidateCache } = require('../middleware/cache');
+const { invalidateCache, cacheResponse } = require('../middleware/cache');
 
 // Get submissions for a specific figure (public, with optional auth for cost_basis privacy)
 router.get('/target/:targetId', blockBadBots, dataEndpointLimiter, trackDataRequest, async (req, res) => {
@@ -105,8 +105,24 @@ router.get('/:id', requireAuth, async (req, res) => {
     }
 });
 
-// Get all submissions globally (for leaderboards)
-router.get('/', async (req, res) => {
+// Leaderboard: server-side aggregation with caching (60s TTL)
+router.get('/leaderboard', cacheResponse(60000), async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT author, COUNT(*) AS count
+             FROM Submissions
+             GROUP BY author
+             ORDER BY count DESC`
+        );
+        res.json(result.rows.map(r => ({ author: r.author, count: parseInt(r.count) })));
+    } catch (err) {
+        log.error('Leaderboard query error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
+// Get all submissions globally (legacy — kept for backward compat)
+router.get('/', cacheResponse(60000), async (req, res) => {
     try {
         const result = await db.query("SELECT author FROM Submissions");
         res.json(result.rows);
