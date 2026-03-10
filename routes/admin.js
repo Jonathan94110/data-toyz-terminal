@@ -884,6 +884,9 @@ router.post('/hq-update', requireAuth, requireAdmin, async (req, res) => {
 // Backfill region data on historical MarketTransactions using IPs from AuditLog/PageViews
 router.post('/backfill-regions', requireAuth, requireRole('owner'), async (req, res) => {
     try {
+        // Clear stale region data (old runs used Cloudflare proxy IPs → all "West")
+        await db.query(`UPDATE MarketTransactions SET region = NULL WHERE region IS NOT NULL`);
+
         // Find all unique submitters with NULL-region transactions
         const nullRegionUsers = await db.query(`
             SELECT DISTINCT submitted_by FROM MarketTransactions
@@ -891,7 +894,7 @@ router.post('/backfill-regions', requireAuth, requireRole('owner'), async (req, 
         `);
 
         if (nullRegionUsers.rows.length === 0) {
-            return res.json({ message: 'No transactions need backfilling.', updated: 0 });
+            return res.json({ message: 'No transactions need backfilling.', updated: 0, users: 0 });
         }
 
         let totalUpdated = 0;
@@ -900,31 +903,43 @@ router.post('/backfill-regions', requireAuth, requireRole('owner'), async (req, 
         for (const row of nullRegionUsers.rows) {
             const username = row.submitted_by;
 
-            // Try AuditLog first (most reliable — tied to actions), then PageViews
-            let ipResult = await db.query(`
-                SELECT ip_address FROM AuditLog
+            // Look up user ID for PageViews queries
+            const userResult = await db.query(`SELECT id FROM Users WHERE username = $1`, [username]);
+            const userId = userResult.rows.length > 0 ? userResult.rows[0].id : null;
+
+            // Check BOTH AuditLog and PageViews, use whichever has the most recent IP
+            const auditResult = await db.query(`
+                SELECT ip_address, created_at FROM AuditLog
                 WHERE actor = $1 AND ip_address IS NOT NULL AND ip_address != ''
                 ORDER BY created_at DESC LIMIT 1
             `, [username]);
 
-            if (ipResult.rows.length === 0) {
-                // Fallback: look up user ID, then check PageViews
-                const userResult = await db.query(`SELECT id FROM Users WHERE username = $1`, [username]);
-                if (userResult.rows.length > 0) {
-                    ipResult = await db.query(`
-                        SELECT ip_address FROM PageViews
-                        WHERE user_id = $1 AND ip_address IS NOT NULL AND ip_address != ''
-                        ORDER BY created_at DESC LIMIT 1
-                    `, [userResult.rows[0].id]);
-                }
+            let pvResult = { rows: [] };
+            if (userId) {
+                pvResult = await db.query(`
+                    SELECT ip_address, created_at FROM PageViews
+                    WHERE user_id = $1 AND ip_address IS NOT NULL AND ip_address != ''
+                    ORDER BY created_at DESC LIMIT 1
+                `, [userId]);
             }
 
-            if (ipResult.rows.length === 0) {
+            // Pick the most recent IP from either source
+            let ip = null;
+            if (auditResult.rows.length > 0 && pvResult.rows.length > 0) {
+                ip = new Date(pvResult.rows[0].created_at) > new Date(auditResult.rows[0].created_at)
+                    ? pvResult.rows[0].ip_address
+                    : auditResult.rows[0].ip_address;
+            } else if (pvResult.rows.length > 0) {
+                ip = pvResult.rows[0].ip_address;
+            } else if (auditResult.rows.length > 0) {
+                ip = auditResult.rows[0].ip_address;
+            }
+
+            if (!ip) {
                 results.push({ username, status: 'no_ip_found' });
                 continue;
             }
 
-            const ip = ipResult.rows[0].ip_address;
             const region = await getRegionFromIp(ip);
 
             if (!region) {
