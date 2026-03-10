@@ -50,9 +50,13 @@ async function getRegionFromIp(ip) {
         return cached.region;
     }
 
-    // Skip private/localhost IPs
-    if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+    // Skip private/localhost IPs (172.16.0.0–172.31.255.255 only; 172.64+/172.68+ etc. are Cloudflare)
+    if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
         return null;
+    }
+    if (ip.startsWith('172.')) {
+        const second = parseInt(ip.split('.')[1], 10);
+        if (second >= 16 && second <= 31) return null;
     }
 
     // Rate limit check
