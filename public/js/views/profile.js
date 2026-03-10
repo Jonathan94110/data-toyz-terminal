@@ -224,6 +224,15 @@ TerminalApp.prototype.renderProfile = function(container) {
                     <div id="notifPrefsSaved" style="display:none; text-align:center; color:var(--success); font-size:0.85rem; margin-top:0.75rem;">Preferences saved.</div>
                 </div>
 
+                <div class="card" style="padding: 2.5rem; margin-top:2rem;">
+                    <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--text-secondary); margin-bottom:0.5rem;">📦 Data Export</h3>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.5rem;">Download a copy of all your data — submissions, posts, comments, and notifications.</p>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                        <button class="btn" style="padding:0.75rem 1.5rem;" onclick="app.downloadExport('csv')">Export as CSV</button>
+                        <button class="btn" style="padding:0.75rem 1.5rem; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary);" onclick="app.downloadExport('json')">Export as JSON</button>
+                    </div>
+                </div>
+
                 ${this.user.role !== 'owner' ? `
                 <div class="card" style="padding: 2.5rem; margin-top:2rem; border:1px solid var(--danger); border-radius:var(--radius);">
                     <h3 style="text-transform:uppercase; letter-spacing:0.05em; font-size:0.95rem; color:var(--danger); margin-bottom:0.5rem;">&#9888;&#65039; Danger Zone</h3>
@@ -379,6 +388,25 @@ TerminalApp.prototype.loadNotifPrefs = async function() {
             const loading = document.getElementById('notifPrefsLoading');
             if (loading) loading.textContent = 'Failed to load preferences.';
         }
+};
+
+TerminalApp.prototype.downloadExport = async function(format) {
+    try {
+        const url = format === 'csv' ? `${API_URL}/users/me/export?format=csv` : `${API_URL}/users/me/export`;
+        const res = await this.authFetch(url);
+        if (!res.ok) throw new Error('Export failed');
+        const blob = await res.blob();
+        const ext = format === 'csv' ? 'csv' : 'json';
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `data-toyz-export-${this.user.username}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    } catch (e) {
+        alert('Failed to export data: ' + e.message);
+    }
 };
 
 TerminalApp.prototype.saveNotifPref = async function(key, value) {
