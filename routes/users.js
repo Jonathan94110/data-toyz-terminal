@@ -29,6 +29,24 @@ router.get('/search', requireAuth, async (req, res) => {
     }
 });
 
+// CSV helper — converts array of objects to CSV string
+function jsonToCsv(rows, sectionName) {
+    if (!rows || rows.length === 0) return '';
+    const headers = Object.keys(rows[0]);
+    const csvRows = [
+        `--- ${sectionName} ---`,
+        headers.join(','),
+        ...rows.map(row => headers.map(h => {
+            let val = row[h];
+            if (val === null || val === undefined) val = '';
+            val = String(val).replace(/"/g, '""');
+            if (val.includes(',') || val.includes('"') || val.includes('\n')) val = `"${val}"`;
+            return val;
+        }).join(','))
+    ];
+    return csvRows.join('\n');
+}
+
 // Data export — MUST be before /:id routes
 router.get('/me/export', requireAuth, async (req, res) => {
     try {
@@ -40,6 +58,21 @@ router.get('/me/export', requireAuth, async (req, res) => {
         const posts = await db.query("SELECT * FROM Posts WHERE author = $1 ORDER BY id DESC", [username]);
         const comments = await db.query("SELECT * FROM Comments WHERE author = $1 ORDER BY id DESC", [username]);
         const notifications = await db.query("SELECT * FROM Notifications WHERE recipient = $1 ORDER BY id DESC", [username]);
+
+        // CSV format
+        if (req.query.format === 'csv') {
+            const sections = [];
+            if (profile.rows[0]) sections.push(jsonToCsv([profile.rows[0]], 'Profile'));
+            sections.push(jsonToCsv(normalizeRows(submissions.rows), 'Submissions'));
+            sections.push(jsonToCsv(normalizeRows(posts.rows), 'Posts'));
+            sections.push(jsonToCsv(normalizeRows(comments.rows), 'Comments'));
+            sections.push(jsonToCsv(notifications.rows, 'Notifications'));
+
+            const csv = sections.filter(Boolean).join('\n\n');
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="data-toyz-export-${username}.csv"`);
+            return res.send(csv);
+        }
 
         res.json({
             profile: profile.rows[0] || null,
