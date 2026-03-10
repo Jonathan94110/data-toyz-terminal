@@ -4579,6 +4579,26 @@ textarea:focus {
 
     /* Scorecard header */
     .sc-header { grid-template-columns: 180px 1fr; }
+
+    /* Override inline max-width containers ≤ 900px */
+    .content-area div[style*="max-width:900px"],
+    .content-area div[style*="max-width: 900px"],
+    .content-area div[style*="max-width:800px"],
+    .content-area div[style*="max-width: 800px"],
+    .content-area div[style*="max-width:700px"],
+    .content-area div[style*="max-width: 700px"],
+    .content-area div[style*="max-width:600px"],
+    .content-area div[style*="max-width: 600px"] {
+        max-width: 100% !important;
+    }
+
+    /* Override inline repeat(4/5) grids to 2-col on tablet */
+    .content-area div[style*="grid-template-columns: repeat(4"],
+    .content-area div[style*="grid-template-columns:repeat(4"],
+    .content-area div[style*="grid-template-columns: repeat(5"],
+    .content-area div[style*="grid-template-columns:repeat(5"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
 }
 
 /* ==========================================================================
@@ -4680,34 +4700,47 @@ textarea:focus {
 
     /* ── Inline Style Overrides ──────────────────────────────────── */
 
-    /* Override inline grid-template-columns on content divs */
+    /* Override ALL inline grid-template-columns → single column */
+    .content-area div[style*="grid-template-columns: repeat(5"],
+    .content-area div[style*="grid-template-columns:repeat(5"],
     .content-area div[style*="grid-template-columns: repeat(4"],
     .content-area div[style*="grid-template-columns: repeat(3"],
     .content-area div[style*="grid-template-columns:repeat(4"],
     .content-area div[style*="grid-template-columns:repeat(3"],
-    .content-area div[style*="grid-template-columns: 1fr 1fr 1fr"] {
-        grid-template-columns: 1fr !important;
-    }
+    .content-area div[style*="grid-template-columns: 1fr 1fr 1fr"],
+    .content-area div[style*="grid-template-columns:1fr 1fr 1fr"],
     .content-area div[style*="grid-template-columns: 1fr 1fr"],
     .content-area div[style*="grid-template-columns:1fr 1fr"] {
         grid-template-columns: 1fr !important;
     }
 
-    /* Override inline font sizes on headings */
+    /* Override inline font sizes on ALL elements (h1, h2, divs, spans) */
     .content-area h1[style*="font-size"],
     .content-area h2[style*="font-size"] {
         font-size: 1.5rem !important;
     }
+    /* Large stat numbers: 2rem+ → 1.4rem */
+    .content-area div[style*="font-size:2rem"],
+    .content-area div[style*="font-size: 2rem"],
+    .content-area div[style*="font-size:2.5rem"],
+    .content-area div[style*="font-size: 2.5rem"] {
+        font-size: 1.4rem !important;
+    }
 
-    /* Override inline padding on cards/containers */
+    /* Override inline padding on cards & any container with 2.5rem+ padding */
     .content-area .card[style*="padding: 2.5rem"],
     .content-area .card[style*="padding:2.5rem"],
     .content-area .card[style*="padding: 3rem"],
     .content-area .card[style*="padding:3rem"] {
         padding: 1.25rem !important;
     }
+    /* Skeleton loaders and general containers with 3rem padding */
+    .content-area div[style*="padding:3rem"],
+    .content-area div[style*="padding: 3rem"] {
+        padding: 1rem !important;
+    }
 
-    /* Override inline max-width on view containers */
+    /* Override ALL inline max-width on view containers */
     .content-area div[style*="max-width: 960px"],
     .content-area div[style*="max-width:960px"],
     .content-area div[style*="max-width: 1100px"],
@@ -4715,10 +4748,118 @@ textarea:focus {
     .content-area div[style*="max-width: 900px"],
     .content-area div[style*="max-width:900px"],
     .content-area div[style*="max-width: 860px"],
-    .content-area div[style*="max-width:860px"] {
+    .content-area div[style*="max-width:860px"],
+    .content-area div[style*="max-width: 800px"],
+    .content-area div[style*="max-width:800px"],
+    .content-area div[style*="max-width: 700px"],
+    .content-area div[style*="max-width:700px"],
+    .content-area div[style*="max-width: 600px"],
+    .content-area div[style*="max-width:600px"] {
         max-width: 100% !important;
+    }
+
+    /* Override inline min-width that causes overflow */
+    .content-area div[style*="min-width:200px"],
+    .content-area div[style*="min-width: 200px"],
+    .content-area div[style*="min-width:280px"],
+    .content-area div[style*="min-width: 280px"],
+    .content-area div[style*="min-width:180px"],
+    .content-area div[style*="min-width: 180px"] {
+        min-width: 0 !important;
+    }
+    .content-area span[style*="min-width:280px"],
+    .content-area span[style*="min-width: 280px"] {
+        min-width: 0 !important;
+    }
+    /* Segmented controls with min-width (feed sentiment, submission) */
+    .content-area .segmented-control[style*="min-width"] {
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+
+    /* Override inline flex gap > 1.5rem */
+    .content-area div[style*="gap:2rem"],
+    .content-area div[style*="gap: 2rem"] {
+        gap: 1rem !important;
+    }
+
+    /* ── Notification Preference Rows ────────────────────────────── */
+    /* Stack label and checkboxes vertically on mobile */
+    #notifPrefsGrid > div[style*="display:flex"][style*="justify-content:space-between"] {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.75rem !important;
+    }
+    #notifPrefsGrid > div[style*="display:flex"][style*="justify-content:space-between"] > span {
+        font-size: 0.85rem !important;
+    }
+    /* Column headers for email/in-app */
+    #notifPrefsGrid > div[style*="justify-content:flex-end"] {
+        justify-content: flex-start !important;
         padding-left: 0 !important;
-        padding-right: 0 !important;
+    }
+
+    /* ── Watchlist Alert Cards ───────────────────────────────────── */
+    /* Stack alert card items vertically */
+    .content-area .card[style*="display:flex"][style*="justify-content:space-between"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+    }
+    .content-area .card[style*="display:flex"] div[style*="text-align:center"][style*="min-width:120px"] {
+        text-align: left !important;
+        min-width: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+    }
+
+    /* ── Star Ratings ───────────────────────────────────────────── */
+    /* Shrink oversized star buttons (2.5rem → 1.75rem) */
+    .content-area button[style*="font-size:2.5rem"],
+    .content-area span[style*="font-size: 2rem"],
+    .content-area span[style*="font-size:2rem"] {
+        font-size: 1.5rem !important;
+    }
+
+    /* ── Admin Panel ────────────────────────────────────────────── */
+    /* Admin select/input min-width override */
+    .content-area select[style*="min-width:200px"],
+    .content-area select[style*="min-width: 200px"],
+    .content-area input[style*="min-width:200px"],
+    .content-area input[style*="min-width: 200px"],
+    .content-area input[style*="min-width:120px"],
+    .content-area input[style*="min-width: 120px"] {
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+    /* Admin flex containers: max-width override */
+    .content-area div[style*="max-width:400px"],
+    .content-area div[style*="max-width: 400px"],
+    .content-area select[style*="max-width:400px"],
+    .content-area select[style*="max-width: 400px"] {
+        max-width: 100% !important;
+    }
+
+    /* ── User Profile ────────────────────────────────────────────── */
+    /* Avatar image 120px → 80px */
+    .content-area img[style*="width:120px"] {
+        width: 80px !important;
+        height: 80px !important;
+    }
+    /* Fallback avatar div 120px → 80px */
+    .content-area div[style*="width:120px"][style*="height:120px"][style*="border-radius:50%"] {
+        width: 80px !important;
+        height: 80px !important;
+        font-size: 1.5rem !important;
+    }
+    /* Profile stats: compress font size */
+    .content-area div[style*="font-size:1.75rem"][style*="font-weight:900"] {
+        font-size: 1.3rem !important;
+    }
+    /* Profile header flex: stack on mobile */
+    .content-area .card div[style*="display:flex"][style*="gap:1.5rem"][style*="flex-wrap:wrap"] {
+        gap: 1rem !important;
     }
 
     /* ── Trade Advisor ───────────────────────────────────────────── */
@@ -4736,14 +4877,20 @@ textarea:focus {
     }
     .rooms-container { max-width: 100% !important; }
 
-    /* ── User Profile ────────────────────────────────────────────── */
-    .content-area img[style*="width:120px"] {
-        width: 80px !important;
-        height: 80px !important;
+    /* ── Feed ────────────────────────────────────────────────────── */
+    .content-area img { max-width: 100%; height: auto; }
+    /* Feed post form: stack sentiment controls full width */
+    .content-area form div[style*="display:flex"][style*="justify-content:space-between"][style*="flex-wrap:wrap"] {
+        flex-direction: column !important;
     }
 
-    /* ── Feed / Images ───────────────────────────────────────────── */
-    .content-area img { max-width: 100%; height: auto; }
+    /* ── Submission Form ────────────────────────────────────────── */
+    /* Ownership radio labels: shrink min-width */
+    .content-area label[style*="min-width:180px"],
+    .content-area label[style*="min-width: 180px"] {
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+    }
 
     /* ── Autocomplete Dropdowns ──────────────────────────────────── */
     .ta-search-dropdown, .sc-search-dropdown {
