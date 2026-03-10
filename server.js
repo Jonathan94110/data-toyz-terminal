@@ -17,6 +17,17 @@ const app = express();
 app.set('trust proxy', 1);          // Render sits behind a reverse proxy
 const PORT = process.env.PORT || 3000;
 
+// --- Real client IP from Cloudflare --- //
+// Cloudflare + Render = 2 proxies, so trust proxy 1 returns the Cloudflare
+// server IP, not the user's real IP. CF-Connecting-IP always has the real one.
+app.use((req, res, next) => {
+    const cfIp = req.headers['cf-connecting-ip'];
+    if (cfIp) {
+        Object.defineProperty(req, 'ip', { value: cfIp, writable: true, configurable: true });
+    }
+    next();
+});
+
 // --- HTTPS Enforcement in production --- //
 app.use((req, res, next) => {
     if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
