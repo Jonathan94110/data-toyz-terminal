@@ -791,12 +791,6 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 <button id="adminBackupBtn" style="background:linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color:white; border:none; padding:0.6rem 1.2rem; border-radius:var(--radius-sm); cursor:pointer; font-size:0.85rem; font-weight:600; letter-spacing:0.03em;">Download Backup</button>
                 <span id="adminBackupStatus" style="color:var(--text-muted); font-size:0.8rem; margin-left:0.75rem;"></span>
 
-                <!-- BACKFILL REGIONS -->
-                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F30E} Backfill Regions</h3>
-                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:0.75rem;">Tag historical market transactions with geographic regions by looking up submitter IPs from audit logs. Only updates transactions that don't already have a region.</p>
-                <button id="adminBackfillBtn" style="background:linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color:white; border:none; padding:0.6rem 1.2rem; border-radius:var(--radius-sm); cursor:pointer; font-size:0.85rem; font-weight:600; letter-spacing:0.03em;">Run Backfill</button>
-                <span id="adminBackfillStatus" style="color:var(--text-muted); font-size:0.8rem; margin-left:0.75rem;"></span>
-
                 <!-- SYSTEM LOGS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">\u{1F4DC} System Logs</h3>
                 <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Authentication events, admin actions, and security audit trail.</p>
@@ -1308,28 +1302,6 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 }
                 backupBtn.disabled = false;
                 backupBtn.textContent = 'Download Backup';
-            });
-        }
-
-        // Backfill Regions button handler
-        const backfillBtn = document.getElementById('adminBackfillBtn');
-        const backfillStatus = document.getElementById('adminBackfillStatus');
-        if (backfillBtn) {
-            backfillBtn.addEventListener('click', async () => {
-                backfillBtn.disabled = true;
-                backfillBtn.textContent = 'Backfilling...';
-                if (backfillStatus) backfillStatus.textContent = '';
-                try {
-                    const res = await self.authFetch(`${API_URL}/admin/backfill-regions`, { method: 'POST' });
-                    if (!res.ok) throw new Error('Backfill failed');
-                    const data = await res.json();
-                    if (backfillStatus) backfillStatus.textContent = `Done — updated ${data.updated} transaction${data.updated !== 1 ? 's' : ''} across ${data.users} user${data.users !== 1 ? 's' : ''}.`;
-                    backfillStatus.style.color = 'var(--accent)';
-                } catch (e) {
-                    if (backfillStatus) { backfillStatus.textContent = 'Backfill failed. Try again.'; backfillStatus.style.color = '#ef4444'; }
-                }
-                backfillBtn.disabled = false;
-                backfillBtn.textContent = 'Run Backfill';
             });
         }
 

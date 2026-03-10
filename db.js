@@ -524,35 +524,6 @@ async function initDB() {
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_figure_pricetype ON MarketTransactions(figure_id, price_type)`);
         }
 
-        // Migration: add region column to MarketTransactions for regional pricing
-        const regionCheck = await pool.query(`
-            SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'markettransactions' AND column_name = 'region'
-        `);
-        if (regionCheck.rows.length === 0) {
-            await pool.query(`ALTER TABLE MarketTransactions ADD COLUMN region TEXT`);
-        }
-        await pool.query(`CREATE INDEX IF NOT EXISTS idx_mt_region ON MarketTransactions(region)`);
-
-        // One-time migration: clear old-style region names so backfill re-tags with cardinal directions
-        const oldRegionCheck = await pool.query(`
-            SELECT COUNT(*) as cnt FROM MarketTransactions
-            WHERE region IN ('Northeast', 'Southeast', 'Midwest')
-        `);
-        if (parseInt(oldRegionCheck.rows[0].cnt) > 0) {
-            await pool.query(`UPDATE MarketTransactions SET region = NULL WHERE region IN ('Northeast', 'Southeast', 'Midwest')`);
-        }
-        // Also clear 'West' entries from old mapping (TX moved to South) — only runs once when old names exist
-        const oldWestCheck = await pool.query(`
-            SELECT COUNT(*) as cnt FROM MarketTransactions
-            WHERE region = 'West' AND NOT EXISTS (
-                SELECT 1 FROM MarketTransactions WHERE region IN ('North', 'South', 'East')
-            )
-        `);
-        if (parseInt(oldWestCheck.rows[0].cnt) > 0) {
-            await pool.query(`UPDATE MarketTransactions SET region = NULL WHERE region = 'West'`);
-        }
-
         // --- Performance indexes for concurrent user scaling ---
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_author ON Posts(author)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_id_desc ON Posts(id DESC)`);
