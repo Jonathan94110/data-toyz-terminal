@@ -121,7 +121,10 @@ TerminalApp.prototype.renderSearch = async function (container) {
             <div class="card target-card animate-stagger" style="animation-delay: ${index * 0.05}s; cursor:pointer;" data-figure-id="${f.id}">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 0.5rem;">
                     <div style="color:var(--text-muted); font-size: 0.8rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${escapeHTML(f.brand)} &bull; ${escapeHTML(f.line)}</div>
-                    <span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}">${escapeHTML(f.classTie)}</span>
+                    <div style="display:flex; gap:0.4rem; align-items:center;">
+                        ${f.marketSignal ? `<span class="signal-badge signal-${f.marketSignal.toLowerCase()}">${f.marketSignal}</span>` : ''}
+                        <span class="tier-badge ${escapeHTML(f.classTie).toLowerCase()}">${escapeHTML(f.classTie)}</span>
+                    </div>
                 </div>
                 <h3 style="margin-bottom: 0.5rem; font-size: 1.25rem;">${escapeHTML(f.name)}</h3>
                 <div style="height: 48px; margin: 0.75rem 0; position: relative; width: 100%;">
