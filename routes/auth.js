@@ -53,7 +53,10 @@ router.post('/login', authAttemptLimiter, async (req, res) => {
     if (!username || !password) return res.status(400).json({ error: "Missing credentials." });
 
     try {
-        const result = await db.query("SELECT * FROM Users WHERE username = $1", [username]);
+        const result = await db.query(
+            "SELECT id, username, email, avatar, role, platinum, password_hash, suspended FROM Users WHERE username = $1",
+            [username]
+        );
         const user = result.rows[0];
         if (!user) {
             await auditLog('LOGIN_FAILURE', username, username, 'Invalid username', req.ip);
