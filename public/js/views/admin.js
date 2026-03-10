@@ -231,7 +231,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                     editRow.classList.add('edit-form-row');
                     editRow.innerHTML = `
                         <td colspan="7" style="padding:1rem; background:var(--bg-surface); border:1px solid var(--border-light);">
-                            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+                            <div class="rgrid-3" style="gap:0.5rem; margin-bottom:0.75rem;">
                                 <div>
                                     <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Name</label>
                                     <input id="editName-${btn.dataset.id}" value="${escapeHTML(btn.dataset.name)}" style="width:100%; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
@@ -245,7 +245,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                                     <input id="editClass-${btn.dataset.id}" value="${escapeHTML(btn.dataset.class)}" style="width:100%; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
                                 </div>
                             </div>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+                            <div class="rgrid-2" style="margin-bottom:0.75rem;">
                                 <div>
                                     <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.2rem;">Product Line</label>
                                     <input id="editLine-${btn.dataset.id}" value="${escapeHTML(btn.dataset.line)}" style="width:100%; padding:0.4rem 0.6rem; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px;">
@@ -653,7 +653,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 
                 <!-- SITE ANALYTICS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem;">\u{1F4CA} Site Analytics</h3>
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem; margin-bottom:2rem;">
+                <div class="rgrid-4" style="margin-bottom:2rem;">
                     <div class="stat-box" style="padding:1.25rem;">
                         <div class="stat-value" style="font-size:2rem; color:var(--accent);">${analytics.totalUsers || 0}</div>
                         <div class="stat-label">Registered Users</div>
@@ -691,7 +691,7 @@ TerminalApp.prototype.renderAdmin = async function(container) {
 
                 <!-- PAGE VIEW ANALYTICS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">&#128065; Page Views</h3>
-                <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:1rem; margin-bottom:1.5rem;">
+                <div class="rgrid-5" style="margin-bottom:1.5rem;">
                     <div class="stat-box" style="padding:1.25rem;">
                         <div class="stat-value" style="font-size:2rem; color:var(--accent);">${pageviewSummary.totalViews || 0}</div>
                         <div class="stat-label">Total Views</div>
