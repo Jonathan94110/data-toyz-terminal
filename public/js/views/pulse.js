@@ -211,7 +211,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
             <!-- PRICE TIERS -->
             <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
                 <h3 style="margin:0 0 1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">\u{1F4B2} Price Tiers</h3>
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem; text-align:center;">
+                <div class="rgrid-3" style="text-align:center;">
                     <div style="padding:0.75rem 0.5rem; background:rgba(16,185,129,0.05); border-radius:var(--radius-sm);">
                         <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.35rem; letter-spacing:0.05em;">OVERSEAS (MSRP)</div>
                         <div style="font-size:1.4rem; font-weight:800; color:var(--success);">${overseasAvg ? '$' + overseasAvg.toFixed(2) : (smartMsrp && msrpSource === 'catalog' ? '$' + smartMsrp.toFixed(2) : '---')}</div>
@@ -242,7 +242,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
                 <h3 style="margin:0 0 1rem; text-transform:uppercase; letter-spacing:0.08em; font-size:0.9rem; color:var(--text-secondary);">
                     \u{1F465} Community Pop Count
                 </h3>
-                <div class="pop-count-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem; text-align:center;">
+                <div class="pop-count-grid rgrid-4" style="text-align:center;">
                     <div class="stat-box" style="padding:1.25rem;">
                         <div class="stat-value" style="font-size:2rem; color:#10b981;">${pc.uniqueOwnerCount}</div>
                         <div class="stat-label">Unique Owners</div>
@@ -281,7 +281,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
             <div class="card" style="margin-bottom: 2.5rem; padding: 2rem;">
                 <h3 style="margin:0 0 1.25rem; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">📊 Community Score Breakdown</h3>
 
-                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:2rem;">
+                <div class="rgrid-3" style="margin-bottom:2rem;">
                     <div class="stat-box" style="padding:1.25rem;">
                         <div class="stat-value" style="font-size:1.75rem;">${cm.dts.total.toFixed(1)}</div>
                         <div class="stat-label">DTS Total (0-100)</div>
@@ -328,7 +328,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
                     <h3 style="margin:0; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">💰 Market Intelligence</h3>
                     <span style="font-size:0.75rem; padding:0.25rem 0.75rem; border-radius:12px; font-weight:700; ${marketIntel.transactions.confidence === 'high' ? 'background:rgba(16,185,129,0.15); color:#10b981;' : marketIntel.transactions.confidence === 'medium' ? 'background:rgba(251,191,36,0.15); color:#fbbf24;' : 'background:rgba(239,68,68,0.15); color:#ef4444;'}">${marketIntel.transactions.confidence.toUpperCase()} CONFIDENCE</span>
                 </div>
-                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:1rem;">
+                <div class="rgrid-3">
                     <div class="stat-box" style="padding:1.25rem;">
                         <div class="stat-value" style="font-size:1.75rem; color:#10b981;">${marketIntel.transactions.rolling30.avg != null ? '$' + marketIntel.transactions.rolling30.avg.toFixed(2) : '—'}</div>
                         <div class="stat-label">30-Day Avg</div>

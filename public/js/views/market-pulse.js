@@ -163,7 +163,7 @@ TerminalApp.prototype.renderMarketOverview = async function (container) {
                     ${brandIndex.map(b => `
                         <div class="card brand-index-card" style="padding:1.25rem;">
                             <div style="font-weight:800; font-size:1.1rem; margin-bottom:0.75rem;">${escapeHTML(b.brand)}</div>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.85rem;">
+                            <div class="rgrid-2" style="font-size:0.85rem;">
                                 <div>
                                     <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Figures</div>
                                     <div style="font-weight:600;">${b.figureCount}</div>
@@ -825,7 +825,7 @@ TerminalApp.prototype.renderWeeklyMovers = async function (container) {
                     ${data.brandMovers.length > 0 ? data.brandMovers.map(b => `
                         <div class="card" style="padding:1.25rem;">
                             <div style="font-weight:800; font-size:1.1rem; margin-bottom:0.75rem;">${escapeHTML(b.brand)}</div>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.85rem;">
+                            <div class="rgrid-2" style="font-size:0.85rem;">
                                 <div>
                                     <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Figures</div>
                                     <div style="font-weight:600;">${b.figureCount}</div>
@@ -888,7 +888,7 @@ TerminalApp.prototype.renderBrandHealth = async function (container) {
                 ${data.brands.map((b, i) => `
                     <div class="card" style="padding:1.25rem; border-top:3px solid ${BRAND_COLORS[i % BRAND_COLORS.length]};">
                         <div style="font-weight:800; font-size:1.1rem; margin-bottom:0.75rem;">${escapeHTML(b.brand)}</div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.85rem;">
+                        <div class="rgrid-2" style="font-size:0.85rem;">
                             <div>
                                 <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase;">Figures</div>
                                 <div style="font-weight:600;">${b.figureCount}</div>

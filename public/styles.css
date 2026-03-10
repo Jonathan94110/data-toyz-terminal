@@ -4553,11 +4553,19 @@ textarea:focus {
 }
 
 /* ==========================================================================
+   RESPONSIVE UTILITY GRIDS — replace inline grid-template-columns
+   ========================================================================== */
+.rgrid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.rgrid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.rgrid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.rgrid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; }
+
+/* ==========================================================================
    RESPONSIVE — TABLET (max-width: 1024px)
    ========================================================================== */
 @media (max-width: 1024px) {
     .content-area { padding: 1.5rem; }
-    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid-4, .rgrid-4, .rgrid-5 { grid-template-columns: repeat(2, 1fr); }
     .stat-box { padding: 1.25rem; }
 
     /* Auth: stack form above showcase */
@@ -4662,7 +4670,7 @@ textarea:focus {
     .content-area { padding: 1rem; }
 
     /* ── Grids ───────────────────────────────────────────────────── */
-    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; gap: 0.75rem; }
+    .grid-2, .grid-3, .grid-4, .rgrid-2, .rgrid-3, .rgrid-4, .rgrid-5 { grid-template-columns: 1fr; gap: 0.75rem; }
 
     /* ── Typography ──────────────────────────────────────────────── */
     .content-area h1, .content-area h2 { font-size: 1.5rem !important; }
