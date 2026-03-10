@@ -378,6 +378,10 @@ class TerminalApp {
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                             <span class="nav-label">My Intel History</span>
                         </div>
+                        <div class="nav-item ${this.currentView === 'watchlist' ? 'active' : ''}" data-view="watchlist">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                            <span class="nav-label">Price Alerts</span>
+                        </div>
                         <div class="nav-item ${this.currentView === 'figure_leaderboard' ? 'active' : ''}" data-view="figure_leaderboard">
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
                             <span class="nav-label">Leaderboard</span>
@@ -581,6 +585,7 @@ class TerminalApp {
             else if (this.currentView === 'user_profile') this.renderUserProfile(contentArea);
             else if (this.currentView === 'scorecard') this.renderScorecard(contentArea);
             else if (this.currentView === 'docs') this.renderDocs(contentArea);
+            else if (this.currentView === 'watchlist') this.renderWatchlist(contentArea);
             else if (this.currentView === 'admin' && (['owner', 'admin', 'moderator'].includes(this.user.role) || this.user.platinum)) this.renderAdmin(contentArea);
         } catch (err) {
             console.error('View render crashed:', this.currentView, err);

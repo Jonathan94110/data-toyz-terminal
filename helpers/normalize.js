@@ -16,7 +16,8 @@ const COL_MAP = {
     follower_id: 'followerId', following_id: 'followingId',
     post_author: 'postAuthor', post_content: 'postContent', post_date: 'postDate',
     flag_count: 'flagCount',
-    hasimage: 'hasImage', submissioncount: 'submissionCount'
+    hasimage: 'hasImage', submissioncount: 'submissionCount',
+    target_price: 'targetPrice', alert_type: 'alertType', triggered_at: 'triggeredAt'
 };
 function normalizeRow(row) {
     if (!row) return row;

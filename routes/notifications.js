@@ -29,7 +29,8 @@ router.put('/preferences', requireAuth, async (req, res) => {
         'mention_inapp', 'mention_email',
         'flag_inapp', 'flag_email',
         'assessment_request_inapp', 'assessment_request_email',
-        'pending_brand_inapp', 'pending_brand_email'
+        'pending_brand_inapp', 'pending_brand_email',
+        'price_alert_inapp', 'price_alert_email'
     ];
 
     try {
