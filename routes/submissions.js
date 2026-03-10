@@ -91,21 +91,8 @@ router.get('/user/:username', async (req, res) => {
     }
 });
 
-// Get a single submission by ID (deep-link)
-router.get('/:id', requireAuth, async (req, res) => {
-    try {
-        const result = await db.query("SELECT * FROM Submissions WHERE id = $1", [req.params.id]);
-        if (!result.rows[0]) return res.status(404).json({ error: 'Submission not found.' });
-        const row = normalizeRows([result.rows[0]])[0];
-        try { row.data = JSON.parse(row.jsonData); } catch (e) { row.data = {}; }
-        res.json(row);
-    } catch (err) {
-        log.error('Get submission by id error', { refId: req.requestId, error: err.message || err });
-        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
-    }
-});
-
 // Leaderboard: server-side aggregation with caching (60s TTL)
+// Must be defined before /:id to avoid route conflict
 router.get('/leaderboard', cacheResponse(60000), async (req, res) => {
     try {
         const result = await db.query(
@@ -117,6 +104,20 @@ router.get('/leaderboard', cacheResponse(60000), async (req, res) => {
         res.json(result.rows.map(r => ({ author: r.author, count: parseInt(r.count) })));
     } catch (err) {
         log.error('Leaderboard query error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
+// Get a single submission by ID (deep-link)
+router.get('/:id', requireAuth, async (req, res) => {
+    try {
+        const result = await db.query("SELECT * FROM Submissions WHERE id = $1", [req.params.id]);
+        if (!result.rows[0]) return res.status(404).json({ error: 'Submission not found.' });
+        const row = normalizeRows([result.rows[0]])[0];
+        try { row.data = JSON.parse(row.jsonData); } catch (e) { row.data = {}; }
+        res.json(row);
+    } catch (err) {
+        log.error('Get submission by id error', { refId: req.requestId, error: err.message || err });
         res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
     }
 });
