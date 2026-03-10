@@ -146,6 +146,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
                             <span style="color:var(--text-muted);">&bull;</span>
                             <span style="color:var(--text-muted); font-size:0.85rem;">${escapeHTML(this.currentTarget.line || '')}</span>
                             <span class="tier-badge ${escapeHTML(this.currentTarget.classTie || '').toLowerCase()}">${escapeHTML(this.currentTarget.classTie)}</span>
+                            ${marketIntel?.marketSignal ? `<span class="signal-badge signal-${marketIntel.marketSignal.toLowerCase()}">${marketIntel.marketSignal}</span>` : ''}
                         </div>
                     </div>
                     <div style="text-align:center; padding-left:1.5rem; border-left:1px solid var(--border-light);">

@@ -168,6 +168,12 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
             } catch (e) { log.error('Auto-insert market transaction failed', { error: e.message }); }
         }
 
+        // Fire-and-forget: recalculate market signal after new pricing data
+        if (pricingTypes.length > 0) {
+            const { updateSignalForFigure } = require('../helpers/market-signals');
+            updateSignalForFigure(parseInt(req.body.targetId)).catch(() => {});
+        }
+
         const coReviewers = await db.query(
             "SELECT DISTINCT author FROM Submissions WHERE targetId = $1 AND author != $2",
             [req.body.targetId, req.user.username]

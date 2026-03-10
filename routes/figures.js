@@ -318,13 +318,13 @@ router.get('/ranked', async (req, res) => {
         const catFilter = category ? "WHERE f.category = $1" : "";
         const catParams = category ? [category] : [];
         const result = await db.query(`
-            SELECT f.id, f.name, f.brand, f.classTie, f.line, f.created_by, f.category,
+            SELECT f.id, f.name, f.brand, f.classTie, f.line, f.created_by, f.category, f.market_signal,
                    COUNT(s.id) as submissions,
                    AVG((s.mtsTotal + s.approvalScore) / 2) as avgGrade
             FROM Figures f
             LEFT JOIN Submissions s ON f.id = s.targetId
             ${catFilter}
-            GROUP BY f.id, f.name, f.brand, f.classTie, f.line, f.created_by, f.category
+            GROUP BY f.id, f.name, f.brand, f.classTie, f.line, f.created_by, f.category, f.market_signal
             ORDER BY f.name ASC
         `, catParams);
         res.json(result.rows.map(r => ({
@@ -336,7 +336,8 @@ router.get('/ranked', async (req, res) => {
             category: r.category || 'transformer',
             createdBy: r.created_by || null,
             submissions: parseInt(r.submissions) || 0,
-            avgGrade: r.avggrade ? parseFloat(r.avggrade).toFixed(1) : null
+            avgGrade: r.avggrade ? parseFloat(r.avggrade).toFixed(1) : null,
+            marketSignal: r.market_signal || null
         })));
     } catch (err) {
         log.error('Ranked figures error', { refId: req.requestId, error: err.message || err });
@@ -856,6 +857,11 @@ router.post('/:id/market-transactions', requireAuth, async (req, res) => {
         );
         invalidateCache('/api/figures');
         invalidateCache('/api/stats');
+
+        // Fire-and-forget: recalculate market signal
+        const { updateSignalForFigure } = require('../helpers/market-signals');
+        updateSignalForFigure(parseInt(figureId)).catch(() => {});
+
         res.status(201).json({ id: result.rows[0].id, message: 'Market transaction recorded.' });
     } catch (err) {
         log.error('Market transaction error', { refId: req.requestId, error: err.message || err });

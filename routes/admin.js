@@ -879,4 +879,21 @@ router.post('/hq-update', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// Recalculate market signals for all figures
+router.post('/recalculate-signals', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { updateSignalForFigure } = require('../helpers/market-signals');
+        const figures = await db.query("SELECT id FROM Figures");
+        let updated = 0;
+        for (const fig of figures.rows) {
+            const signal = await updateSignalForFigure(fig.id);
+            if (signal) updated++;
+        }
+        res.json({ message: `Recalculated signals for ${updated} of ${figures.rows.length} figures.`, updated, total: figures.rows.length });
+    } catch (err) {
+        log.error('Recalculate signals error', { refId: req.requestId, error: err.message || err });
+        res.status(500).json({ error: 'An internal error occurred.', refId: req.requestId });
+    }
+});
+
 module.exports = router;

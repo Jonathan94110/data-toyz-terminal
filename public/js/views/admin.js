@@ -758,6 +758,14 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 ` : ''}
 
                 ${isFullAdmin ? `
+                <!-- MARKET SIGNALS -->
+                <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">📊 Market Signals</h3>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:0.75rem;">Recalculate BUY / SELL / HOLD / WATCH signals for all figures based on pricing trends, grades, and volume.</p>
+                <button id="recalcSignalsBtn" class="btn" style="padding:0.6rem 1.2rem; font-size:0.85rem;">Recalculate All Signals</button>
+                <span id="recalcSignalsStatus" style="color:var(--text-muted); font-size:0.8rem; margin-left:0.75rem;"></span>
+                ` : ''}
+
+                ${isFullAdmin ? `
                 <!-- TICKER SETTINGS -->
                 <h3 style="text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary); margin-bottom:1rem; margin-top:2.5rem;">&#x1F4F0; Ticker Settings</h3>
                 <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Control what data the global ticker displays and how many items it shows.</p>
@@ -1090,6 +1098,30 @@ TerminalApp.prototype.renderAdmin = async function(container) {
                 } catch (e) {
                     statusEl.innerHTML = '<span style="color:var(--danger);">Failed to send. Try again.</span>';
                 }
+            });
+        }
+
+        // ── Market Signals ─────────────────────────────────
+        if (isFullAdmin) {
+            document.getElementById('recalcSignalsBtn')?.addEventListener('click', async () => {
+                const btn = document.getElementById('recalcSignalsBtn');
+                const statusEl = document.getElementById('recalcSignalsStatus');
+                btn.disabled = true;
+                btn.textContent = 'Recalculating…';
+                statusEl.textContent = '';
+                try {
+                    const res = await self.authFetch(`${API_URL}/admin/recalculate-signals`, { method: 'POST' });
+                    const data = await res.json();
+                    if (res.ok) {
+                        statusEl.innerHTML = `<span style="color:var(--success);">${data.updated} of ${data.total} figures updated.</span>`;
+                    } else {
+                        statusEl.innerHTML = `<span style="color:var(--danger);">${escapeHTML(data.error || 'Failed')}</span>`;
+                    }
+                } catch (e) {
+                    statusEl.innerHTML = '<span style="color:var(--danger);">Connection error.</span>';
+                }
+                btn.disabled = false;
+                btn.textContent = 'Recalculate All Signals';
             });
         }
 
