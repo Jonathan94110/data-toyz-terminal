@@ -3,20 +3,15 @@
 TerminalApp.prototype.renderLeaderboards = async function (container) {
     container.innerHTML = `<div style="padding:3rem;">${this.skeletonHTML('rows', 5)}</div>`;
 
-    let allSubs = [];
+    let leaderboard = [];
     try {
-        const res = await fetch(`${API_URL}/submissions`);
-        if (res.ok) allSubs = await res.json();
+        const res = await fetch(`${API_URL}/submissions/leaderboard`);
+        if (res.ok) leaderboard = await res.json();
     } catch (e) {
-        console.error("Failed fetching global logs", e);
+        console.error("Failed fetching leaderboard", e);
     }
 
-    const authorCounts = {};
-    allSubs.forEach(s => {
-        authorCounts[s.author] = (authorCounts[s.author] || 0) + 1;
-    });
-
-    const sortedAuthors = Object.entries(authorCounts).sort((a, b) => b[1] - a[1]);
+    const sortedAuthors = leaderboard.map(r => [r.author, r.count]);
     const isAdmin = ['owner', 'admin'].includes(this.user.role);
 
     function getTitle(count) {

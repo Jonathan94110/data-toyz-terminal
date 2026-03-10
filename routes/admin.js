@@ -553,7 +553,9 @@ router.delete('/users/:username/submissions', requireAuth, requireAdmin, async (
         if (username === ADMIN_USERNAME) return res.status(403).json({ error: "Cannot wipe admin submissions." });
 
         const result = await db.query("DELETE FROM Submissions WHERE author = $1", [username]);
-        invalidateAll();
+        invalidateCache('/api/submissions');
+        invalidateCache('/api/stats');
+        invalidateCache('/api/figures');
         await auditLog('ADMIN_WIPE_SUBMISSIONS', req.user.username, username, `Wiped ${result.rowCount} submissions`, req.ip);
 
         res.json({ message: `Removed ${result.rowCount} submissions for ${username}.`, count: result.rowCount });

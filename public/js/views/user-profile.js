@@ -12,10 +12,11 @@ TerminalApp.prototype.renderUserProfile = async function (container) {
         const profile = await res.json();
 
         const calculateRank = (count) => {
-            if (count >= 50) return { title: 'Legend', class: 'badge-legend', next: null, current: count, icon: '\u{1F48E}' }; // Diamond
-            if (count >= 20) return { title: 'Master', class: 'badge-master', next: 50, current: count, icon: '\u{2B50}' }; // Star
-            if (count >= 5) return { title: 'Operative', class: 'badge-operative', next: 20, current: count, icon: '\u{1F6E1}' }; // Shield
-            return { title: 'Recruit', class: 'badge-recruit', next: 5, current: count, icon: '\u{1F530}' }; // Beginner
+            if (count >= 15) return { title: 'Prime Intel Officer', class: 'badge-legend', next: null, current: count, icon: '\u{1F48E}' };
+            if (count >= 10) return { title: 'Senior Field Evaluator', class: 'badge-master', next: 15, current: count, icon: '\u{2B50}' };
+            if (count >= 5) return { title: 'Field Evaluator', class: 'badge-operative', next: 10, current: count, icon: '\u{1F6E1}' };
+            if (count >= 2) return { title: 'Junior Analyst', class: 'badge-operative', next: 5, current: count, icon: '\u{1F530}' };
+            return { title: 'Rookie Analyst', class: 'badge-recruit', next: 2, current: count, icon: '\u{1F530}' };
         };
         const rankInfo = calculateRank(profile.submissionCount);
 
