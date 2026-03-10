@@ -418,9 +418,13 @@ class TerminalApp {
                         </div>
                     </nav>
                 </aside>
+                <div class="mobile-overlay" id="mobileOverlay"></div>
 
                 <main class="main-content">
                     <header class="topbar">
+                        <button class="mobile-hamburger" id="mobileMenuBtn" aria-label="Open menu">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                        </button>
                         <div class="topbar-search">
                             <svg class="topbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                             <input type="text" id="globalSearchInput" class="topbar-search-input" placeholder="Search targets, users, intel..." />
@@ -492,6 +496,29 @@ class TerminalApp {
                 this.renderApp();
             });
         }
+
+        // Mobile menu toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileOverlay = document.getElementById('mobileOverlay');
+        const sidebarEl = document.querySelector('.sidebar');
+        if (mobileMenuBtn && sidebarEl) {
+            mobileMenuBtn.addEventListener('click', () => {
+                sidebarEl.classList.toggle('mobile-open');
+                mobileOverlay.classList.toggle('active');
+            });
+        }
+        if (mobileOverlay) {
+            mobileOverlay.addEventListener('click', () => {
+                sidebarEl.classList.remove('mobile-open');
+                mobileOverlay.classList.remove('active');
+            });
+        }
+        document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+            item.addEventListener('click', () => {
+                if (sidebarEl) sidebarEl.classList.remove('mobile-open');
+                if (mobileOverlay) mobileOverlay.classList.remove('active');
+            });
+        });
 
         // Global search
         const globalSearch = document.getElementById('globalSearchInput');
