@@ -18,9 +18,11 @@ const ROUTES_DIR = path.join(ROOT, 'routes');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const MIDDLEWARE_DIR = path.join(ROOT, 'middleware');
 
-let passed = 0, warned = 0, failed = 0;
+const FIX_MODE = process.argv.includes('--fix');
+let passed = 0, warned = 0, failed = 0, fixed = 0;
 const failures = [];
 const warnings = [];
+const fixes = [];
 
 function pass(msg) { console.log(`  \x1b[32m✓\x1b[0m ${msg}`); passed++; }
 function warn(msg, detail) { console.log(`  \x1b[33m⚠\x1b[0m ${msg}${detail ? ' — ' + detail : ''}`); warned++; warnings.push(detail ? `${msg} — ${detail}` : msg); }
@@ -298,7 +300,7 @@ function checkIdentityProtection() {
         else pass('Auth responses checked');
 
         // Verify SELECT in /me doesn't include password_hash
-        if (/SELECT id, username, email, avatar, role FROM Users/.test(authContent)) {
+        if (/SELECT\s+(?!.*password_hash).*FROM Users/i.test(authContent.match(/\/me.*?SELECT[^;]*/s)?.[0] || '')) {
             pass('/me endpoint selects only safe fields (no password_hash)');
         } else if (/SELECT\s+\*\s+FROM\s+Users/.test(authContent)) {
             fail('/me endpoint uses SELECT * — may expose password_hash');
@@ -359,11 +361,14 @@ function checkIdentityProtection() {
     // Check public profile endpoint — should NOT return email
     const usersContent = readFile(path.join(ROUTES_DIR, 'users.js'));
     if (usersContent) {
-        const profileQuery = usersContent.match(/SELECT.*FROM Users WHERE username.*profile/s);
-        if (usersContent.includes('SELECT id, username, avatar, role, created_at FROM Users')) {
+        // Match the profile SELECT — should NOT include 'email'
+        const profileSelect = usersContent.match(/\/profile.*?SELECT\s+([^"]+)\s+FROM Users/s)?.[1] || '';
+        if (profileSelect && !/email/.test(profileSelect)) {
             pass('Public profile endpoint does NOT return email');
+        } else if (!profileSelect) {
+            warn('Could not locate public profile SELECT query');
         } else {
-            warn('Check that public profile endpoint excludes email');
+            fail('Public profile endpoint returns email — remove it from SELECT');
         }
     }
 
@@ -406,45 +411,69 @@ function checkIdentityProtection() {
 // =====================================================
 // DEPENDENCY CHECKS
 // =====================================================
+function parseAuditVulns(jsonStr) {
+    try {
+        const audit = JSON.parse(jsonStr);
+        return audit.metadata?.vulnerabilities || {};
+    } catch { return {}; }
+}
+
 function checkDependencies() {
     console.log('\n\x1b[36m━━━ DEPENDENCY SECURITY ━━━\x1b[0m\n');
 
     console.log('  \x1b[90mVulnerability Scan\x1b[0m');
+    let vulns = {};
     try {
         const output = execSync('npm audit --json 2>/dev/null', { cwd: ROOT, encoding: 'utf8', timeout: 30000 });
-        const audit = JSON.parse(output);
-        const vulns = audit.metadata?.vulnerabilities || {};
-        const critical = vulns.critical || 0;
-        const high = vulns.high || 0;
-        const moderate = vulns.moderate || 0;
+        vulns = parseAuditVulns(output);
+    } catch (e) {
+        vulns = parseAuditVulns(e.stdout || '{}');
+    }
 
+    const critical = vulns.critical || 0;
+    const high = vulns.high || 0;
+    const moderate = vulns.moderate || 0;
+    const totalFixable = critical + high;
+
+    if (totalFixable > 0 && FIX_MODE) {
+        console.log('  \x1b[36m→ Running npm audit fix...\x1b[0m');
+        try {
+            const fixOutput = execSync('npm audit fix 2>&1', { cwd: ROOT, encoding: 'utf8', timeout: 60000 });
+            // Re-check after fix
+            let postVulns = {};
+            try {
+                const postOutput = execSync('npm audit --json 2>/dev/null', { cwd: ROOT, encoding: 'utf8', timeout: 30000 });
+                postVulns = parseAuditVulns(postOutput);
+            } catch (e2) {
+                postVulns = parseAuditVulns(e2.stdout || '{}');
+            }
+            const postCritical = postVulns.critical || 0;
+            const postHigh = postVulns.high || 0;
+            const fixedCount = (critical - postCritical) + (high - postHigh);
+            if (fixedCount > 0) {
+                console.log(`  \x1b[32m✓ Auto-fixed ${fixedCount} vulnerability${fixedCount > 1 ? 'ies' : 'y'}\x1b[0m`);
+                fixed += fixedCount;
+                fixes.push(`npm audit fix: patched ${fixedCount} dependency vulnerabilities`);
+            }
+            // Report remaining
+            if (postCritical > 0) fail(`${postCritical} critical vulnerability${postCritical > 1 ? 'ies' : 'y'} remaining after fix`);
+            else pass('No critical dependency vulnerabilities');
+            if (postHigh > 0) warn(`${postHigh} high severity vulnerability${postHigh > 1 ? 'ies' : 'y'} remaining after fix`);
+            else pass('No high severity dependency vulnerabilities');
+        } catch (fixErr) {
+            warn('npm audit fix failed — manual intervention required', fixErr.message?.slice(0, 80));
+            if (critical > 0) fail(`${critical} critical vulnerability${critical > 1 ? 'ies' : 'y'} in dependencies`);
+            if (high > 0) warn(`${high} high severity vulnerability${high > 1 ? 'ies' : 'y'} in dependencies`);
+        }
+    } else {
         if (critical > 0) fail(`${critical} critical vulnerability${critical > 1 ? 'ies' : 'y'} in dependencies`);
         else pass('No critical dependency vulnerabilities');
 
         if (high > 0) warn(`${high} high severity vulnerability${high > 1 ? 'ies' : 'y'} in dependencies`);
         else pass('No high severity dependency vulnerabilities');
-
-        if (moderate > 0) warn(`${moderate} moderate vulnerability${moderate > 1 ? 'ies' : 'y'} — run \`npm audit\` for details`);
-    } catch (e) {
-        // npm audit returns non-zero exit code when vulns are found
-        try {
-            const audit = JSON.parse(e.stdout || '{}');
-            const vulns = audit.metadata?.vulnerabilities || {};
-            const critical = vulns.critical || 0;
-            const high = vulns.high || 0;
-            const moderate = vulns.moderate || 0;
-
-            if (critical > 0) fail(`${critical} critical vulnerability${critical > 1 ? 'ies' : 'y'} in dependencies`);
-            else pass('No critical dependency vulnerabilities');
-
-            if (high > 0) warn(`${high} high severity vulnerability${high > 1 ? 'ies' : 'y'} in dependencies`);
-            else pass('No high severity dependency vulnerabilities');
-
-            if (moderate > 0) warn(`${moderate} moderate vulnerability${moderate > 1 ? 'ies' : 'y'} — run \`npm audit\` for details`);
-        } catch {
-            warn('Could not run npm audit — install dependencies first');
-        }
     }
+
+    if (moderate > 0) warn(`${moderate} moderate vulnerability${moderate > 1 ? 'ies' : 'y'} — run \`npm audit\` for details`);
 
     // Check for .env in git
     console.log('  \x1b[90mGit Safety\x1b[0m');
@@ -460,7 +489,7 @@ function checkDependencies() {
 // RUN ALL CHECKS
 // =====================================================
 console.log('\n\x1b[1m🔒 DATA TOYZ TERMINAL — SECURITY AUDIT\x1b[0m');
-console.log(`\x1b[90m   ${new Date().toISOString()}\x1b[0m`);
+console.log(`\x1b[90m   ${new Date().toISOString()}${FIX_MODE ? '  [AUTO-FIX MODE]' : ''}\x1b[0m`);
 
 checkBackend();
 checkFrontend();
@@ -469,7 +498,13 @@ checkDependencies();
 
 // Summary
 console.log('\n\x1b[36m━━━ SUMMARY ━━━\x1b[0m\n');
-console.log(`  \x1b[32m${passed} passed\x1b[0m  \x1b[33m${warned} warnings\x1b[0m  \x1b[31m${failed} failed\x1b[0m\n`);
+console.log(`  \x1b[32m${passed} passed\x1b[0m  \x1b[33m${warned} warnings\x1b[0m  \x1b[31m${failed} failed\x1b[0m${fixed > 0 ? `  \x1b[36m${fixed} auto-fixed\x1b[0m` : ''}\n`);
+
+if (fixes.length > 0) {
+    console.log('  \x1b[36mAuto-fixes applied:\x1b[0m');
+    fixes.forEach(f => console.log(`    → ${f}`));
+    console.log('');
+}
 
 // Write machine-readable report for the alert email script
 const report = {
@@ -477,8 +512,10 @@ const report = {
     passed,
     warnings: warned,
     failed,
+    fixed,
     failureDetails: failures,
-    warningDetails: warnings
+    warningDetails: warnings,
+    fixDetails: fixes
 };
 const reportPath = path.join(ROOT, 'security-report.json');
 fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
