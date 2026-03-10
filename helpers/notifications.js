@@ -18,7 +18,7 @@ async function getNotificationPrefs(userId) {
 }
 
 function buildNotificationEmail(recipientName, message, type, linkType, linkId) {
-    const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', new_figure: '🎯', hq_updates: '📡', message: '🔒', follow: '👥', mention: '📢', flag: '🚩', assessment_request: '📊', pending_brand: '🏷️' };
+    const icons = { comment: '💬', reaction: '❤️', co_reviewer: '📋', new_figure: '🎯', hq_updates: '📡', message: '🔒', follow: '👥', mention: '📢', flag: '🚩', assessment_request: '📊', pending_brand: '🏷️', price_alert: '🔔' };
     const icon = icons[type] || '🔔';
     // Build direct link based on notification context
     let actionUrl = APP_URL;

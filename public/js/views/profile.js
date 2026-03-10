@@ -176,6 +176,19 @@ TerminalApp.prototype.renderProfile = function(container) {
                             </div>
                         </div>
 
+                        <!-- Row: Price Alerts -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">
+                            <span style="color:var(--text-primary); font-size:0.9rem;">Notify me when a price alert triggers</span>
+                            <div style="display:flex; gap:0; flex-shrink:0;">
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="price_alert_email">
+                                </label>
+                                <label style="width:64px; display:flex; justify-content:center; cursor:pointer;">
+                                    <input type="checkbox" class="notifPref notif-toggle" data-key="price_alert_inapp">
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- Row: Flagged Posts (Admin Only) -->
                         ${['owner', 'admin', 'moderator'].includes(this.user.role) ? `
                         <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-sm);">

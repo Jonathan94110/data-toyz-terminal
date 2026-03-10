@@ -862,6 +862,12 @@ router.post('/:id/market-transactions', requireAuth, async (req, res) => {
         const { updateSignalForFigure } = require('../helpers/market-signals');
         updateSignalForFigure(parseInt(figureId)).catch(() => {});
 
+        // Fire-and-forget: check price alerts for secondary_market transactions
+        if (txPriceType === 'secondary_market' && avg > 0) {
+            const { checkAlertsForFigure } = require('../helpers/price-alert-checker');
+            checkAlertsForFigure(parseInt(figureId), avg).catch(() => {});
+        }
+
         res.status(201).json({ id: result.rows[0].id, message: 'Market transaction recorded.' });
     } catch (err) {
         log.error('Market transaction error', { refId: req.requestId, error: err.message || err });

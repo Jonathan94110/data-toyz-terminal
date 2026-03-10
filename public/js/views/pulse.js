@@ -366,6 +366,30 @@ TerminalApp.prototype.renderPulse = async function(container) {
             </div>
             ` : ''}
 
+            ${this.token ? `
+            <div class="card" style="margin-bottom:2.5rem; padding:1.5rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.75rem;">
+                    <h3 style="margin:0; text-transform:uppercase; letter-spacing:0.08em; font-size:1rem; color:var(--text-secondary);">🔔 Price Alert</h3>
+                </div>
+                <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:0.75rem;">Get notified when this figure's aftermarket price crosses your target. Alerts fire once.</p>
+                <div style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
+                    <div>
+                        <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Direction</label>
+                        <select id="alertTypeSelect" style="background:var(--bg-panel); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px; padding:0.5rem 0.75rem; font-size:0.85rem;">
+                            <option value="below">↓ Drops Below</option>
+                            <option value="above">↑ Rises Above</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Target Price ($)</label>
+                        <input type="number" id="alertPriceInput" min="0.01" step="0.01" placeholder="${marketIntel?.transactions?.rolling30?.avg ? marketIntel.transactions.rolling30.avg.toFixed(2) : '0.00'}" style="width:120px; background:var(--bg-panel); color:var(--text-primary); border:1px solid var(--border-light); border-radius:4px; padding:0.5rem 0.75rem; font-size:0.85rem;">
+                    </div>
+                    <button id="setAlertBtn" class="btn" style="padding:0.5rem 1.25rem; font-size:0.85rem;">Set Alert</button>
+                </div>
+                <div id="alertStatus" style="margin-top:0.5rem; font-size:0.8rem;"></div>
+            </div>
+            ` : ''}
+
             ${!isGuestimate && figureSubs.length > 0 ? `
             <div class="card" style="margin-bottom: 2.5rem; padding: 2rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom: 1rem;">
@@ -781,6 +805,33 @@ TerminalApp.prototype.renderPulse = async function(container) {
     if (assessBtn) {
         assessBtn.addEventListener('click', () => {
             this.showShareModal(this.currentTarget.id, this.currentTarget.name);
+        });
+    }
+
+    // Price alert handler
+    const setAlertBtn = document.getElementById('setAlertBtn');
+    if (setAlertBtn) {
+        setAlertBtn.addEventListener('click', async () => {
+            const alertType = document.getElementById('alertTypeSelect').value;
+            const price = parseFloat(document.getElementById('alertPriceInput').value);
+            const statusEl = document.getElementById('alertStatus');
+            if (!price || price <= 0) { statusEl.innerHTML = '<span style="color:var(--danger);">Enter a valid price.</span>'; return; }
+            setAlertBtn.disabled = true;
+            try {
+                const res = await this.authFetch(`${API_URL}/price-alerts/${this.currentTarget.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ alert_type: alertType, target_price: price })
+                });
+                if (res.ok) {
+                    statusEl.innerHTML = '<span style="color:var(--success);">✓ Alert set! You\'ll be notified when the price triggers.</span>';
+                } else {
+                    const err = await res.json();
+                    statusEl.innerHTML = `<span style="color:var(--danger);">${escapeHTML(err.error || 'Failed')}</span>`;
+                }
+            } catch (e) {
+                statusEl.innerHTML = '<span style="color:var(--danger);">Connection error.</span>';
+            }
+            setAlertBtn.disabled = false;
         });
     }
 

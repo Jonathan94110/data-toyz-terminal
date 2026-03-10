@@ -471,6 +471,16 @@ async function initDB() {
             await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN pending_brand_email BOOLEAN DEFAULT false`);
         }
 
+        // Migration: add price_alert notification pref columns
+        const priceAlertPrefCheck = await pool.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'notificationprefs' AND column_name = 'price_alert_inapp'
+        `);
+        if (priceAlertPrefCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN price_alert_inapp BOOLEAN DEFAULT true`);
+            await pool.query(`ALTER TABLE NotificationPrefs ADD COLUMN price_alert_email BOOLEAN DEFAULT true`);
+        }
+
         // Migration: add category column to Figures for action figure support
         const categoryCheck = await pool.query(`
             SELECT column_name FROM information_schema.columns
@@ -595,6 +605,25 @@ async function initDB() {
         )`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_pageviews_created_at ON PageViews(created_at DESC)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_pageviews_ip ON PageViews(ip_address)`);
+
+        // --- Price Alerts ---
+        await pool.query(`CREATE TABLE IF NOT EXISTS PriceAlerts (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            figure_id INTEGER NOT NULL,
+            alert_type TEXT NOT NULL DEFAULT 'below',
+            target_price NUMERIC(10,2) NOT NULL,
+            enabled BOOLEAN DEFAULT true,
+            triggered BOOLEAN DEFAULT false,
+            triggered_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE,
+            FOREIGN KEY(figure_id) REFERENCES Figures(id) ON DELETE CASCADE,
+            UNIQUE(user_id, figure_id, alert_type)
+        )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_pricealerts_figure ON PriceAlerts(figure_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_pricealerts_user ON PriceAlerts(user_id)`);
 
         // --- Market analytics indexes ---
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_date ON Submissions(date)`);

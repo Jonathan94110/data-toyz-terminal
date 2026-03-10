@@ -174,6 +174,15 @@ router.post('/', requireAuth, upload.single('image'), async (req, res) => {
             updateSignalForFigure(parseInt(req.body.targetId)).catch(() => {});
         }
 
+        // Fire-and-forget: check price alerts for secondary_market prices
+        if (pricingTypes.includes('secondary_market')) {
+            const smPrice = parseFloat(submissionData.price_secondary_market);
+            if (smPrice > 0) {
+                const { checkAlertsForFigure } = require('../helpers/price-alert-checker');
+                checkAlertsForFigure(parseInt(req.body.targetId), smPrice).catch(() => {});
+            }
+        }
+
         const coReviewers = await db.query(
             "SELECT DISTINCT author FROM Submissions WHERE targetId = $1 AND author != $2",
             [req.body.targetId, req.user.username]
