@@ -36,7 +36,57 @@ app.use((req, res, next) => {
     next();
 });
 
-// Mobile blocker removed — site is now fully responsive (PRs #51-53)
+// --- Block mobile PHONES only — iPads, tablets, and desktops are allowed --- //
+app.use((req, res, next) => {
+    // Let API routes through
+    if (req.path.startsWith('/api/')) return next();
+    // Let static assets through (files with extensions)
+    if (/\.\w{2,5}$/.test(req.path)) return next();
+
+    const ua = (req.headers['user-agent'] || '').toLowerCase();
+
+    // iPadOS 13+ sends a Mac user-agent, so iPads pass through automatically.
+    // Android tablets don't have "mobile" in their UA, so they pass through too.
+    // Only block: iPhones + Android phones (UA contains "mobile" alongside "android")
+    const isPhone = (ua.includes('iphone'))
+        || (ua.includes('android') && ua.includes('mobile'));
+
+    if (isPhone) {
+        return res.status(200).send(`<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Toyz</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:#020308;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;
+  padding:2rem;text-align:center;
+  background-image:radial-gradient(circle at 15% 50%,rgba(255,42,95,0.06),transparent 40%),
+  radial-gradient(circle at 85% 30%,rgba(255,142,60,0.04),transparent 40%)}
+.wrap{max-width:420px}
+.icon{font-size:4rem;margin-bottom:1.5rem}
+h1{font-size:2rem;font-weight:800;
+  background:linear-gradient(135deg,#ff2a5f,#ff8e3c);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:0.75rem}
+p{font-size:1rem;line-height:1.6;color:#94a3b8;margin-bottom:1rem}
+strong{color:#f8fafc}
+a{color:#ff2a5f;text-decoration:none}
+</style>
+</head><body>
+<div class="wrap">
+  <div class="icon">&#128187;</div>
+  <h1>DATA TOYZ</h1>
+  <p>The Trade Value Terminal is currently available on
+    <strong>desktop, iPad, and tablet browsers</strong>.</p>
+  <p>A mobile app is coming soon. For now, please visit
+    <a href="https://datatoyz.com">datatoyz.com</a> on a computer or tablet.</p>
+</div>
+</body></html>`);
+    }
+    next();
+});
 
 // --- Page View Tracking (non-blocking, fire-and-forget) --- //
 const jwt = require('jsonwebtoken');
