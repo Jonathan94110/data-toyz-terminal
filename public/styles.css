@@ -4588,23 +4588,14 @@ textarea:focus {
     /* Scorecard header */
     .sc-header { grid-template-columns: 180px 1fr; }
 
-    /* Override inline max-width containers ≤ 900px */
-    .content-area div[style*="max-width:900px"],
-    .content-area div[style*="max-width: 900px"],
-    .content-area div[style*="max-width:800px"],
-    .content-area div[style*="max-width: 800px"],
-    .content-area div[style*="max-width:700px"],
-    .content-area div[style*="max-width: 700px"],
-    .content-area div[style*="max-width:600px"],
-    .content-area div[style*="max-width: 600px"] {
+    /* Override inline max-width containers (consolidated for WebKit perf) */
+    .content-area div[style*="max-width"] {
         max-width: 100% !important;
     }
 
-    /* Override inline repeat(4/5) grids to 2-col on tablet */
-    .content-area div[style*="grid-template-columns: repeat(4"],
-    .content-area div[style*="grid-template-columns:repeat(4"],
-    .content-area div[style*="grid-template-columns: repeat(5"],
-    .content-area div[style*="grid-template-columns:repeat(5"] {
+    /* Override inline 4/5-col grids to 2-col on tablet */
+    .content-area [style*="repeat(4"],
+    .content-area [style*="repeat(5"] {
         grid-template-columns: repeat(2, 1fr) !important;
     }
 }
@@ -4613,6 +4604,19 @@ textarea:focus {
    RESPONSIVE — MOBILE (max-width: 640px)
    ========================================================================== */
 @media (max-width: 640px) {
+
+    /* ── Performance: kill GPU-heavy effects (prevents iOS WebKit crash) ── */
+    .sidebar, .auth-panel, .auth-container, .topbar,
+    .card, .stat-box, .notif-dropdown, .lb-podium-card,
+    .mobile-overlay, .ticker-wrap, .nav-item, .segmented-btn,
+    .auth-showcase, .feature-card, .modal {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+    .auth-container::before,
+    .auth-container::after {
+        display: none !important;
+    }
 
     /* ── App Shell ───────────────────────────────────────────────── */
     .app-layout { flex-direction: column; }
@@ -4641,8 +4645,6 @@ textarea:focus {
         inset: 0;
         background: rgba(0, 0, 0, 0.6);
         z-index: 999;
-        -webkit-backdrop-filter: blur(2px);
-        backdrop-filter: blur(2px);
     }
     .mobile-overlay.active { display: block; }
 
@@ -4706,168 +4708,77 @@ textarea:focus {
     .flb-col-pop, .flb-col-msrp, .flb-col-trend, .flb-col-brand { display: none; }
     .flb-table { overflow-x: auto; }
 
-    /* ── Inline Style Overrides ──────────────────────────────────── */
+    /* ── Inline Style Overrides (consolidated — 84→15 selectors for WebKit perf) ── */
 
-    /* Override ALL inline grid-template-columns → single column */
-    .content-area div[style*="grid-template-columns: repeat(5"],
-    .content-area div[style*="grid-template-columns:repeat(5"],
-    .content-area div[style*="grid-template-columns: repeat(4"],
-    .content-area div[style*="grid-template-columns: repeat(3"],
-    .content-area div[style*="grid-template-columns:repeat(4"],
-    .content-area div[style*="grid-template-columns:repeat(3"],
-    .content-area div[style*="grid-template-columns: 1fr 1fr 1fr"],
-    .content-area div[style*="grid-template-columns:1fr 1fr 1fr"],
-    .content-area div[style*="grid-template-columns: 1fr 1fr"],
-    .content-area div[style*="grid-template-columns:1fr 1fr"] {
+    /* ALL inline grids → single column */
+    .content-area [style*="grid-template-columns"] {
         grid-template-columns: 1fr !important;
     }
 
-    /* Override inline font sizes on ALL elements (h1, h2, divs, spans) */
+    /* ALL inline max-widths → full width */
+    .content-area div[style*="max-width"],
+    .content-area select[style*="max-width"] {
+        max-width: 100% !important;
+    }
+
+    /* ALL inline min-widths → none (prevents horizontal overflow) */
+    .content-area [style*="min-width"] {
+        min-width: 0 !important;
+    }
+
+    /* Heading font sizes → capped */
     .content-area h1[style*="font-size"],
     .content-area h2[style*="font-size"] {
         font-size: 1.5rem !important;
     }
-    /* Large stat numbers: 2rem+ → 1.4rem */
-    .content-area div[style*="font-size:2rem"],
-    .content-area div[style*="font-size: 2rem"],
-    .content-area div[style*="font-size:2.5rem"],
-    .content-area div[style*="font-size: 2.5rem"] {
+
+    /* Large display/stat font sizes → compact */
+    .content-area [style*="font-size:2rem"],
+    .content-area [style*="font-size: 2rem"],
+    .content-area [style*="font-size:2.5rem"],
+    .content-area [style*="font-size: 2.5rem"],
+    .content-area [style*="font-size:1.75rem"],
+    .content-area [style*="font-size: 1.75rem"] {
         font-size: 1.4rem !important;
     }
 
-    /* Override inline padding on cards & any container with 2.5rem+ padding */
-    .content-area .card[style*="padding: 2.5rem"],
-    .content-area .card[style*="padding:2.5rem"],
-    .content-area .card[style*="padding: 3rem"],
-    .content-area .card[style*="padding:3rem"] {
+    /* Heavy padding → compact */
+    .content-area [style*="padding:3rem"],
+    .content-area [style*="padding: 3rem"],
+    .content-area [style*="padding:2.5rem"],
+    .content-area [style*="padding: 2.5rem"] {
         padding: 1.25rem !important;
     }
-    /* Skeleton loaders and general containers with 3rem padding */
-    .content-area div[style*="padding:3rem"],
-    .content-area div[style*="padding: 3rem"] {
-        padding: 1rem !important;
-    }
 
-    /* Override ALL inline max-width on view containers */
-    .content-area div[style*="max-width: 960px"],
-    .content-area div[style*="max-width:960px"],
-    .content-area div[style*="max-width: 1100px"],
-    .content-area div[style*="max-width:1100px"],
-    .content-area div[style*="max-width: 900px"],
-    .content-area div[style*="max-width:900px"],
-    .content-area div[style*="max-width: 860px"],
-    .content-area div[style*="max-width:860px"],
-    .content-area div[style*="max-width: 800px"],
-    .content-area div[style*="max-width:800px"],
-    .content-area div[style*="max-width: 700px"],
-    .content-area div[style*="max-width:700px"],
-    .content-area div[style*="max-width: 600px"],
-    .content-area div[style*="max-width:600px"] {
-        max-width: 100% !important;
-    }
-
-    /* Override inline min-width that causes overflow */
-    .content-area div[style*="min-width:200px"],
-    .content-area div[style*="min-width: 200px"],
-    .content-area div[style*="min-width:280px"],
-    .content-area div[style*="min-width: 280px"],
-    .content-area div[style*="min-width:180px"],
-    .content-area div[style*="min-width: 180px"] {
-        min-width: 0 !important;
-    }
-    .content-area span[style*="min-width:280px"],
-    .content-area span[style*="min-width: 280px"] {
-        min-width: 0 !important;
-    }
-    /* Segmented controls with min-width (feed sentiment, submission) */
-    .content-area .segmented-control[style*="min-width"] {
-        min-width: 0 !important;
-        width: 100% !important;
-    }
-
-    /* Override inline flex gap > 1.5rem */
-    .content-area div[style*="gap:2rem"],
-    .content-area div[style*="gap: 2rem"] {
+    /* Large gaps → compact */
+    .content-area [style*="gap:2rem"],
+    .content-area [style*="gap: 2rem"] {
         gap: 1rem !important;
     }
 
     /* ── Notification Preference Rows ────────────────────────────── */
-    /* Stack label and checkboxes vertically on mobile */
-    #notifPrefsGrid > div[style*="display:flex"][style*="justify-content:space-between"] {
+    #notifPrefsGrid > div {
         flex-direction: column !important;
         align-items: flex-start !important;
         gap: 0.75rem !important;
     }
-    #notifPrefsGrid > div[style*="display:flex"][style*="justify-content:space-between"] > span {
-        font-size: 0.85rem !important;
-    }
-    /* Column headers for email/in-app */
-    #notifPrefsGrid > div[style*="justify-content:flex-end"] {
-        justify-content: flex-start !important;
-        padding-left: 0 !important;
-    }
 
-    /* ── Watchlist Alert Cards ───────────────────────────────────── */
-    /* Stack alert card items vertically */
-    .content-area .card[style*="display:flex"][style*="justify-content:space-between"] {
+    /* ── Card flex stacking (watchlist, etc.) ─────────────────────── */
+    .content-area .card[style*="justify-content:space-between"] {
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 0.75rem !important;
     }
-    .content-area .card[style*="display:flex"] div[style*="text-align:center"][style*="min-width:120px"] {
-        text-align: left !important;
-        min-width: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.75rem !important;
-    }
 
     /* ── Star Ratings ───────────────────────────────────────────── */
-    /* Shrink oversized star buttons (2.5rem → 1.75rem) */
-    .content-area button[style*="font-size:2.5rem"],
-    .content-area span[style*="font-size: 2rem"],
-    .content-area span[style*="font-size:2rem"] {
+    .content-area [style*="font-size:2.5rem"] {
         font-size: 1.5rem !important;
     }
 
-    /* ── Admin Panel ────────────────────────────────────────────── */
-    /* Admin select/input min-width override */
-    .content-area select[style*="min-width:200px"],
-    .content-area select[style*="min-width: 200px"],
-    .content-area input[style*="min-width:200px"],
-    .content-area input[style*="min-width: 200px"],
-    .content-area input[style*="min-width:120px"],
-    .content-area input[style*="min-width: 120px"] {
-        min-width: 0 !important;
-        width: 100% !important;
-    }
-    /* Admin flex containers: max-width override */
-    .content-area div[style*="max-width:400px"],
-    .content-area div[style*="max-width: 400px"],
-    .content-area select[style*="max-width:400px"],
-    .content-area select[style*="max-width: 400px"] {
-        max-width: 100% !important;
-    }
-
-    /* ── User Profile ────────────────────────────────────────────── */
-    /* Avatar image 120px → 80px */
+    /* ── User Profile avatar ──────────────────────────────────────── */
     .content-area img[style*="width:120px"] {
         width: 80px !important;
         height: 80px !important;
-    }
-    /* Fallback avatar div 120px → 80px */
-    .content-area div[style*="width:120px"][style*="height:120px"][style*="border-radius:50%"] {
-        width: 80px !important;
-        height: 80px !important;
-        font-size: 1.5rem !important;
-    }
-    /* Profile stats: compress font size */
-    .content-area div[style*="font-size:1.75rem"][style*="font-weight:900"] {
-        font-size: 1.3rem !important;
-    }
-    /* Profile header flex: stack on mobile */
-    .content-area .card div[style*="display:flex"][style*="gap:1.5rem"][style*="flex-wrap:wrap"] {
-        gap: 1rem !important;
     }
 
     /* ── Trade Advisor ───────────────────────────────────────────── */
@@ -4888,7 +4799,7 @@ textarea:focus {
     /* ── Feed ────────────────────────────────────────────────────── */
     .content-area img { max-width: 100%; height: auto; }
     /* Feed post form: stack sentiment controls full width */
-    .content-area form div[style*="display:flex"][style*="justify-content:space-between"][style*="flex-wrap:wrap"] {
+    .content-area form [style*="flex-wrap:wrap"] {
         flex-direction: column !important;
     }
 
