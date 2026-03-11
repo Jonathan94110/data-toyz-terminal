@@ -216,9 +216,10 @@ TerminalApp.prototype.loadVolumeChart = async function (period) {
     }
 };
 
-TerminalApp.prototype._renderVolumeChart = function (data) {
+TerminalApp.prototype._renderVolumeChart = async function (data) {
     const canvas = document.getElementById('volumeChart');
     if (!canvas) return;
+    await ensureChartJS();
 
     // Destroy existing chart if any
     if (this._volumeChart) {
@@ -613,9 +614,10 @@ TerminalApp.prototype.clearCompare = function () {
     if (this._compareChart) { this._compareChart.destroy(); this._compareChart = null; }
 };
 
-TerminalApp.prototype._renderCompareChart = function (a, b) {
+TerminalApp.prototype._renderCompareChart = async function (a, b) {
     const canvas = document.getElementById('compareChart');
     if (!canvas) return;
+    await ensureChartJS();
 
     if (this._compareChart) this._compareChart.destroy();
 
@@ -945,9 +947,10 @@ TerminalApp.prototype.renderBrandHealth = async function (container) {
     }
 };
 
-TerminalApp.prototype._renderBrandChart = function (canvasId, instanceKey, trends, colors, prefix) {
+TerminalApp.prototype._renderBrandChart = async function (canvasId, instanceKey, trends, colors, prefix) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
+    await ensureChartJS();
     if (this[instanceKey]) this[instanceKey].destroy();
 
     const isDark = document.body.getAttribute('data-theme') !== 'light';
@@ -1115,9 +1118,10 @@ TerminalApp.prototype._renderTrendsMoversTable = function (title, figures, fmtPr
     `;
 };
 
-TerminalApp.prototype._renderTrendsPriceChart = function (series, colors) {
+TerminalApp.prototype._renderTrendsPriceChart = async function (series, colors) {
     const canvas = document.getElementById('marketTrendsPriceChart');
     if (!canvas) return;
+    await ensureChartJS();
     if (this._trendsPriceChart) this._trendsPriceChart.destroy();
 
     const isDark = document.body.getAttribute('data-theme') !== 'light';
@@ -1170,9 +1174,10 @@ TerminalApp.prototype._renderTrendsPriceChart = function (series, colors) {
     });
 };
 
-TerminalApp.prototype._renderTrendsActivityChart = function (series) {
+TerminalApp.prototype._renderTrendsActivityChart = async function (series) {
     const canvas = document.getElementById('marketTrendsActivityChart');
     if (!canvas) return;
+    await ensureChartJS();
     if (this._trendsActivityChart) this._trendsActivityChart.destroy();
 
     const isDark = document.body.getAttribute('data-theme') !== 'light';

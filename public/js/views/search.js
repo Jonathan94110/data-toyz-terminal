@@ -74,7 +74,7 @@ TerminalApp.prototype.renderSearch = async function (container) {
         'sc': 'studio cell', 'tt': 'takara tomy'
     };
 
-    const doSearch = () => {
+    const doSearch = async () => {
         let query = document.getElementById('searchInput').value.toLowerCase().trim();
         const expanded = brandAliases[query];
 
@@ -147,6 +147,7 @@ TerminalApp.prototype.renderSearch = async function (container) {
         document.getElementById('searchResults').innerHTML = results.length ? resultsHTML : '<div class="card" style="grid-column: 1 / -1; text-align:center; padding:3rem;"><p style="color:var(--text-muted); font-size:1.1rem;">No targets matching criteria.</p></div>';
 
         if (results.length) {
+            await ensureChartJS();
             results.forEach(f => {
                 const canvas = document.getElementById(`sparkline-${f.id}`);
                 if (!canvas) return;

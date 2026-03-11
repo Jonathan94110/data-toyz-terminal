@@ -4623,12 +4623,12 @@ textarea:focus {
 
     .sidebar {
         position: fixed;
-        top: 0; left: 0;
+        top: 0;
+        left: -280px;
         height: 100vh; height: 100dvh;
         width: 280px;
         z-index: 1000;
-        transform: translateX(-100%);
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .sidebar.collapsed { width: 280px; }
     .sidebar.collapsed .nav-label { display: inline; }
@@ -4637,7 +4637,7 @@ textarea:focus {
     .sidebar.collapsed .sidebar-brand { padding: 1.5rem 1rem 0.5rem; }
     .sidebar.collapsed .category-switcher { margin: 0 1rem 0.75rem; }
     .sidebar.collapsed .cat-btn { font-size: 0.75rem; padding: 0.5rem 0.4rem; }
-    .sidebar.mobile-open { transform: translateX(0); }
+    .sidebar.mobile-open { left: 0; }
 
     .mobile-overlay {
         display: none;

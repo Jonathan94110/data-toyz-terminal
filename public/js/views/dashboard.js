@@ -362,6 +362,7 @@ TerminalApp.prototype._renderCollectionValueChart = async function () {
     const canvas = document.getElementById('collectionValueChart');
     const emptyEl = document.getElementById('collectionChartEmpty');
     if (!canvas) return;
+    await ensureChartJS();
 
     // Destroy previous instance
     if (this._collectionValueChart) { this._collectionValueChart.destroy(); this._collectionValueChart = null; }

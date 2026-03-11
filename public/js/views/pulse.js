@@ -719,6 +719,7 @@ TerminalApp.prototype.renderPulse = async function(container) {
 
             const ctx = document.getElementById('projectionsChart');
             if (ctx) {
+                await ensureChartJS();
                 // Destroy previous chart instance if it exists
                 if (ctx._chartInstance) { try { ctx._chartInstance.destroy(); } catch(e) {} }
                 const pulseChart = new Chart(ctx.getContext('2d'), {

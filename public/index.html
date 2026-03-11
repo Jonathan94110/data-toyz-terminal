@@ -5,13 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Data Toyz | Trade Value Terminal</title>
-    <!-- Modern Fonts -->
+    <!-- Modern Fonts (non-render-blocking with preconnect) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800;900&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=57">
-    <!-- Chart.js for Projections Graph -->
-    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Outfit:wght@400;700;900&display=swap"
+        rel="stylesheet" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="styles.css?v=58">
+    <!-- Chart.js loaded lazily by ensureChartJS() when views need it -->
 </head>
 
 <body>
@@ -19,23 +20,23 @@
     <div class="ambient-orb orb-2"></div>
     <div id="app"></div>
     <!-- Core (defer: download in parallel, execute in order after HTML parsed) -->
-    <script defer src="js/globals.js?v=42"></script>
+    <script defer src="js/globals.js?v=43"></script>
     <script defer src="js/app-core.js?v=61"></script>
     <!-- Views -->
     <script defer src="js/views/auth.js?v=27"></script>
     <script defer src="js/views/feed.js?v=37"></script>
-    <script defer src="js/views/search.js?v=36"></script>
+    <script defer src="js/views/search.js?v=37"></script>
     <script defer src="js/views/add-target.js?v=39"></script>
-    <script defer src="js/views/pulse.js?v=43"></script>
+    <script defer src="js/views/pulse.js?v=44"></script>
     <script defer src="js/views/submission.js?v=34"></script>
-    <script defer src="js/views/dashboard.js?v=32"></script>
+    <script defer src="js/views/dashboard.js?v=33"></script>
     <script defer src="js/views/leaderboards.js?v=31"></script>
     <script defer src="js/views/figure-leaderboard.js?v=4"></script>
     <script defer src="js/views/profile.js?v=37"></script>
     <script defer src="js/views/docs.js?v=40"></script>
     <script defer src="js/views/scorecard.js?v=4"></script>
     <script defer src="js/views/admin.js?v=50"></script>
-    <script defer src="js/views/market-pulse.js?v=40"></script>
+    <script defer src="js/views/market-pulse.js?v=41"></script>
     <script defer src="js/views/trade-advisor.js?v=3"></script>
     <script defer src="js/views/user-profile.js?v=36"></script>
     <script defer src="js/views/watchlist.js?v=1"></script>

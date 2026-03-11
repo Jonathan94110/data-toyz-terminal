@@ -365,3 +365,17 @@ function escapeHTML(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
+
+// Lazy-load Chart.js only when a view needs it (saves ~200KB on initial mobile render)
+function ensureChartJS() {
+    if (window.Chart) return Promise.resolve();
+    if (window._chartJSLoading) return window._chartJSLoading;
+    window._chartJSLoading = new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+    return window._chartJSLoading;
+}
