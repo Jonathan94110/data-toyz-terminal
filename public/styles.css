@@ -346,32 +346,33 @@ h6 {
 /* Category Switcher */
 .category-switcher {
     display: flex;
-    gap: 0;
+    gap: 0.5rem;
     margin: 0 1rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
     flex-shrink: 0;
 }
 .cat-btn {
     flex: 1;
-    padding: 0.55rem 0.4rem;
-    font-size: 0.7rem;
+    padding: 0.65rem 0.5rem;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    background: transparent;
+    background: var(--bg-surface);
     color: var(--text-muted);
-    border: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.2s;
 }
 .cat-btn.active {
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     color: #fff;
+    border-color: transparent;
+    box-shadow: 0 0 12px rgba(var(--accent-primary-rgb, 239, 68, 68), 0.3);
 }
 .cat-btn:hover:not(.active) {
-    background: var(--bg-surface);
+    background: var(--bg-card);
+    border-color: var(--text-muted);
     color: var(--text-primary);
 }
 
